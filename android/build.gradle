@@ -1,0 +1,73 @@
+group 'com.amwalpay.ecr.flutter'
+version '0.2.0'
+
+buildscript {
+    ext.kotlin_version = '1.9.24'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        // Lets a pre-release ecr-sdk be tried without publishing it:
+        //   ./gradlew :ecr-sdk:publishToMavenLocal   (in an ECR-simulator checkout)
+        mavenLocal()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.amwalpay.ecr.flutter'
+    compileSdk 34
+
+    // The ECR SDK is a plain JVM library built for Java 17. Desugaring is not
+    // involved — nothing in it touches java.time or the newer stream APIs — but
+    // the class file version has to be one the toolchain will read.
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    defaultConfig {
+        // The plugin opens a plain TCP socket on the local network and holds it
+        // for up to two minutes. Nothing here needs a newer API than this.
+        minSdk 21
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    // The exact version this wrapper is contract-tested against. Pinned rather
+    // than ranged: an ECR SDK that changes how an outcome is reported changes
+    // what a till books, and that is not something to pick up by surprise on a
+    // dependency refresh. See doc/compatibility-matrix.md.
+    implementation 'com.amwal-pay:ecr-sdk:1.0.4'
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+
+    testImplementation "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1'
+    testImplementation 'junit:junit:4.13.2'
+}

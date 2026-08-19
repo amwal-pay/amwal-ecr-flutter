@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    # A published SDK's surface is its documentation.
+    public_member_api_docs: true
+    always_declare_return_types: true
+    prefer_final_locals: true
+    require_trailing_commas: true
+    avoid_print: true
