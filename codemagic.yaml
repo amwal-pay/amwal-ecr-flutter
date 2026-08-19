@@ -1,0 +1,279 @@
+# Codemagic CI for package:amwal_ecr, the Flutter bridge over the native ECR SDKs.
+#
+# Four workflows:
+#
+#   flutter-verify        every push and pull request — the Dart suite, the
+#                         Swift bridge suite (tool/run_swift_tests.sh, against
+#                         the published AmwalECR SwiftPM tag), the Kotlin
+#                         bridge suite (through the example's Gradle, against
+#                         com.amwal-pay:ecr-sdk from Maven Central), the
+#                         example APK, and a `dart pub publish --dry-run`.
+#
+#   example-ios-cocoapods every push and pull request — builds the example
+#                         app for iOS with CocoaPods, so the plugin's podspec
+#                         resolves `AmwalECR` from trunk the way an integrator's
+#                         `pod install` will.
+#
+#   example-ios-spm       every push and pull request — the same build with
+#                         Flutter's Swift Package Manager integration enabled,
+#                         so ios/amwal_ecr/Package.swift resolves `AmwalECR`
+#                         from the SwiftPM repository's tag. Both faces of the
+#                         plugin are supported; both are built on every change.
+#
+#   flutter-publish       a `vX.Y.Z` tag — publishes to pub.dev. Refuses if the
+#                         tag and pubspec disagree, or if the AmwalECR version
+#                         the iOS host asks for is not on CocoaPods trunk yet
+#                         (the release policy's "never publish against a
+#                         provider that is not live"). Idempotent: a version
+#                         already on pub.dev is reported and skipped. Ends by
+#                         reading the version back from pub.dev.
+#
+# Credentials (doc/release-policy.md, "First-time setup"): a Codemagic
+# environment group `pub_credentials` holding the secure variable
+# PUB_CREDENTIALS — the contents of pub-credentials.json from a workstation
+# where `flutter pub login` was run with the account that owns `amwal_ecr`,
+# either as raw JSON or base64 of it. It is written to the build machine's home
+# directory at publish time and nowhere else. The file never goes in this
+# repository.
+#
+# Release order is documented in doc/release-policy.md: ecr-sdk (Maven), then
+# AmwalECR (SwiftPM tag, then trunk), then this package.
+definitions:
+  env: &env
+    flutter: 3.38.5
+    xcode: latest
+    cocoapods: default
+  scripts:
+    - &toolchain
+      name: Toolchain
+      script: |
+        flutter --version
+        xcodebuild -version
+        pod --version
+    - &pub_get
+      name: flutter pub get
+      script: |
+        flutter pub get
+        (cd example && flutter pub get)
+    - &dart_checks
+      name: Dart — analyze, test, publish dry-run
+      script: |
+        set -euo pipefail
+        flutter analyze
+        flutter test
+        dart pub publish --dry-run
+  email: &email
+    email:
+      recipients:
+        - amr.elskaan@amwal-pay.com
+      notify:
+        success: true
+        failure: true
+
+workflows:
+  flutter-verify:
+    name: amwal_ecr — verify (Dart, Swift bridge, Kotlin bridge, APK)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment: *env
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - *toolchain
+      - *pub_get
+      - *dart_checks
+      - name: Swift bridge suite (against the published AmwalECR SwiftPM tag)
+        script: |
+          # Assembles the bridge sources (everything but AmwalEcrPlugin.swift)
+          # into a temporary package with AmwalECR resolved from GitHub at the
+          # range ios/amwal_ecr/Package.swift declares, and runs ios/Tests.
+          bash tool/run_swift_tests.sh
+      - name: Example APK (compiles the Kotlin bridge against Maven Central)
+        script: |
+          cd example
+          flutter build apk --debug
+      - name: Kotlin bridge suite
+        script: |
+          # The plugin is a Gradle subproject of the example named amwal_ecr.
+          cd example/android
+          ./gradlew :amwal_ecr:testDebugUnitTest --console=plain
+        test_report: example/build/amwal_ecr/test-results/testDebugUnitTest/*.xml
+    artifacts:
+      - example/build/app/outputs/flutter-apk/app-debug.apk
+    publishing: *email
+
+  example-ios-cocoapods:
+    name: amwal_ecr — example iOS build (CocoaPods)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment: *env
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - *toolchain
+      - name: Use CocoaPods for plugins
+        script: |
+          flutter config --no-enable-swift-package-manager
+      - *pub_get
+      - name: Build the example for iOS with CocoaPods
+        script: |
+          set -euo pipefail
+          cd example
+          # No signing: this proves the pod graph resolves — amwal_ecr's podspec
+          # pulling AmwalECR from trunk — and that the bridge compiles against it.
+          flutter build ios --debug --no-codesign
+          grep -A2 'AmwalECR' ios/Podfile.lock | head -5
+    artifacts:
+      - example/ios/Podfile.lock
+    publishing: *email
+
+  example-ios-spm:
+    name: amwal_ecr — example iOS build (Swift Package Manager)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment: *env
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - *toolchain
+      - name: Use Swift Package Manager for plugins
+        script: |
+          flutter config --enable-swift-package-manager
+      - *pub_get
+      - name: Build the example for iOS with Swift Package Manager
+        script: |
+          set -euo pipefail
+          cd example
+          # The Flutter tool migrates the Runner project for SwiftPM on first
+          # build and resolves ios/amwal_ecr/Package.swift, which pulls AmwalECR
+          # from the AmwalECR-iOS-SPM tag.
+          flutter build ios --debug --no-codesign
+          # Show what SwiftPM pinned, for the log.
+          find ios -name Package.resolved -not -path '*/Pods/*' | head -3 \
+            | while read -r f; do echo "== $f"; cat "$f"; done
+    publishing: *email
+
+  flutter-publish:
+    name: amwal_ecr — publish to pub.dev (vX.Y.Z tag)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      <<: *env
+      groups:
+        - pub_credentials
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    scripts:
+      - *toolchain
+      - name: The tag names the pubspec version
+        script: |
+          set -euo pipefail
+          tag="${CM_TAG:-}"
+          [[ -n "$tag" ]] || { echo "Not a tag build (CM_TAG is empty)"; exit 1; }
+          version="$(sed -nE 's/^version:[[:space:]]*([^[:space:]#]+).*/\1/p' pubspec.yaml)"
+          changelog_version="$(grep -m1 -E '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed -E 's/^## ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+          echo "tag=$tag  pubspec=$version  changelog=$changelog_version"
+          if [[ "${tag#v}" != "$version" || "$version" != "$changelog_version" ]]; then
+            echo "Tag, pubspec.yaml and the top CHANGELOG entry must all name the same version." >&2
+            echo "Tags are never moved: fix the files and release the next version." >&2
+            exit 1
+          fi
+          echo "$version" > "$CM_BUILD_DIR/.release-version"
+      - name: The iOS provider this bridge asks for is live on trunk
+        script: |
+          set -euo pipefail
+          # ios/amwal_ecr.podspec: s.dependency 'AmwalECR', '~> X.Y.Z'
+          wanted="$(sed -nE "s/^[[:space:]]*s\.dependency[[:space:]]+'AmwalECR',[[:space:]]*'~>[[:space:]]*([0-9.]+)'.*/\1/p" ios/amwal_ecr.podspec)"
+          [[ -n "$wanted" ]] || { echo "Could not read the AmwalECR range from ios/amwal_ecr.podspec" >&2; exit 1; }
+          json="$(curl -sS -f https://trunk.cocoapods.org/api/v1/pods/AmwalECR 2>/dev/null || echo '{"versions":[]}')"
+          if printf '%s' "$json" | python3 -c '
+          import json, sys
+          wanted = tuple(int(p) for p in sys.argv[1].split("."))
+          have = [tuple(int(p) for p in v["name"].split(".")) for v in json.load(sys.stdin).get("versions", []) if v["name"].replace(".", "").isdigit()]
+          # ~> X.Y.Z : >= X.Y.Z and < X.(Y+1)
+          ok = [v for v in have if v >= wanted and v[:2] == wanted[:2]]
+          print("AmwalECR on trunk satisfying ~> %s: %s" % (sys.argv[1], [".".join(map(str, v)) for v in ok]))
+          sys.exit(0 if ok else 1)
+          ' "$wanted"; then
+            echo "OK"
+          else
+            echo "No AmwalECR version satisfying ~> $wanted is on CocoaPods trunk; release the pod first." >&2
+            exit 1
+          fi
+      - *pub_get
+      - *dart_checks
+      - name: Skip if this version is already on pub.dev
+        script: |
+          set -euo pipefail
+          version="$(cat "$CM_BUILD_DIR/.release-version")"
+          json="$(curl -sS -f https://pub.dev/api/packages/amwal_ecr 2>/dev/null || echo '{"versions":[]}')"
+          if printf '%s' "$json" | python3 -c 'import json,sys; v=sys.argv[1]; d=json.load(sys.stdin); sys.exit(0 if any(x.get("version")==v for x in d.get("versions",[])) else 1)' "$version"; then
+            echo "amwal_ecr $version is already on pub.dev — nothing to publish."
+            touch "$CM_BUILD_DIR/.already-published"
+          else
+            echo "amwal_ecr $version is not on pub.dev yet — will publish."
+          fi
+      - name: pub.dev credentials
+        script: |
+          set -euo pipefail
+          [[ -f "$CM_BUILD_DIR/.already-published" ]] && { echo "skipped"; exit 0; }
+          if [[ -z "${PUB_CREDENTIALS:-}" ]]; then
+            echo "PUB_CREDENTIALS is not set: add it to the pub_credentials environment group." >&2
+            exit 1
+          fi
+          dir="$HOME/Library/Application Support/dart"
+          mkdir -p "$dir"
+          # Raw JSON or base64 of it — take whichever parses.
+          if printf '%s' "$PUB_CREDENTIALS" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+            printf '%s' "$PUB_CREDENTIALS" > "$dir/pub-credentials.json"
+          else
+            printf '%s' "$PUB_CREDENTIALS" | base64 --decode > "$dir/pub-credentials.json"
+            python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$dir/pub-credentials.json"
+          fi
+          chmod 600 "$dir/pub-credentials.json"
+          echo "pub credentials written to $dir/pub-credentials.json"
+      - name: dart pub publish
+        script: |
+          set -euo pipefail
+          [[ -f "$CM_BUILD_DIR/.already-published" ]] && { echo "skipped"; exit 0; }
+          dart pub publish --force
+      - name: Read the release back from pub.dev
+        script: |
+          set -euo pipefail
+          version="$(cat "$CM_BUILD_DIR/.release-version")"
+          for i in $(seq 1 30); do
+            if curl -sS -f https://pub.dev/api/packages/amwal_ecr 2>/dev/null \
+               | python3 -c 'import json,sys; v=sys.argv[1]; d=json.load(sys.stdin); sys.exit(0 if any(x.get("version")==v for x in d.get("versions",[])) else 1)' "$version"; then
+              echo "amwal_ecr $version is resolvable from pub.dev."
+              exit 0
+            fi
+            echo "Not visible yet ($i/30), waiting…"; sleep 10
+          done
+          echo "amwal_ecr $version did not appear on pub.dev within 5 minutes." >&2
+          exit 1
+    publishing: *email

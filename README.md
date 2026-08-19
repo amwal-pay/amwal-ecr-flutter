@@ -401,6 +401,19 @@ flutter test integration_test/app_test.dart \
 Money-moving cases are skipped unless `--dart-define=ECR_ALLOW_FINANCIAL=true`,
 so a stray CI run cannot charge anybody.
 
+### Continuous integration
+
+[`codemagic.yaml`](codemagic.yaml) runs on Codemagic. Every push and pull
+request runs the four suites above, builds the example APK, and builds the
+example for iOS twice — once with CocoaPods, once with Flutter's Swift Package
+Manager integration — so both faces of the plugin resolve `AmwalECR` from its
+registry the way an integrator's build will. A `vX.Y.Z` tag publishes to
+pub.dev, after checking that the tag, `pubspec.yaml` and `CHANGELOG.md` agree
+and that the `AmwalECR` range the iOS host asks for is live on trunk; a version
+already on pub.dev is skipped, not re-pushed. Credentials come from a Codemagic
+environment group, never from the repository — see
+[the release policy](doc/release-policy.md#first-time-setup).
+
 ---
 
 ## Troubleshooting
