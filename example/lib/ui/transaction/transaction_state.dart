@@ -71,11 +71,19 @@ final class TransactionInquired extends TransactionState {
       );
 }
 
-/// The exchange itself failed: unreachable, timed out, malformed.
+/// The exchange itself failed: unreachable, timed out, malformed, or an answer
+/// that could not be trusted.
 final class TransactionFailed extends TransactionState {
-  const TransactionFailed(this.message);
+  const TransactionFailed(this.message, {this.inquirableReference});
 
   final String message;
+
+  /// Set when the outcome is genuinely **unknown** — the request went out and
+  /// no answer came back, so the transaction may well have completed. The
+  /// screen offers to look it up by that reference, which is the only thing to
+  /// do that is not a second charge. Null when nothing was ever sent, and then
+  /// there is nothing to ask about.
+  final String? inquirableReference;
 }
 
 /// One operation, as the screen asks for it.
@@ -87,6 +95,7 @@ class TransactionRequest {
     this.receiptNumber = '',
     this.originalTerminalId = '',
     this.transactionDate = '',
+    this.originalReference = '',
   });
 
   final EcrTransactionType type;
@@ -100,4 +109,29 @@ class TransactionRequest {
 
   /// `yyyyMMdd`, for operations that look an original up by date.
   final String transactionDate;
+
+  /// Look the original up by the reference the till named it with, rather than
+  /// by its receipt number.
+  ///
+  /// The only route open after an outcome that never arrived: a receipt number
+  /// comes back *in* the answer, so a till that lost the answer has none to
+  /// quote, while the reference it chose is still its own.
+  final String originalReference;
+
+  /// Whether this names its original by reference rather than receipt number.
+  bool get looksUpByReference => originalReference.trim().isNotEmpty;
+
+  TransactionRequest copyWith({
+    EcrTransactionType? type,
+    String? originalReference,
+  }) =>
+      TransactionRequest(
+        type: type ?? this.type,
+        terminalSerial: terminalSerial,
+        amount: amount,
+        receiptNumber: receiptNumber,
+        originalTerminalId: originalTerminalId,
+        transactionDate: transactionDate,
+        originalReference: originalReference ?? this.originalReference,
+      );
 }

@@ -2,6 +2,7 @@ import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../components/omr_symbol.dart';
 import 'transaction_state.dart';
 
 /// Approved green and declined red, as the Android example's theme names them.
@@ -35,6 +36,9 @@ class TransactionResultDialog extends StatelessWidget {
         ),
       final EcrDeclined declined =>
         _DeclinedDialog(result: declined, onDismiss: onDismiss),
+      // No reference offered here: this route shows a result that already
+      // arrived. The unknown-outcome case comes through TransactionFailed,
+      // which carries the reference to ask about.
       final EcrFailed failed => TransactionFailureDialog(
           reason: failed.failure.message,
           onDismiss: onDismiss,
@@ -247,15 +251,28 @@ class TransactionFailureDialog extends StatelessWidget {
     super.key,
     required this.reason,
     required this.onDismiss,
+    this.inquirableReference,
+    this.onInquire,
   });
 
   final String reason;
   final VoidCallback onDismiss;
 
+  /// The reference to look the transaction up by, when the outcome is unknown
+  /// rather than known not to have happened. Null hides the action.
+  final String? inquirableReference;
+  final void Function(String reference)? onInquire;
+
   @override
   Widget build(BuildContext context) {
+    final String? reference = inquirableReference;
+    final void Function(String)? inquire = onInquire;
+    final bool canInquire = reference != null && inquire != null;
+
     return ResultDialog(
-      headline: 'Not completed',
+      // Not "Declined": no answer came back, so nobody knows yet. The wording
+      // has to stop an operator concluding the payment did not happen.
+      headline: reference == null ? 'Not completed' : 'Outcome unknown',
       icon: Icons.cancel,
       tint: declinedRed,
       amount: '',
@@ -263,6 +280,43 @@ class TransactionFailureDialog extends StatelessWidget {
       fields: const <(String, String)>[],
       rawPayload: null,
       onDismiss: onDismiss,
+      extra: canInquire ? _InquireSection(reference, inquire) : null,
+    );
+  }
+}
+
+/// Offered when the outcome is unknown: the one action that is not a second
+/// charge.
+class _InquireSection extends StatelessWidget {
+  const _InquireSection(this.reference, this.onInquire);
+
+  final String reference;
+  final void Function(String reference) onInquire;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          'The transaction may have completed. Check before taking payment '
+          'again — sending it a second time would charge the cardholder twice.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          key: const Key('inquireByReference'),
+          onPressed: () => onInquire(reference),
+          child: const Text('Inquire by reference'),
+        ),
+        Text(
+          reference,
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(fontFamily: 'monospace'),
+        ),
+      ],
     );
   }
 }
@@ -321,12 +375,21 @@ class _ResultDialogState extends State<ResultDialog> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             if (widget.amount.isNotEmpty) ...<Widget>[
-              Center(
-                child: Text(
-                  '${widget.amount} OMR',
-                  key: const Key('resultAmount'),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+              Row(
+                // Centred against the dialog rather than against its own
+                // width, so it stays under the headline whatever else the
+                // dialog is showing.
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  const OmrSymbol(),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.amount,
+                    key: const Key('resultAmount'),
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
             ],
@@ -372,7 +435,7 @@ class _ResultDialogState extends State<ResultDialog> {
         TextButton(
           key: const Key('dismissResult'),
           onPressed: widget.onDismiss,
-          child: const Text('Done'),
+          child: const Text('Close'),
         ),
       ],
     );

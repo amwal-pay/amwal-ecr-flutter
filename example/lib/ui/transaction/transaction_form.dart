@@ -19,6 +19,8 @@ class TransactionFormState {
     this.originalTerminalId = '',
     DateTime? originalDate,
     this.useOtherTerminal = false,
+    this.lookUpByReference = false,
+    this.originalReference = '',
     this.errors = const FormErrors(),
   }) : originalDate = originalDate ?? DateTime.now();
 
@@ -34,10 +36,33 @@ class TransactionFormState {
   final DateTime originalDate;
 
   final bool useOtherTerminal;
+
+  /// Look the transaction up by the reference this till named it with, rather
+  /// than by the receipt number.
+  ///
+  /// Offered for an inquiry only, and it is the case that matters most: after a
+  /// sale whose answer never arrived there is no receipt number to type,
+  /// because that number was in the answer.
+  final bool lookUpByReference;
+  final String originalReference;
+
   final FormErrors errors;
 
   bool get showOtherTerminalSwitch => type.allowsOtherTerminal;
   bool get showOriginalTerminal => type.allowsOtherTerminal && useOtherTerminal;
+
+  /// Only an inquiry may look up by reference — see [lookUpByReference].
+  bool get showReferenceSwitch => type == EcrTransactionType.inquiry;
+
+  bool get looksUpByReference => showReferenceSwitch && lookUpByReference;
+
+  /// The receipt number field gives way to the reference field.
+  bool get showReceiptNumber => type.requiresOriginalStan && !looksUpByReference;
+
+  /// A reference is unique in its own right, so the date is not needed to
+  /// disambiguate it the way it is for a receipt number.
+  bool get showOriginalDate =>
+      type.requiresOriginalDate && !looksUpByReference;
 
   /// The date in the format the terminal looks originals up by.
   String get originalDateOnWire =>
@@ -61,6 +86,8 @@ class TransactionFormState {
     String? originalTerminalId,
     DateTime? originalDate,
     bool? useOtherTerminal,
+    bool? lookUpByReference,
+    String? originalReference,
     FormErrors? errors,
   }) =>
       TransactionFormState(
@@ -70,6 +97,8 @@ class TransactionFormState {
         originalTerminalId: originalTerminalId ?? this.originalTerminalId,
         originalDate: originalDate ?? this.originalDate,
         useOtherTerminal: useOtherTerminal ?? this.useOtherTerminal,
+        lookUpByReference: lookUpByReference ?? this.lookUpByReference,
+        originalReference: originalReference ?? this.originalReference,
         errors: errors ?? this.errors,
       );
 
@@ -89,8 +118,13 @@ class TransactionFormState {
     };
 
     final String? receiptError =
-        type.requiresOriginalStan && receiptNumber.trim().isEmpty
+        showReceiptNumber && receiptNumber.trim().isEmpty
             ? 'Enter the receipt number of the transaction to act on'
+            : null;
+
+    final String? referenceError =
+        looksUpByReference && originalReference.trim().isEmpty
+            ? 'Enter the reference the transaction was sent with'
             : null;
 
     final String? terminalError =
@@ -102,6 +136,7 @@ class TransactionFormState {
       amount: amountError,
       receiptNumber: receiptError,
       originalTerminalId: terminalError,
+      originalReference: referenceError,
     );
     if (validationErrors.any) {
       return (copyWith(errors: validationErrors), null);
@@ -113,9 +148,11 @@ class TransactionFormState {
         type: type,
         terminalSerial: terminalSerial,
         amount: type.requiresAmount ? amount : null,
-        receiptNumber: receiptNumber,
+        receiptNumber: looksUpByReference ? '' : receiptNumber,
         originalTerminalId: showOriginalTerminal ? originalTerminalId : '',
-        transactionDate: type.requiresOriginalDate ? originalDateOnWire : '',
+        transactionDate: showOriginalDate ? originalDateOnWire : '',
+        originalReference:
+            looksUpByReference ? originalReference.trim() : '',
       ),
     );
   }
@@ -123,12 +160,21 @@ class TransactionFormState {
 
 /// Set when a field cannot be sent as it stands.
 class FormErrors {
-  const FormErrors({this.amount, this.receiptNumber, this.originalTerminalId});
+  const FormErrors({
+    this.amount,
+    this.receiptNumber,
+    this.originalTerminalId,
+    this.originalReference,
+  });
 
   final String? amount;
   final String? receiptNumber;
   final String? originalTerminalId;
+  final String? originalReference;
 
   bool get any =>
-      amount != null || receiptNumber != null || originalTerminalId != null;
+      amount != null ||
+      receiptNumber != null ||
+      originalTerminalId != null ||
+      originalReference != null;
 }

@@ -34,7 +34,6 @@ dependencies:
   # The plugin under test, by path: the example is how it is exercised, so it
   # must always build against the working tree rather than a published version.
   amwal_ecr:
-    path: ../
 
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about

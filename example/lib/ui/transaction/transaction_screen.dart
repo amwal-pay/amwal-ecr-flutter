@@ -38,6 +38,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   // build() throws the caret back to the start on every keystroke, which on a
   // six-digit receipt number is the difference between usable and not.
   final TextEditingController _receiptNumber = TextEditingController();
+  final TextEditingController _originalReference = TextEditingController();
   final TextEditingController _originalTerminalId = TextEditingController();
   final TextEditingController _originalDate = TextEditingController();
 
@@ -58,6 +59,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       ..removeListener(_onStateChanged)
       ..dispose();
     _receiptNumber.dispose();
+    _originalReference.dispose();
     _originalTerminalId.dispose();
     _originalDate.dispose();
     super.dispose();
@@ -100,8 +102,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
           onRequestReceipt: _controller.requestReceipt,
           onDismiss: _dismissResult,
         ),
-      TransactionFailed(:final String message) => TransactionFailureDialog(
+      TransactionFailed(
+        :final String message,
+        :final String? inquirableReference
+      ) =>
+        TransactionFailureDialog(
           reason: message,
+          // Offered only when the outcome is genuinely unknown. It is the one
+          // action that is not a second charge, and the operator has nothing
+          // else to type: the receipt number was in the answer that was lost.
+          inquirableReference: inquirableReference,
+          onInquire: _inquireAboutReference,
           onDismiss: _dismissResult,
         ),
       _ => null,
@@ -133,9 +144,14 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 onRequestReceipt: _controller.requestReceipt,
                 onDismiss: _dismissResult,
               ),
-            TransactionFailed(:final String message) =>
+            TransactionFailed(
+              :final String message,
+              :final String? inquirableReference
+            ) =>
               TransactionFailureDialog(
                 reason: message,
+                inquirableReference: inquirableReference,
+                onInquire: _inquireAboutReference,
                 onDismiss: _dismissResult,
               ),
             _ => const SizedBox.shrink(),
@@ -144,6 +160,15 @@ class _TransactionScreenState extends State<TransactionScreen> {
       ),
     );
     _showingResult = false;
+  }
+
+  /// Looks the transaction up by the reference this till named it with, from
+  /// inside the failure dialog. The dialog stays open: the inquiry replaces
+  /// what it shows, so the operator sees the answer where the question was.
+  void _inquireAboutReference(String reference) {
+    final String? serial = _terminal?.serialNumber;
+    if (serial == null) return;
+    _controller.inquireAboutReference(reference, serial);
   }
 
   void _dismissResult() {
@@ -217,6 +242,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
               // terminal id or code left over cannot travel with the next one.
               onSelected: (EcrTransactionType type) {
                 _receiptNumber.clear();
+                _originalReference.clear();
                 _originalTerminalId.clear();
                 setState(() => _form = TransactionFormState(type: type));
               },
@@ -239,7 +265,56 @@ class _TransactionScreenState extends State<TransactionScreen> {
             ),
             const SizedBox(height: 16),
 
-            if (_form.type.requiresOriginalStan) ...<Widget>[
+            // An inquiry can name its transaction either way. The reference is
+            // the one that still works after an answer that never arrived,
+            // since the receipt number was in that answer.
+            if (_form.showReferenceSwitch) ...<Widget>[
+              Row(
+                children: <Widget>[
+                  Switch(
+                    key: const Key('lookUpByReference'),
+                    value: _form.lookUpByReference,
+                    onChanged: busy
+                        ? null
+                        : (bool on) {
+                            _receiptNumber.clear();
+                            _originalReference.clear();
+                            setState(() => _form = _form.copyWith(
+                                  lookUpByReference: on,
+                                  receiptNumber: '',
+                                  originalReference: '',
+                                  errors: const FormErrors(),
+                                ));
+                          },
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Look up by reference'),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            if (_form.looksUpByReference) ...<Widget>[
+              TextField(
+                key: const Key('merchantReference'),
+                enabled: !busy,
+                controller: _originalReference,
+                inputFormatters: <TextInputFormatter>[
+                  LengthLimitingTextInputFormatter(32),
+                ],
+                onChanged: (String value) =>
+                    _form = _form.copyWith(originalReference: value),
+                decoration: InputDecoration(
+                  labelText: 'Merchant reference',
+                  helperText: 'The reference the transaction was sent with',
+                  border: const OutlineInputBorder(),
+                  errorText: _form.errors.originalReference,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (_form.showReceiptNumber) ...<Widget>[
               TextField(
                 key: const Key('receiptNumber'),
                 enabled: !busy,
@@ -261,7 +336,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
               const SizedBox(height: 16),
             ],
 
-            if (_form.type.requiresOriginalDate) ...<Widget>[
+            if (_form.showOriginalDate) ...<Widget>[
               TextField(
                 key: const Key('originalDate'),
                 readOnly: true,

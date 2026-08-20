@@ -5,6 +5,7 @@ import 'package:amwal_ecr/amwal_ecr_platform_interface.dart';
 import 'package:amwal_ecr_example/data/terminal.dart';
 import 'package:amwal_ecr_example/data/terminal_repository.dart';
 import 'package:amwal_ecr_example/main.dart';
+import 'package:amwal_ecr_example/ui/components/omr_symbol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -170,7 +171,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Approved'), findsOneWidget);
-      expect(find.text('1.234 OMR'), findsOneWidget);
+      // By key: the amount reads the same as the digits still in the form
+      // behind the dialog, and the currency now sits beside it as the symbol
+      // the terminal draws rather than as the letters "OMR".
+      expect(
+        tester.widget<Text>(find.byKey(const Key('resultAmount'))).data,
+        '1.234',
+      );
+      expect(find.byType(OmrSymbol), findsOneWidget);
       expect(find.text('543173xxxx5785'), findsOneWidget);
     });
 
@@ -224,8 +232,11 @@ void main() {
       );
     });
 
-    testWidgets('a failure reads as "Not completed", not as a decline',
+    testWidgets('a lost answer reads as "Outcome unknown", not as a decline',
         (WidgetTester tester) async {
+      // The request went out and nothing came back, so the sale may well have
+      // completed. Calling that a decline is how a cardholder gets charged
+      // twice.
       platform.result = const EcrFailed(
         merchantReferenceId: 'A1',
         failure: EcrTimeout('The terminal did not answer within 120s.'),
@@ -236,8 +247,164 @@ void main() {
       await tester.tap(find.byKey(const Key('start')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Not completed'), findsOneWidget);
+      expect(find.text('Outcome unknown'), findsOneWidget);
       expect(find.text('Declined'), findsNothing);
+      expect(find.text('Not completed'), findsNothing);
+      // The only action offered, and the reference it will ask about.
+      expect(find.byKey(const Key('inquireByReference')), findsOneWidget);
+      expect(find.text('A1'), findsOneWidget);
+    });
+
+    testWidgets('an unreachable terminal reads as "Not completed"',
+        (WidgetTester tester) async {
+      // Nothing was ever sent, so there is nothing to ask about and no
+      // reference to ask with.
+      platform.reachable = false;
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not completed'), findsOneWidget);
+      expect(find.text('Outcome unknown'), findsNothing);
+      expect(find.byKey(const Key('inquireByReference')), findsNothing);
+    });
+
+    testWidgets('a lost answer the SDK already recovered shows what happened',
+        (WidgetTester tester) async {
+      // The SDK follows a lost answer with an inquiry of its own. Showing
+      // "unknown" anyway, and asking the operator to repeat a question already
+      // answered, would waste the recovery entirely.
+      platform.result = EcrFailed(
+        merchantReferenceId: 'A1',
+        failure: const EcrTimeout('The terminal did not answer within 120s.'),
+        recovered: _found('Approved'),
+      );
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Approved'), findsOneWidget);
+      expect(find.text('Outcome unknown'), findsNothing);
+      expect(find.byKey(const Key('inquireByReference')), findsNothing);
+    });
+
+    testWidgets('a receipt after a lookup by reference asks by the found stan',
+        (WidgetTester tester) async {
+      // The reason for looking up by reference is that there is no receipt
+      // number to type. It comes back in what the inquiry found, and that is
+      // what the receipt has to be asked for by.
+      platform.inquiry = _found('Approved');
+      platform.nextReceipt = const EcrReceiptReady(
+        merchantReferenceId: 'A1',
+        url: 'https://receipts.example/1',
+        raw: '{}',
+      );
+
+      await pumpTill(tester);
+      await _chooseType(tester, 'Inquiry');
+      await tester.tap(find.byKey(const Key('lookUpByReference')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('merchantReference')),
+        'ORD-88231',
+      );
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('qrReceipt')));
+      await tester.pumpAndSettle();
+
+      expect(platform.lastReceiptNumber, _found('Approved').transaction.stan);
+      expect(find.byKey(const Key('receiptQr')), findsOneWidget);
+    });
+
+    testWidgets('an inquiry can be keyed by reference instead of receipt number',
+        (WidgetTester tester) async {
+      platform.inquiry = _found('Approved');
+
+      await pumpTill(tester);
+      await _chooseType(tester, 'Inquiry');
+
+      // The switch is offered for an inquiry, and only for an inquiry.
+      expect(find.byKey(const Key('lookUpByReference')), findsOneWidget);
+      expect(find.byKey(const Key('receiptNumber')), findsOneWidget);
+      expect(find.byKey(const Key('merchantReference')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('lookUpByReference')));
+      await tester.pumpAndSettle();
+
+      // The receipt number gives way to the reference, and the date goes with
+      // it: a reference is unique in its own right.
+      expect(find.byKey(const Key('merchantReference')), findsOneWidget);
+      expect(find.byKey(const Key('receiptNumber')), findsNothing);
+      expect(find.byKey(const Key('originalDate')), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('merchantReference')),
+        'ORD-88231',
+      );
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, <String>['isReachable', 'inquireByReference']);
+      expect(platform.lastInquiredReference, 'ORD-88231');
+    });
+
+    testWidgets('an inquiry by reference with no reference is not sent',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+      await _chooseType(tester, 'Inquiry');
+      await tester.tap(find.byKey(const Key('lookUpByReference')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, isEmpty);
+      expect(
+        find.text('Enter the reference the transaction was sent with'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('only an inquiry is offered the reference switch',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+
+      for (final String type in <String>['Sale', 'Void', 'Refund']) {
+        await _chooseType(tester, type);
+        expect(
+          find.byKey(const Key('lookUpByReference')),
+          findsNothing,
+          reason: '$type must not offer a lookup by reference',
+        );
+      }
+    });
+
+    testWidgets('inquiring by reference looks the transaction up by it',
+        (WidgetTester tester) async {
+      platform.result = const EcrFailed(
+        merchantReferenceId: 'A1',
+        failure: EcrTimeout('The terminal did not answer within 120s.'),
+      );
+      platform.inquiry = _found('Approved');
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tester.tap(find.byKey(const Key('start')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('inquireByReference')));
+      await tester.pumpAndSettle();
+
+      // Asked by reference, which is the only identifier a till that lost the
+      // answer still holds — a receipt number arrives *in* the answer.
+      expect(platform.lastInquiredReference, 'A1');
+      expect(find.text('Approved'), findsOneWidget);
     });
 
     testWidgets('a void hides the auth code, which it does not have',
@@ -491,6 +658,12 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   /// What the last money-moving call carried, in major units.
   Object? lastAmount;
 
+  /// The reference the last inquiry-by-reference asked about.
+  String? lastInquiredReference;
+
+  /// The receipt number the last receipt request asked by.
+  String? lastReceiptNumber;
+
   @override
   Future<bool> isReachable(EcrRequest request) async {
     calls.add('isReachable');
@@ -526,12 +699,14 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   @override
   Future<EcrInquiry> inquireByReference(EcrRequest request) async {
     calls.add('inquireByReference');
+    lastInquiredReference = request.originalMerchantReference;
     return inquiry;
   }
 
   @override
   Future<EcrReceipt> receipt(EcrRequest request) async {
     calls.add('receipt');
+    lastReceiptNumber = request.receiptNumber;
     return nextReceipt;
   }
 

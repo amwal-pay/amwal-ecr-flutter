@@ -4,9 +4,10 @@ packages:
   amwal_ecr:
     dependency: "direct main"
     description:
-      path: ".."
-      relative: true
-    source: path
+      name: amwal_ecr
+      sha256: f46ee1aee1600dad2eaf0f77df11f09e502fd188a2d51c784ece24c89c503bd2
+      url: "https://pub.dev"
+    source: hosted
     version: "0.2.0"
   async:
     dependency: transitive
