@@ -31,7 +31,7 @@ internal object EcrArgs {
     const val RECEIPT_NUMBER = "receiptNumber"
     const val TRANSACTION_DATE = "transactionDate"
     const val ORIGINAL_TERMINAL_ID = "originalTerminalId"
-    const val MERCHANT_REFERENCE_ID = "merchantReferenceId"
+    const val MERCHANT_REFERENCE = "merchantReference"
     const val ORIGINAL_MERCHANT_REFERENCE = "originalMerchantReference"
 }
 
@@ -45,11 +45,14 @@ internal object EcrConfigKeys {
     const val PROBE_TIMEOUT_MS = "probeTimeoutMs"
     const val SECURE_HASH_KEY = "secureHashKey"
     const val AUTO_INQUIRE_ON_FAILURE = "autoInquireOnFailure"
+    const val MERCHANT_ID = "merchantId"
+    const val TERMINAL_ID = "terminalId"
+    const val ENVIRONMENT = "environment"
 }
 
 internal object EcrResultKeys {
     const val OUTCOME = "outcome"
-    const val MERCHANT_REFERENCE_ID = "merchantReferenceId"
+    const val MERCHANT_REFERENCE = "merchantReference"
     const val AMOUNT = "amount"
     const val RESPONSE_CODE = "responseCode"
     const val REASON = "reason"
@@ -120,6 +123,8 @@ internal object EcrTransactionKeys {
     const val IS_REFUNDED = "isRefunded"
     const val CAN_VOID = "canVoid"
     const val CAN_REFUND = "canRefund"
+    const val PARTIAL_APPROVAL = "partialApproval"
+    const val AUTHORIZED_AMOUNT = "authorizedAmount"
 }
 
 internal object EcrErrorCodes {
@@ -138,4 +143,8 @@ internal object EcrTransports {
 
     /** Whether the terminal opens a socket for this transport. */
     fun isIpTransport(name: String?): Boolean = name == ETHERNET || name == WIFI
+
+    /** Whether this Flutter plugin can drive transactions over this transport. */
+    fun isSupportedTransport(name: String?): Boolean =
+        isIpTransport(name) || name == WEB_SERVICE
 }

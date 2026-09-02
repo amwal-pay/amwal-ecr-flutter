@@ -27,7 +27,7 @@ enum EcrArgs {
     static let receiptNumber = "receiptNumber"
     static let transactionDate = "transactionDate"
     static let originalTerminalId = "originalTerminalId"
-    static let merchantReferenceId = "merchantReferenceId"
+    static let merchantReference = "merchantReference"
     static let originalMerchantReference = "originalMerchantReference"
 }
 
@@ -41,11 +41,14 @@ enum EcrConfigKeys {
     static let probeTimeoutMs = "probeTimeoutMs"
     static let secureHashKey = "secureHashKey"
     static let autoInquireOnFailure = "autoInquireOnFailure"
+    static let merchantId = "merchantId"
+    static let terminalId = "terminalId"
+    static let environment = "environment"
 }
 
 enum EcrResultKeys {
     static let outcome = "outcome"
-    static let merchantReferenceId = "merchantReferenceId"
+    static let merchantReference = "merchantReference"
     static let amount = "amount"
     static let responseCode = "responseCode"
     static let reason = "reason"
@@ -114,6 +117,8 @@ enum EcrTransactionKeys {
     static let isRefunded = "isRefunded"
     static let canVoid = "canVoid"
     static let canRefund = "canRefund"
+    static let partialApproval = "partialApproval"
+    static let authorizedAmount = "authorizedAmount"
 }
 
 enum EcrErrorCodes {
@@ -132,5 +137,10 @@ enum EcrTransports {
     /// Whether the terminal opens a socket for this transport.
     static func isIpTransport(_ name: String?) -> Bool {
         name == ethernet || name == wifi
+    }
+
+    /// Whether this transport is handled by the SDK bridge.
+    static func isSupportedTransport(_ name: String?) -> Bool {
+        isIpTransport(name) || name == webService
     }
 }

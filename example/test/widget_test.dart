@@ -20,7 +20,7 @@ void main() {
   late FakeEcrPlatform platform;
   late TerminalRepository repository;
 
-  const Terminal registered = Terminal(
+  final Terminal registered = Terminal(
     serialNumber: 'P653200085189',
     name: 'Counter 1',
     ipAddress: '192.168.1.50',
@@ -41,6 +41,24 @@ void main() {
   Future<void> pumpTill(WidgetTester tester) async {
     await tester.pumpWidget(ExampleTillApp(repository: repository));
     await tester.pumpAndSettle();
+    // SelectedTerminalConfig resolves SharedPreferences asynchronously.
+    for (int i = 0; i < 20; i++) {
+      final Iterable<FilledButton> starts =
+          tester.widgetList<FilledButton>(find.byKey(const Key('start')));
+      if (starts.isNotEmpty && starts.first.onPressed != null) return;
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<void> scrollTo(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapStart(WidgetTester tester) async {
+    await scrollTo(tester, find.byKey(const Key('start')));
+    await tester.tap(find.byKey(const Key('start')));
+    await tester.pumpAndSettle();
   }
 
   Future<void> keyAmount(WidgetTester tester, String digits) async {
@@ -56,8 +74,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       // isReachable first, exactly as TransactionViewModel does it.
       expect(platform.calls, <String>['isReachable', 'sale']);
@@ -69,8 +86,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, <String>['isReachable']);
       expect(find.text('Not completed'), findsOneWidget);
@@ -78,9 +94,10 @@ void main() {
         find.textContaining('192.168.1.50:9100 is not reachable'),
         findsOneWidget,
       );
-      // The advice the Android example gives, word for word — a terminal that
-      // is not on its idle screen is the usual cause.
-      expect(find.textContaining('sitting on its idle screen'), findsOneWidget);
+      expect(
+        find.textContaining('same network'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('an invalid form is not sent, and says which field',
@@ -88,8 +105,7 @@ void main() {
       await pumpTill(tester);
 
       // No amount keyed.
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, isEmpty);
       expect(find.text('Required field'), findsOneWidget);
@@ -100,8 +116,7 @@ void main() {
       await pumpTill(tester);
       await keyAmount(tester, '5'); // 0.005, under the 0.010 floor
 
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, isEmpty);
       expect(find.textContaining('minimum amount allowed is'), findsOneWidget);
@@ -112,8 +127,7 @@ void main() {
       await pumpTill(tester);
       await _chooseType(tester, 'Void');
 
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, isEmpty);
       expect(
@@ -139,8 +153,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.lastAmount.toString(), '1.234');
     });
@@ -167,8 +180,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Approved'), findsOneWidget);
       // By key: the amount reads the same as the digits still in the form
@@ -185,7 +197,7 @@ void main() {
     testWidgets('a partial approval names the difference to collect',
         (WidgetTester tester) async {
       platform.result = const EcrApproved(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         amount: '0.500',
         responseCode: '00',
         rrn: 'R1',
@@ -198,8 +210,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '2000');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Partially approved'), findsOneWidget);
       expect(
@@ -214,7 +225,7 @@ void main() {
       // till shows what the terminal said and nothing more — there is no retry
       // to offer, because nothing was attempted.
       platform.result = const EcrDeclined(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         responseCode: '96',
         reason: 'A transaction is already in progress on this terminal',
         raw: '{}',
@@ -222,8 +233,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Declined'), findsOneWidget);
       expect(
@@ -232,20 +242,39 @@ void main() {
       );
     });
 
+    testWidgets('a decline exposes the raw terminal JSON',
+        (WidgetTester tester) async {
+      platform.result = EcrDeclined(
+        merchantReference: 'A1',
+        responseCode: '51',
+        reason: 'Declined',
+        raw: '{"success":false,"message":"Declined","errorList":["Insufficient funds"]}',
+      );
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      expect(find.byKey(const Key('toggleRaw')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('toggleRaw')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"errorList"'), findsOneWidget);
+      expect(find.text('Insufficient funds'), findsOneWidget);
+    });
+
     testWidgets('a lost answer reads as "Outcome unknown", not as a decline',
         (WidgetTester tester) async {
       // The request went out and nothing came back, so the sale may well have
       // completed. Calling that a decline is how a cardholder gets charged
       // twice.
       platform.result = const EcrFailed(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         failure: EcrTimeout('The terminal did not answer within 120s.'),
       );
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Outcome unknown'), findsOneWidget);
       expect(find.text('Declined'), findsNothing);
@@ -263,8 +292,7 @@ void main() {
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Not completed'), findsOneWidget);
       expect(find.text('Outcome unknown'), findsNothing);
@@ -277,15 +305,14 @@ void main() {
       // "unknown" anyway, and asking the operator to repeat a question already
       // answered, would waste the recovery entirely.
       platform.result = EcrFailed(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         failure: const EcrTimeout('The terminal did not answer within 120s.'),
         recovered: _found('Approved'),
       );
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Approved'), findsOneWidget);
       expect(find.text('Outcome unknown'), findsNothing);
@@ -299,7 +326,7 @@ void main() {
       // what the receipt has to be asked for by.
       platform.inquiry = _found('Approved');
       platform.nextReceipt = const EcrReceiptReady(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         url: 'https://receipts.example/1',
         raw: '{}',
       );
@@ -312,8 +339,7 @@ void main() {
         find.byKey(const Key('merchantReference')),
         'ORD-88231',
       );
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       await tester.tap(find.byKey(const Key('qrReceipt')));
       await tester.pumpAndSettle();
@@ -347,11 +373,11 @@ void main() {
         find.byKey(const Key('merchantReference')),
         'ORD-88231',
       );
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, <String>['isReachable', 'inquireByReference']);
       expect(platform.lastInquiredReference, 'ORD-88231');
+      expect(platform.lastInquiryMerchantReference, 'ORD-88231');
     });
 
     testWidgets('an inquiry by reference with no reference is not sent',
@@ -361,8 +387,7 @@ void main() {
       await tester.tap(find.byKey(const Key('lookUpByReference')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(platform.calls, isEmpty);
       expect(
@@ -385,18 +410,43 @@ void main() {
       }
     });
 
+    testWidgets('a sale can be sent with an optional merchant reference',
+        (WidgetTester tester) async {
+      platform.result = _approved;
+
+      await pumpTill(tester);
+      await tester.enterText(
+        find.byKey(const Key('saleMerchantReference')),
+        'ORD-88231',
+      );
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      expect(platform.lastSaleMerchantReference, 'ORD-88231');
+    });
+
+    testWidgets('a sale with no merchant reference auto-generates on the SDK side',
+        (WidgetTester tester) async {
+      platform.result = _approved;
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      expect(platform.lastSaleMerchantReference, '');
+    });
+
     testWidgets('inquiring by reference looks the transaction up by it',
         (WidgetTester tester) async {
       platform.result = const EcrFailed(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         failure: EcrTimeout('The terminal did not answer within 120s.'),
       );
       platform.inquiry = _found('Approved');
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       await tester.tap(find.byKey(const Key('inquireByReference')));
       await tester.pumpAndSettle();
@@ -414,8 +464,7 @@ void main() {
       await pumpTill(tester);
       await _chooseType(tester, 'Void');
       await tester.enterText(find.byKey(const Key('receiptNumber')), '215');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       // A void reverses an authorisation rather than obtaining one; printing
       // the placeholder would read as an approval that never took place.
@@ -432,8 +481,7 @@ void main() {
       await pumpTill(tester);
       await _chooseType(tester, 'Inquiry');
       await tester.enterText(find.byKey(const Key('receiptNumber')), '208');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       // The lookup succeeded. The transaction it found did not.
       expect(find.text('Declined'), findsOneWidget);
@@ -444,7 +492,7 @@ void main() {
         (WidgetTester tester) async {
       platform.inquiry = _found('Approved');
       platform.nextReceipt = const EcrReceiptReady(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         url: 'https://test.amwalpg.com/r/1',
         raw: '{}',
       );
@@ -452,8 +500,7 @@ void main() {
       await pumpTill(tester);
       await _chooseType(tester, 'Inquiry');
       await tester.enterText(find.byKey(const Key('receiptNumber')), '208');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       await tester.tap(find.byKey(const Key('qrReceipt')));
       await tester.pumpAndSettle();
@@ -467,7 +514,7 @@ void main() {
     testWidgets('a lookup that found nothing is not an error',
         (WidgetTester tester) async {
       platform.inquiry = const EcrInquiryNotFound(
-        merchantReferenceId: 'A1',
+        merchantReference: 'A1',
         reason: 'No transactions found for the provided STAN and Terminal',
         raw: '{}',
       );
@@ -475,8 +522,7 @@ void main() {
       await pumpTill(tester);
       await _chooseType(tester, 'Inquiry');
       await tester.enterText(find.byKey(const Key('receiptNumber')), '208');
-      await tester.tap(find.byKey(const Key('start')));
-      await tester.pumpAndSettle();
+      await tapStart(tester);
 
       expect(find.text('Not found'), findsOneWidget);
     });
@@ -514,6 +560,7 @@ void main() {
 
       expect(find.text('Counter 1'), findsOneWidget);
       expect(find.textContaining('192.168.1.50:9100'), findsOneWidget);
+      expect(find.byKey(const Key('terminal-P653200085189')), findsOneWidget);
     });
 
     testWidgets('a terminal is added with name, serial, address and port',
@@ -532,10 +579,11 @@ void main() {
       );
       await tester.enterText(find.byKey(const Key('ipAddress')), '192.168.1.51');
       await tester.enterText(find.byKey(const Key('port')), '9100');
+      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Counter 2'), findsOneWidget);
+      expect(find.text('Counter 2'), findsWidgets);
     });
 
     testWidgets('a bad address is refused with the same rules as Android',
@@ -550,6 +598,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('serialNumber')), 'X1');
       await tester.enterText(find.byKey(const Key('ipAddress')), '999.1.1.1');
       await tester.enterText(find.byKey(const Key('port')), '70000');
+      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
@@ -575,6 +624,7 @@ void main() {
       );
       await tester.enterText(find.byKey(const Key('ipAddress')), '192.168.1.52');
       await tester.enterText(find.byKey(const Key('port')), '9100');
+      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
@@ -589,7 +639,7 @@ void main() {
 }
 
 const EcrApproved _approved = EcrApproved(
-  merchantReferenceId: 'A1B2C3D4E5F6',
+  merchantReference: 'A1B2C3D4E5F6',
   amount: '1.234',
   responseCode: '00',
   rrn: '622113155340',
@@ -601,7 +651,7 @@ const EcrApproved _approved = EcrApproved(
 );
 
 EcrInquiryFound _found(String status) => EcrInquiryFound(
-      merchantReferenceId: 'B1',
+      merchantReference: 'B1',
       transaction: EcrTransaction(
         transactionId: 'e970c800',
         stan: '000208',
@@ -637,18 +687,18 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   bool reachable = true;
 
   EcrResult result = const EcrFailed(
-    merchantReferenceId: '',
+    merchantReference: '',
     failure: EcrUnreachable('nothing configured'),
   );
 
   EcrInquiry inquiry = const EcrInquiryNotFound(
-    merchantReferenceId: '',
+    merchantReference: '',
     reason: 'nothing configured',
     raw: '{}',
   );
 
   EcrReceipt nextReceipt = const EcrReceiptUnavailable(
-    merchantReferenceId: '',
+    merchantReference: '',
     reason: 'nothing configured',
     raw: '{}',
   );
@@ -660,6 +710,12 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
 
   /// The reference the last inquiry-by-reference asked about.
   String? lastInquiredReference;
+
+  /// The merchant reference the last sale was sent with.
+  String? lastSaleMerchantReference;
+
+  /// The merchant reference on the last inquiry-by-reference call.
+  String? lastInquiryMerchantReference;
 
   /// The receipt number the last receipt request asked by.
   String? lastReceiptNumber;
@@ -674,6 +730,7 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   Future<EcrResult> sale(EcrRequest request) async {
     calls.add('sale');
     lastAmount = request.amount;
+    lastSaleMerchantReference = request.merchantReference;
     return result;
   }
 
@@ -700,6 +757,7 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   Future<EcrInquiry> inquireByReference(EcrRequest request) async {
     calls.add('inquireByReference');
     lastInquiredReference = request.originalMerchantReference;
+    lastInquiryMerchantReference = request.merchantReference;
     return inquiry;
   }
 

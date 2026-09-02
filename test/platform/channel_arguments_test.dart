@@ -183,7 +183,7 @@ void main() {
     test('an inquiry carries the receipt number and the day, and no amount', () async {
       host.answer(EcrMethods.inquire, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.notFound,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
         EcrResultKeys.responseMessage: 'no',
         EcrResultKeys.raw: '{}',
       });
@@ -246,13 +246,13 @@ void main() {
       }
       host.answer(EcrMethods.inquire, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.notFound,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
         EcrResultKeys.responseMessage: '',
         EcrResultKeys.raw: '{}',
       });
       host.answer(EcrMethods.receipt, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.unavailable,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
         EcrResultKeys.responseMessage: '',
         EcrResultKeys.raw: '{}',
       });

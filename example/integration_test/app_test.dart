@@ -160,7 +160,7 @@ void main() {
         expect(transaction.stan, isNotEmpty);
         // Major units, from the backend's own record.
         expect(transaction.amount, isNot(matches(r'^0{6,}')));
-        expect(inquiry.merchantReferenceId, hasLength(12));
+        expect(inquiry.merchantReference, hasLength(12));
       }
     }, skip: !configured);
 

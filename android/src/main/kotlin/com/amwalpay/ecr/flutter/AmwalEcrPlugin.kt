@@ -58,8 +58,8 @@ class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     private val handler = EcrCallHandler(
         scope = scope,
-        terminals = { host, serialNumber, config ->
-            SdkEcrTerminal(host, serialNumber, config, logger)
+        terminals = { host, serialNumber, transport, config ->
+            EcrSessionPorts.create(host, serialNumber, transport, config, logger)
         },
     )
 

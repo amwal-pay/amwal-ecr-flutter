@@ -1,0 +1,41 @@
+PODS:
+  - amwal_ecr (0.2.0):
+    - AmwalECR (~> 0.3.0)
+    - Flutter
+  - AmwalECR (0.3.0)
+  - Flutter (1.0.0)
+  - integration_test (0.0.1):
+    - Flutter
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - amwal_ecr (from `.symlinks/plugins/amwal_ecr/ios`)
+  - AmwalECR (from `../../../AmwalECR-iOS-CocoaPods`)
+  - Flutter (from `Flutter`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+
+EXTERNAL SOURCES:
+  amwal_ecr:
+    :path: ".symlinks/plugins/amwal_ecr/ios"
+  AmwalECR:
+    :path: "../../../AmwalECR-iOS-CocoaPods"
+  Flutter:
+    :path: Flutter
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+
+SPEC CHECKSUMS:
+  amwal_ecr: 84d1ae70a999a33bc3fc112ac78fef0492ae4200
+  AmwalECR: 403366f4df45330b9174940e56320900967c4e57
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+
+PODFILE CHECKSUM: ea8a5bb91912bf044f3f636d441798a63fab4555
+
+COCOAPODS: 1.16.2

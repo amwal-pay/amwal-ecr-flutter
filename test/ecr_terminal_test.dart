@@ -20,9 +20,20 @@ void main() {
   tearDown(() => host.dispose());
 
   group('construction', () {
-    test('a terminal needs an address', () {
+    test('a LAN terminal needs an address', () {
       expect(() => EcrTerminal(host: ''), throwsA(isA<EcrArgumentError>()));
       expect(() => EcrTerminal(host: '   '), throwsA(isA<EcrArgumentError>()));
+    });
+
+    test('Web Service does not require a host', () {
+      expect(
+        () => EcrTerminal(
+          host: '',
+          transport: EcrTransport.webService,
+          config: EcrConfig(merchantId: '1', terminalId: '2'),
+        ),
+        returnsNormally,
+      );
     });
 
     test('the config is checked at construction, not at the first sale', () {
@@ -119,7 +130,7 @@ void main() {
     test('an absent date is allowed, matching the native SDKs', () async {
       host.answer(EcrMethods.receipt, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.unavailable,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
         EcrResultKeys.responseMessage: '',
         EcrResultKeys.raw: '{}',
       });
@@ -159,25 +170,34 @@ void main() {
 
   group('a transport with no listener', () {
     test('turns every money-moving operation into a typed failure', () async {
-      for (final EcrTransport transport in <EcrTransport>[
-        EcrTransport.bluetooth,
-        EcrTransport.webService,
-      ]) {
-        final EcrResult result =
-            await terminalOn(transport).sale(EcrAmount.parse('1.234'));
+      final EcrResult result =
+          await terminalOn(EcrTransport.bluetooth).sale(EcrAmount.parse('1.234'));
 
-        expect(result, isA<EcrFailed>(), reason: transport.name);
-        expect((result as EcrFailed).failure, isA<EcrUnsupported>());
-        expect(result.failure.message, contains(transport.name));
-        // Nothing was attempted, so nothing has to be reconciled.
-        expect(result.outcomeIsUnknown, isFalse);
-      }
+      expect(result, isA<EcrFailed>());
+      expect((result as EcrFailed).failure, isA<EcrUnsupported>());
+      expect(result.failure.message, contains('bluetooth'));
+      expect(result.outcomeIsUnknown, isFalse);
     });
 
-    test('and reaches the host not at all', () async {
+    test('webService money-moving operations reach the host', () async {
+      host.answer(EcrMethods.sale, approvedPayload());
+      final EcrTerminal terminal = EcrTerminal(
+        host: '',
+        serialNumber: 'P653200085189',
+        transport: EcrTransport.webService,
+        config: EcrConfig(
+          merchantId: '13593',
+          terminalId: '1',
+          secureHashKey: '881dc200c9833da726e9376c2e32cff7',
+        ),
+        platform: MethodChannelAmwalEcr(channel: FakeEcrHost.channel),
+      );
+      await terminal.sale(EcrAmount.parse('1.234'));
+      expect(host.methods, <String>['sale']);
+    });
+
+    test('and reaches the host not at all for bluetooth', () async {
       await terminalOn(EcrTransport.bluetooth).sale(EcrAmount.parse('1.234'));
-      await terminalOn(EcrTransport.webService)
-          .voidTransaction('215');
 
       expect(host.calls, isEmpty);
     });

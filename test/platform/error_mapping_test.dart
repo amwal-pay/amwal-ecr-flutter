@@ -128,7 +128,7 @@ void main() {
     test('an outcome this version has never heard of is likewise unknown', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: 'partially-settled',
-        EcrResultKeys.merchantReferenceId: 'A1B2C3D4E5F6',
+        EcrResultKeys.merchantReference: 'A1B2C3D4E5F6',
       });
 
       final EcrResult result = await sale();
@@ -223,7 +223,7 @@ void main() {
     test('a missing failure sub-map is an unknown outcome', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.failed,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
       });
 
       final EcrResult result = await sale();
@@ -235,7 +235,7 @@ void main() {
     test('nulls where strings were promised read as empty, not as "null"', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.approved,
-        EcrResultKeys.merchantReferenceId: 'A1B2C3D4E5F6',
+        EcrResultKeys.merchantReference: 'A1B2C3D4E5F6',
         EcrResultKeys.amount: '1.234',
         EcrResultKeys.responseCode: '00',
         EcrResultKeys.rrn: null,
@@ -265,7 +265,7 @@ void main() {
       final EcrResult result = await sale();
 
       expect(result, isA<EcrApproved>());
-      expect(result.merchantReferenceId, '');
+      expect(result.merchantReference, '');
       expect((result as EcrApproved).amount, '');
     });
   });

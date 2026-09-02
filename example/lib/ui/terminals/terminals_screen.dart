@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../data/ecr_simulator_settings.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
+import '../components/environment_selector.dart';
 import 'terminal_edit_screen.dart';
 
-/// Registered POS terminals, with add / edit / delete.
-///
-/// Mirrors `TerminalsScreen.kt`.
 class TerminalsScreen extends StatefulWidget {
   const TerminalsScreen({super.key, required this.repository});
 
@@ -18,6 +17,7 @@ class TerminalsScreen extends StatefulWidget {
 
 class _TerminalsScreenState extends State<TerminalsScreen> {
   List<Terminal> _terminals = const <Terminal>[];
+  EcrSimulatorSettings? _settings;
 
   @override
   void initState() {
@@ -27,8 +27,12 @@ class _TerminalsScreenState extends State<TerminalsScreen> {
 
   Future<void> _reload() async {
     final List<Terminal> terminals = await widget.repository.observeAll().first;
+    final EcrSimulatorSettings settings = await EcrSimulatorSettings.load();
     if (!mounted) return;
-    setState(() => _terminals = terminals);
+    setState(() {
+      _terminals = terminals;
+      _settings = settings;
+    });
   }
 
   Future<void> _edit([Terminal? terminal]) async {
@@ -70,9 +74,11 @@ class _TerminalsScreenState extends State<TerminalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final EcrSimulatorSettings? settings = _settings;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Terminals'),
+        title: const Text('POS terminals'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -82,38 +88,55 @@ class _TerminalsScreenState extends State<TerminalsScreen> {
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
-        child: _terminals.isEmpty
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text(
-                    'No terminals yet.\n'
-                    'Add the ones this till drives — the serial number, and the '
-                    'address the terminal shows under its card scheme logos.',
-                    textAlign: TextAlign.center,
+        child: settings == null
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: <Widget>[
+                  EcrSimulatorSettingsPanel(
+                    environment: settings.environment,
+                    wifiSecureHashKey: settings.wifiSecureHashKey,
+                    webServiceSecureHashKey: settings.webServiceSecureHashKey,
+                    onEnvironmentSelected: (value) {
+                      setState(() => settings.environment = value);
+                    },
+                    onWifiSecureHashKeyChanged: (value) {
+                      setState(() => settings.wifiSecureHashKey = value);
+                    },
+                    onWebServiceSecureHashKeyChanged: (value) {
+                      setState(() => settings.webServiceSecureHashKey = value);
+                    },
                   ),
-                ),
-              )
-            : ListView.builder(
-                itemCount: _terminals.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final Terminal terminal = _terminals[index];
-                  return ListTile(
-                    key: Key('terminal-${terminal.serialNumber}'),
-                    title: Text(terminal.name),
-                    subtitle: Text(
-                      '${terminal.serialNumber}\n'
-                      '${terminal.ipAddress}:${terminal.port}',
+                  const SizedBox(height: 16),
+                  if (_terminals.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Text(
+                        'No terminals yet.\nTap + to register a POS terminal.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    ..._terminals.map(
+                      (Terminal terminal) => Card(
+                        child: ListTile(
+                          key: Key('terminal-${terminal.serialNumber}'),
+                          title: Text(terminal.name),
+                          subtitle: Text(
+                            '${terminal.serialNumber}\n'
+                            '${terminal.mode.label} · ${terminal.connectionSummary()}',
+                          ),
+                          isThreeLine: true,
+                          onTap: () => _edit(terminal),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: 'Remove',
+                            onPressed: () => _delete(terminal),
+                          ),
+                        ),
+                      ),
                     ),
-                    isThreeLine: true,
-                    onTap: () => _edit(terminal),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Remove',
-                      onPressed: () => _delete(terminal),
-                    ),
-                  );
-                },
+                ],
               ),
       ),
     );

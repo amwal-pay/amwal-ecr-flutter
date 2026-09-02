@@ -41,7 +41,7 @@ class EcrChannelContractTest {
         assertEquals("receiptNumber", EcrArgs.RECEIPT_NUMBER)
         assertEquals("transactionDate", EcrArgs.TRANSACTION_DATE)
         assertEquals("originalTerminalId", EcrArgs.ORIGINAL_TERMINAL_ID)
-        assertEquals("merchantReferenceId", EcrArgs.MERCHANT_REFERENCE_ID)
+        assertEquals("merchantReference", EcrArgs.MERCHANT_REFERENCE)
         assertEquals("originalMerchantReference", EcrArgs.ORIGINAL_MERCHANT_REFERENCE)
     }
 
@@ -58,12 +58,15 @@ class EcrChannelContractTest {
         assertEquals("probeTimeoutMs", EcrConfigKeys.PROBE_TIMEOUT_MS)
         assertEquals("secureHashKey", EcrConfigKeys.SECURE_HASH_KEY)
         assertEquals("autoInquireOnFailure", EcrConfigKeys.AUTO_INQUIRE_ON_FAILURE)
+        assertEquals("merchantId", EcrConfigKeys.MERCHANT_ID)
+        assertEquals("terminalId", EcrConfigKeys.TERMINAL_ID)
+        assertEquals("environment", EcrConfigKeys.ENVIRONMENT)
     }
 
     @Test
     fun `result keys are spelled exactly this way`() {
         assertEquals("outcome", EcrResultKeys.OUTCOME)
-        assertEquals("merchantReferenceId", EcrResultKeys.MERCHANT_REFERENCE_ID)
+        assertEquals("merchantReference", EcrResultKeys.MERCHANT_REFERENCE)
         assertEquals("amount", EcrResultKeys.AMOUNT)
         assertEquals("responseCode", EcrResultKeys.RESPONSE_CODE)
         // The wire calls it responseMessage; the channel calls it reason.
@@ -129,6 +132,8 @@ class EcrChannelContractTest {
         assertEquals("isRefunded", EcrTransactionKeys.IS_REFUNDED)
         assertEquals("canVoid", EcrTransactionKeys.CAN_VOID)
         assertEquals("canRefund", EcrTransactionKeys.CAN_REFUND)
+        assertEquals("partialApproval", EcrTransactionKeys.PARTIAL_APPROVAL)
+        assertEquals("authorizedAmount", EcrTransactionKeys.AUTHORIZED_AMOUNT)
     }
 
     @Test
@@ -148,5 +153,13 @@ class EcrChannelContractTest {
         // guessing would open a socket nothing is listening on.
         assertEquals(false, EcrTransports.isIpTransport("carrier-pigeon"))
         assertEquals(false, EcrTransports.isIpTransport(null))
+    }
+
+    @Test
+    fun `IP and Web Service transports can be driven from the plugin`() {
+        assertEquals(true, EcrTransports.isSupportedTransport("ethernet"))
+        assertEquals(true, EcrTransports.isSupportedTransport("wifi"))
+        assertEquals(true, EcrTransports.isSupportedTransport("webService"))
+        assertEquals(false, EcrTransports.isSupportedTransport("bluetooth"))
     }
 }

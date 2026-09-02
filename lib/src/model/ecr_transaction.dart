@@ -25,6 +25,8 @@ final class EcrTransaction {
     required this.isRefunded,
     required this.canVoid,
     required this.canRefund,
+    this.partialApproval = false,
+    this.authorizedAmount = '',
   });
 
   /// The backend's own identifier, unique across terminals and days.
@@ -83,6 +85,12 @@ final class EcrTransaction {
 
   /// Whether the terminal would accept a refund against it.
   final bool canRefund;
+
+  /// Whether the issuer approved less than the sale asked for.
+  final bool partialApproval;
+
+  /// What was actually authorised when [partialApproval] is true.
+  final String authorizedAmount;
 
   @override
   String toString() => 'EcrTransaction(stan: $stan, type: $type, '

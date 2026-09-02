@@ -42,15 +42,16 @@ import 'platform/ecr_request.dart';
 /// request, and neither should a caller: check [EcrResult.outcomeIsUnknown],
 /// and where it is set, [inquire] on the receipt number instead.
 final class EcrTerminal {
-  /// [host] is the terminal's address on the local network, and [serialNumber]
-  /// is what the operator registered — the terminal shows its own address on
-  /// screen under the card scheme logos when the link is Wi-Fi.
+  /// [host] is the terminal's address on the local network for IP transports.
+  /// For [EcrTransport.webService], leave empty — addressing comes from
+  /// [config.merchantId] and [config.terminalId].
+  ///
+  /// [serialNumber] is what the operator registered — the terminal shows its
+  /// own address on screen under the card scheme logos when the link is Wi-Fi.
   ///
   /// [transport] declares how the terminal is attached, from its TMS profile.
-  /// Only the IP transports can be driven from here; naming another is allowed
-  /// and becomes an [EcrUnsupported] failure at the first operation, so a till
-  /// reading a profile it does not control handles it as one more outcome
-  /// rather than as a crash.
+  /// IP transports and Web Service can be driven from here; Bluetooth becomes
+  /// an [EcrUnsupported] failure at the first operation.
   EcrTerminal({
     required this.host,
     this.serialNumber = '',
@@ -61,8 +62,8 @@ final class EcrTerminal {
   })  : config = config ?? EcrConfig(),
         _platform = platform ?? AmwalEcrPlatform.instance,
         _random = random ?? Random() {
-    if (host.trim().isEmpty) {
-      throw const EcrArgumentError('A terminal needs a host address');
+    if (transport.isIpTransport && host.trim().isEmpty) {
+      throw const EcrArgumentError('A LAN terminal needs a host address');
     }
   }
 
@@ -97,36 +98,36 @@ final class EcrTerminal {
 
   /// Takes a payment. The cardholder presents their card at the terminal.
   ///
-  /// [merchantReferenceId] is the till's own reference for this sale — an order
+  /// [merchantReference] is the till's own reference for this sale — an order
   /// number, a basket id, whatever the caller's system already uses to name it.
   /// Pass it and the same string identifies the transaction in your books, in
   /// the terminal's records and in any later [inquireByReference]; leave it out
   /// and the native SDK generates one, reported on
-  /// [EcrResult.merchantReferenceId].
+  /// [EcrResult.merchantReference].
   ///
   /// Worth passing. It is the only handle a till holds if the answer never
   /// arrives — see the note on this class.
   Future<EcrResult> sale(
     EcrAmount amount, {
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startSale(
         amount,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
   /// [sale], with a handle so it can be cancelled while it runs.
   EcrOperation<EcrResult> startSale(
     EcrAmount amount, {
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startRun(
         EcrTransactionType.sale,
         amount: amount,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       );
 
@@ -140,18 +141,18 @@ final class EcrTerminal {
   /// [originalTerminalId] names the terminal the original was taken on, when
   /// it was not this one. That route asks the backend and reads the card again.
   ///
-  /// [merchantReferenceId] names the cancellation, not the transaction being
+  /// [merchantReference] names the cancellation, not the transaction being
   /// cancelled — that one is named by [receiptNumber].
   Future<EcrResult> voidTransaction(
     String receiptNumber, {
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startVoid(
         receiptNumber,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -159,14 +160,14 @@ final class EcrTerminal {
   EcrOperation<EcrResult> startVoid(
     String receiptNumber, {
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startRun(
         EcrTransactionType.voidTransaction,
         receiptNumber: receiptNumber,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       );
 
@@ -180,7 +181,7 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startRefund(
@@ -188,7 +189,7 @@ final class EcrTerminal {
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -198,7 +199,7 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startRun(
@@ -207,7 +208,7 @@ final class EcrTerminal {
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       );
 
@@ -227,7 +228,7 @@ final class EcrTerminal {
     String receiptNumber = '',
     String transactionDate = '',
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startRun(
@@ -236,7 +237,7 @@ final class EcrTerminal {
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -247,7 +248,7 @@ final class EcrTerminal {
     String receiptNumber = '',
     String transactionDate = '',
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) {
     if (!type.movesMoney) {
@@ -273,7 +274,7 @@ final class EcrTerminal {
       );
     }
     _checkDate(transactionDate);
-    _checkReference(merchantReferenceId);
+    _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
     final EcrRequest request = _request(
@@ -282,10 +283,10 @@ final class EcrTerminal {
       receiptNumber: receiptNumber,
       transactionDate: transactionDate,
       originalTerminalId: originalTerminalId,
-      merchantReferenceId: merchantReferenceId,
+      merchantReference: merchantReference,
     );
 
-    if (!transport.isIpTransport) {
+    if (!transport.isSupportedByPlugin) {
       return _refused(id, _unsupportedTransport(type.displayName));
     }
 
@@ -314,14 +315,14 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startInquire(
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -330,17 +331,17 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) {
     if (receiptNumber.trim().isEmpty) {
       throw const EcrArgumentError('An inquiry needs a receipt number');
     }
     _checkDate(transactionDate);
-    _checkReference(merchantReferenceId);
+    _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport) {
+    if (!transport.isSupportedByPlugin) {
       return _refusedInquiry(id, 'Inquiry');
     }
 
@@ -352,7 +353,7 @@ final class EcrTerminal {
           receiptNumber: receiptNumber,
           transactionDate: transactionDate,
           originalTerminalId: originalTerminalId,
-          merchantReferenceId: merchantReferenceId,
+          merchantReference: merchantReference,
         ),
       ),
     );
@@ -370,7 +371,7 @@ final class EcrTerminal {
   /// ```dart
   /// final EcrResult result = await terminal.sale(
   ///   total,
-  ///   merchantReferenceId: order.number,
+  ///   merchantReference: order.number,
   /// );
   ///
   /// if (result.outcomeIsUnknown) {
@@ -399,14 +400,14 @@ final class EcrTerminal {
     String originalReference, {
     String transactionDate = '',
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startInquireByReference(
         originalReference,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -415,7 +416,7 @@ final class EcrTerminal {
     String originalReference, {
     String transactionDate = '',
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) {
     if (originalReference.trim().isEmpty) {
@@ -425,7 +426,7 @@ final class EcrTerminal {
     }
     _checkDate(transactionDate);
     _checkReference(originalReference);
-    _checkReference(merchantReferenceId);
+    _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
     if (!transport.isIpTransport) {
@@ -439,7 +440,7 @@ final class EcrTerminal {
           operationId: id,
           transactionDate: transactionDate,
           originalTerminalId: originalTerminalId,
-          merchantReferenceId: merchantReferenceId,
+          merchantReference: merchantReference,
           originalMerchantReference: originalReference.trim(),
         ),
       ),
@@ -456,14 +457,14 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) =>
       startReceipt(
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         operationId: operationId,
       ).result;
 
@@ -472,21 +473,21 @@ final class EcrTerminal {
     required String receiptNumber,
     required String transactionDate,
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String? operationId,
   }) {
     if (receiptNumber.trim().isEmpty) {
       throw const EcrArgumentError('A receipt needs a receipt number');
     }
     _checkDate(transactionDate);
-    _checkReference(merchantReferenceId);
+    _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
     if (!transport.isIpTransport) {
       return _refusedWith<EcrReceipt>(
         id,
         (EcrFailure failure) =>
-            EcrReceiptFailed(merchantReferenceId: '', failure: failure),
+            EcrReceiptFailed(merchantReference: '', failure: failure),
         _unsupportedTransport('Receipt'),
       );
     }
@@ -499,7 +500,7 @@ final class EcrTerminal {
           receiptNumber: receiptNumber,
           transactionDate: transactionDate,
           originalTerminalId: originalTerminalId,
-          merchantReferenceId: merchantReferenceId,
+          merchantReference: merchantReference,
         ),
       ),
     );
@@ -517,7 +518,7 @@ final class EcrTerminal {
     String receiptNumber = '',
     String transactionDate = '',
     String originalTerminalId = '',
-    String merchantReferenceId = '',
+    String merchantReference = '',
     String originalMerchantReference = '',
   }) =>
       EcrRequest(
@@ -530,7 +531,7 @@ final class EcrTerminal {
         receiptNumber: receiptNumber,
         transactionDate: transactionDate,
         originalTerminalId: originalTerminalId,
-        merchantReferenceId: merchantReferenceId,
+        merchantReference: merchantReference,
         originalMerchantReference: originalMerchantReference,
       );
 
@@ -547,7 +548,7 @@ final class EcrTerminal {
       _refusedWith<EcrResult>(
         id,
         (EcrFailure failure) =>
-            EcrFailed(merchantReferenceId: '', failure: failure),
+            EcrFailed(merchantReference: '', failure: failure),
         failure,
       );
 
@@ -556,7 +557,7 @@ final class EcrTerminal {
       _refusedWith<EcrInquiry>(
         id,
         (EcrFailure failure) =>
-            EcrInquiryFailed(merchantReferenceId: '', failure: failure),
+            EcrInquiryFailed(merchantReference: '', failure: failure),
         _unsupportedTransport(operation),
       );
 

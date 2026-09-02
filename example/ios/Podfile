@@ -45,7 +45,7 @@ target 'Runner' do
   # is a compile error naming the new type ("cannot find 'SecureHash' in scope").
   # Editing existing files needs nothing.
   #
-  # pod 'AmwalECR', :path => '../../../AmwalECR-iOS-CocoaPods'
+   pod 'AmwalECR', :path => '../../../AmwalECR-iOS-CocoaPods'
 
   target 'RunnerTests' do
     inherit! :search_paths

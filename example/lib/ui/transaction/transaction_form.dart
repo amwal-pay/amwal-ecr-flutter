@@ -21,6 +21,7 @@ class TransactionFormState {
     this.useOtherTerminal = false,
     this.lookUpByReference = false,
     this.originalReference = '',
+    this.merchantReference = '',
     this.errors = const FormErrors(),
   }) : originalDate = originalDate ?? DateTime.now();
 
@@ -46,6 +47,9 @@ class TransactionFormState {
   final bool lookUpByReference;
   final String originalReference;
 
+  /// Optional reference for a new sale; blank lets the SDK generate one.
+  final String merchantReference;
+
   final FormErrors errors;
 
   bool get showOtherTerminalSwitch => type.allowsOtherTerminal;
@@ -53,6 +57,9 @@ class TransactionFormState {
 
   /// Only an inquiry may look up by reference — see [lookUpByReference].
   bool get showReferenceSwitch => type == EcrTransactionType.inquiry;
+
+  /// Optional till reference for a new sale.
+  bool get showMerchantReference => type == EcrTransactionType.sale;
 
   bool get looksUpByReference => showReferenceSwitch && lookUpByReference;
 
@@ -88,6 +95,7 @@ class TransactionFormState {
     bool? useOtherTerminal,
     bool? lookUpByReference,
     String? originalReference,
+    String? merchantReference,
     FormErrors? errors,
   }) =>
       TransactionFormState(
@@ -99,6 +107,7 @@ class TransactionFormState {
         useOtherTerminal: useOtherTerminal ?? this.useOtherTerminal,
         lookUpByReference: lookUpByReference ?? this.lookUpByReference,
         originalReference: originalReference ?? this.originalReference,
+        merchantReference: merchantReference ?? this.merchantReference,
         errors: errors ?? this.errors,
       );
 
@@ -127,6 +136,10 @@ class TransactionFormState {
             ? 'Enter the reference the transaction was sent with'
             : null;
 
+    final String? merchantRefError = showMerchantReference
+        ? _merchantReferenceError(merchantReference)
+        : null;
+
     final String? terminalError =
         showOriginalTerminal && originalTerminalId.trim().isEmpty
             ? 'Enter the terminal the original was taken on'
@@ -137,6 +150,7 @@ class TransactionFormState {
       receiptNumber: receiptError,
       originalTerminalId: terminalError,
       originalReference: referenceError,
+      merchantReference: merchantRefError,
     );
     if (validationErrors.any) {
       return (copyWith(errors: validationErrors), null);
@@ -153,8 +167,24 @@ class TransactionFormState {
         transactionDate: showOriginalDate ? originalDateOnWire : '',
         originalReference:
             looksUpByReference ? originalReference.trim() : '',
+        merchantReference: looksUpByReference
+            ? originalReference.trim()
+            : (showMerchantReference ? merchantReference.trim() : ''),
       ),
     );
+  }
+
+  static String? _merchantReferenceError(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.length > 32) {
+      return 'A merchant reference is at most 32 characters';
+    }
+    final RegExp allowed = RegExp(r'^[\x21-\x25\x27-\x3C\x3E-\x7E]+$');
+    if (!allowed.hasMatch(trimmed)) {
+      return "Use printable ASCII without spaces, '&' or '='";
+    }
+    return null;
   }
 }
 
@@ -165,16 +195,19 @@ class FormErrors {
     this.receiptNumber,
     this.originalTerminalId,
     this.originalReference,
+    this.merchantReference,
   });
 
   final String? amount;
   final String? receiptNumber;
   final String? originalTerminalId;
   final String? originalReference;
+  final String? merchantReference;
 
   bool get any =>
       amount != null ||
       receiptNumber != null ||
       originalTerminalId != null ||
-      originalReference != null;
+      originalReference != null ||
+      merchantReference != null;
 }

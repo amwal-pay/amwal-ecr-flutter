@@ -286,7 +286,7 @@ void main() {
     test('so it may be sent again, and the count says so', () async {
       host.answer(EcrMethods.inquire, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.notFound,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
         EcrResultKeys.responseMessage: 'not found',
         EcrResultKeys.raw: '{}',
       });

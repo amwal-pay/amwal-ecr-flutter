@@ -21,7 +21,7 @@ claim with exceptions, and they are written down here rather than discovered.
 
 The two native providers must be upgraded **together**. They speak the same wire
 format, and the 1.0.4 / 0.2.0 line renamed the field naming a transaction from
-`requestId` to `merchantReferenceId`; a host on the older line is not missing a
+`requestId` to `merchantReference`; a host on the older line is not missing a
 field, it fails to be understood by a current terminal.
 
 ### Native providers
@@ -154,7 +154,7 @@ Every operation behaves identically on both platforms. This table exists so that
 | Identifiers (`terminalId`) | `String` | `String` or `int` | `String` | `String` |
 | Absent text | `''` | `null` or `''` | `""` | `""` |
 | `originalTerminalId` | `''` | `''` — **never null** | `""` | `""` |
-| `merchantReferenceId` | `String` | `String` — `''` means "generate one" | `String` | `String` |
+| `merchantReference` | `String` | `String` — `''` means "generate one" | `String` | `String` |
 | `secureHashKey` | `String` | `String` — `''` means unsigned | `String` | `String` |
 | `nextStep` | `EcrNextStep` | `String`, the protocol's own name | `NextStep` | `EcrNextStep` |
 | `recovered` | `EcrInquiry?` | an inquiry map, **absent** when none | `EcrInquiry?` | `EcrInquiry?` |

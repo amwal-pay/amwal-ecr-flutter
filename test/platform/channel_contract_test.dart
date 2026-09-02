@@ -57,7 +57,7 @@ void main() {
       expect(EcrArgs.receiptNumber, 'receiptNumber');
       expect(EcrArgs.transactionDate, 'transactionDate');
       expect(EcrArgs.originalTerminalId, 'originalTerminalId');
-      expect(EcrArgs.merchantReferenceId, 'merchantReferenceId');
+      expect(EcrArgs.merchantReference, 'merchantReference');
       expect(EcrArgs.originalMerchantReference, 'originalMerchantReference');
     });
 
@@ -72,7 +72,7 @@ void main() {
         'receiptNumber',
         'transactionDate',
         'originalTerminalId',
-        'merchantReferenceId',
+        'merchantReference',
         'originalMerchantReference',
       ]);
     });
@@ -92,6 +92,9 @@ void main() {
       expect(EcrConfigKeys.probeTimeoutMs, 'probeTimeoutMs');
       expect(EcrConfigKeys.secureHashKey, 'secureHashKey');
       expect(EcrConfigKeys.autoInquireOnFailure, 'autoInquireOnFailure');
+      expect(EcrConfigKeys.merchantId, 'merchantId');
+      expect(EcrConfigKeys.terminalId, 'terminalId');
+      expect(EcrConfigKeys.environment, 'environment');
     });
 
     test('the published list covers them and nothing else', () {
@@ -105,6 +108,9 @@ void main() {
         'probeTimeoutMs',
         'secureHashKey',
         'autoInquireOnFailure',
+        'merchantId',
+        'terminalId',
+        'environment',
       ]);
     });
   });
@@ -112,7 +118,7 @@ void main() {
   group('result keys', () {
     test('are spelled exactly this way', () {
       expect(EcrResultKeys.outcome, 'outcome');
-      expect(EcrResultKeys.merchantReferenceId, 'merchantReferenceId');
+      expect(EcrResultKeys.merchantReference, 'merchantReference');
       expect(EcrResultKeys.amount, 'amount');
       expect(EcrResultKeys.responseCode, 'responseCode');
       expect(EcrResultKeys.rrn, 'rrn');
@@ -203,10 +209,12 @@ void main() {
       expect(EcrTransactionKeys.isRefunded, 'isRefunded');
       expect(EcrTransactionKeys.canVoid, 'canVoid');
       expect(EcrTransactionKeys.canRefund, 'canRefund');
+      expect(EcrTransactionKeys.partialApproval, 'partialApproval');
+      expect(EcrTransactionKeys.authorizedAmount, 'authorizedAmount');
     });
 
-    test('all seventeen fields the backend records are carried', () {
-      expect(EcrTransactionKeys.all, hasLength(17));
+    test('all fields the backend records are carried', () {
+      expect(EcrTransactionKeys.all, hasLength(19));
     });
   });
 

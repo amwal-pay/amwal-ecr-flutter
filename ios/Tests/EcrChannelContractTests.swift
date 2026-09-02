@@ -34,7 +34,7 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("receiptNumber", EcrArgs.receiptNumber)
         XCTAssertEqual("transactionDate", EcrArgs.transactionDate)
         XCTAssertEqual("originalTerminalId", EcrArgs.originalTerminalId)
-        XCTAssertEqual("merchantReferenceId", EcrArgs.merchantReferenceId)
+        XCTAssertEqual("merchantReference", EcrArgs.merchantReference)
         XCTAssertEqual("originalMerchantReference", EcrArgs.originalMerchantReference)
     }
 
@@ -54,7 +54,7 @@ final class EcrChannelContractTests: XCTestCase {
 
     func testResultKeysAreSpelledExactlyThisWay() {
         XCTAssertEqual("outcome", EcrResultKeys.outcome)
-        XCTAssertEqual("merchantReferenceId", EcrResultKeys.merchantReferenceId)
+        XCTAssertEqual("merchantReference", EcrResultKeys.merchantReference)
         XCTAssertEqual("amount", EcrResultKeys.amount)
         XCTAssertEqual("responseCode", EcrResultKeys.responseCode)
         // The wire calls it responseMessage; the channel calls it reason.

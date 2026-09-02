@@ -124,7 +124,7 @@ final class EcrCallHandler {
     private func sale(_ call: Call, _ reply: OneShotReply) throws {
         let amount = try call.requiredAmount()
         try run(call, reply, EcrMapping.result) {
-            try $0.sale(amount: amount, merchantReferenceId: call.merchantReferenceId)
+            try $0.sale(amount: amount, merchantReference: call.merchantReference)
         }
     }
 
@@ -134,7 +134,7 @@ final class EcrCallHandler {
             try $0.void(
                 receiptNumber: receiptNumber,
                 originalTerminalId: call.originalTerminalId,
-                merchantReferenceId: call.merchantReferenceId
+                merchantReference: call.merchantReference
             )
         }
     }
@@ -148,7 +148,7 @@ final class EcrCallHandler {
                 receiptNumber: receiptNumber,
                 transactionDate: call.transactionDate,
                 originalTerminalId: call.originalTerminalId,
-                merchantReferenceId: call.merchantReferenceId
+                merchantReference: call.merchantReference
             )
         }
     }
@@ -160,7 +160,7 @@ final class EcrCallHandler {
                 receiptNumber: receiptNumber,
                 transactionDate: call.transactionDate,
                 originalTerminalId: call.originalTerminalId,
-                merchantReferenceId: call.merchantReferenceId
+                merchantReference: call.merchantReference
             )
         }
     }
@@ -172,7 +172,7 @@ final class EcrCallHandler {
                 originalReference,
                 transactionDate: call.transactionDate,
                 originalTerminalId: call.originalTerminalId,
-                merchantReferenceId: call.merchantReferenceId
+                merchantReference: call.merchantReference
             )
         }
     }
@@ -184,7 +184,7 @@ final class EcrCallHandler {
                 receiptNumber: receiptNumber,
                 transactionDate: call.transactionDate,
                 originalTerminalId: call.originalTerminalId,
-                merchantReferenceId: call.merchantReferenceId
+                merchantReference: call.merchantReference
             )
         }
     }
@@ -197,13 +197,11 @@ final class EcrCallHandler {
         _ encode: @escaping (T) -> [String: Any],
         _ block: @escaping (EcrTerminalPort) throws -> T
     ) throws {
-        guard call.isIpTransport else {
+        guard call.isSupportedTransport else {
             reply.success(
                 EcrMapping.failedResult(
                     kind: EcrFailureKinds.unsupported,
-                    message: "A terminal opens its ECR listener only for the IP transports "
-                        + "(ethernet, wifi). \"\(call.transport)\" is driven by other machinery, "
-                        + "so nothing was sent."
+                    message: unsupportedTransportMessage(call.transport)
                 )
             )
             return
@@ -242,7 +240,7 @@ final class EcrCallHandler {
         let transport: String
         let transactionDate: String
         let originalTerminalId: String
-        let merchantReferenceId: String
+        let merchantReference: String
 
         private let raw: [String: Any]
         private let config: EcrConfig
@@ -253,19 +251,23 @@ final class EcrCallHandler {
             }
             raw = arguments
             operationId = try requireString(arguments, EcrArgs.operationId)
-            host = try requireString(arguments, EcrArgs.host)
-            serialNumber = arguments[EcrArgs.serialNumber] as? String ?? ""
             transport = arguments[EcrArgs.transport] as? String ?? EcrTransports.wifi
+            host = transport == EcrTransports.webService
+                ? (arguments[EcrArgs.host] as? String ?? "")
+                : try requireString(arguments, EcrArgs.host)
+            serialNumber = arguments[EcrArgs.serialNumber] as? String ?? ""
             transactionDate = arguments[EcrArgs.transactionDate] as? String ?? ""
             originalTerminalId = arguments[EcrArgs.originalTerminalId] as? String ?? ""
-            merchantReferenceId = arguments[EcrArgs.merchantReferenceId] as? String ?? ""
+            merchantReference = arguments[EcrArgs.merchantReference] as? String ?? ""
             config = EcrMapping.config(arguments[EcrArgs.config] as? [String: Any])
         }
 
         var isIpTransport: Bool { EcrTransports.isIpTransport(transport) }
 
+        var isSupportedTransport: Bool { EcrTransports.isSupportedTransport(transport) }
+
         func terminal(_ factory: EcrTerminalFactory) -> EcrTerminalPort {
-            factory(host, serialNumber, config)
+            factory(host, serialNumber, transport, config)
         }
 
         func requiredAmount() throws -> Decimal {

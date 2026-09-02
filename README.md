@@ -38,7 +38,7 @@ on a lost connection, not on a host error. Neither should you:
 ```dart
 final EcrResult result = await terminal.sale(
   amount,
-  merchantReferenceId: order.number,   // your own name for this sale
+  merchantReference: order.number,   // your own name for this sale
 );
 
 if (result.outcomeIsUnknown) {
@@ -170,11 +170,11 @@ the default read timeout is 120 seconds for that reason.
 | `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day |
 | `isReachable()` | Whether the port is open. | — |
 
-Every money-moving call also takes `merchantReferenceId`: your own name for the
+Every money-moving call also takes `merchantReference`: your own name for the
 transaction — an order number, a basket id. Pass it and the same string
 identifies the sale in your books, in the terminal's records and in any later
 lookup. Leave it out and one is generated; either way it comes back on
-`EcrResult.merchantReferenceId`, and it is the only handle you hold before the
+`EcrResult.merchantReference`, and it is the only handle you hold before the
 terminal answers.
 
 Every one of them has a `start…` twin — `startSale`, `startRefund`, … — that
@@ -328,9 +328,9 @@ shop floor.
 `example/` is a direct port of the Android example in `app/`: the same two
 screens, the same settings, the same order of checks, the same dialogs.
 
-- **Terminals** — register the terminals this till drives: name, serial number,
-  IP address, port. Exactly the four fields the Android app stores, validated
-  the same way, kept between launches.
+- **Terminals** — register POS terminals by ECR mode (Wi‑Fi/Ethernet or Web
+  Service), with separate LAN and Web Service signing keys and environment
+  (SIT/UAT/PROD), matching the Android simulator app.
 - **Transaction** — type, amount, receipt number, the original's date, and which
   terminal. It probes the terminal before it sends anything, then shows the
   outcome in the same dialogs.
@@ -345,6 +345,27 @@ them, because the Android example does not — see
 cd example
 flutter run
 ```
+
+**Android build fails with `25.0.2`?** Flutter is using JDK 25 from Android Studio,
+which Android Gradle Plugin does not support yet. Use JDK 17:
+
+```bash
+flutter config --jdk-dir="$(/usr/libexec/java_home -v 17)"
+```
+
+Then run `flutter run` again. Alternatively, uncomment `org.gradle.java.home` in
+`example/android/gradle.properties` and point it at your JDK 17 install.
+
+**Using the local `ecr_sdk` checkout on Android?** The plugin reads
+`android/gradle.properties`:
+
+| `ecrSdkDependency` | Use when |
+|---|---|
+| `jar` (default in this repo) | Sibling `ecr_sdk` checkout — build once: `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
+| `project` | Live Gradle module — also set `ecrSdkDependency=project` in `example/android/gradle.properties` |
+| `maven` | Published `com.amwal-pay:ecr-sdk` from Maven Central |
+
+Paths assume `amwal-ecr-flutter` and `ecr_sdk` sit under the same parent directory.
 
 Without hardware, run the stand-in listener that ships with the reference
 implementation and point the app at the machine running it:

@@ -20,7 +20,7 @@ final class EcrRequest {
     this.receiptNumber = '',
     this.transactionDate = '',
     this.originalTerminalId = '',
-    this.merchantReferenceId = '',
+    this.merchantReference = '',
     this.originalMerchantReference = '',
   });
 
@@ -60,7 +60,7 @@ final class EcrRequest {
   /// Empty has the native SDK generate one, which comes back on the result — so
   /// a caller that does not number its own orders still gets a handle it can
   /// inquire by later.
-  final String merchantReferenceId;
+  final String merchantReference;
 
   /// The reference an *earlier* transaction was sent with, for a lookup by
   /// reference. Empty for every other call.
@@ -86,12 +86,15 @@ final class EcrRequest {
           EcrConfigKeys.probeTimeoutMs: config.probeTimeout.inMilliseconds,
           EcrConfigKeys.secureHashKey: config.secureHashKey,
           EcrConfigKeys.autoInquireOnFailure: config.autoInquireOnFailure,
+          EcrConfigKeys.merchantId: config.merchantId,
+          EcrConfigKeys.terminalId: config.terminalId,
+          EcrConfigKeys.environment: config.environment.wireName,
         },
         EcrArgs.amount: amount?.toWireString(),
         EcrArgs.receiptNumber: receiptNumber,
         EcrArgs.transactionDate: transactionDate,
         EcrArgs.originalTerminalId: originalTerminalId,
-        EcrArgs.merchantReferenceId: merchantReferenceId,
+        EcrArgs.merchantReference: merchantReference,
         EcrArgs.originalMerchantReference: originalMerchantReference,
       };
 

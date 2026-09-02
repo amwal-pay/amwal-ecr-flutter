@@ -34,6 +34,7 @@ dependencies:
   # The plugin under test, by path: the example is how it is exercised, so it
   # must always build against the working tree rather than a published version.
   amwal_ecr:
+    path: ../
 
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
@@ -65,6 +66,12 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  config:
+    # Path dependency folder (amwal-ecr-flutter) differs from the Dart package
+    # name (amwal_ecr), which breaks SwiftPM identity resolution locally.
+    # CocoaPods remains fully supported via the plugin podspec.
+    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

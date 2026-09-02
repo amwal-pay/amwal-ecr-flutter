@@ -24,7 +24,7 @@ import 'ecr_transaction.dart';
 /// ```
 sealed class EcrResult {
   /// Every outcome names the reference the transaction was sent with.
-  const EcrResult({required this.merchantReferenceId});
+  const EcrResult({required this.merchantReference});
 
   /// The reference the transaction was sent with, so a caller can match the
   /// outcome both to what it sent and to its own record of the sale.
@@ -35,14 +35,14 @@ sealed class EcrResult {
   /// afterwards, and the only handle a till holds when an answer goes missing.
   ///
   /// Empty only when the request never left this device.
-  final String merchantReferenceId;
+  final String merchantReference;
 
   /// Whether the financial outcome is unknown.
   ///
   /// `true` for every [EcrFailed] whose failure leaves it open, and for a
   /// decline carrying response code `91`. A till must not retry while this is
   /// `true` — look the transaction up with
-  /// `EcrTerminal.inquireByReference([merchantReferenceId])` and act on that.
+  /// `EcrTerminal.inquireByReference([merchantReference])` and act on that.
   bool get outcomeIsUnknown;
 
   /// What the terminal says to do about this outcome.
@@ -58,7 +58,7 @@ sealed class EcrResult {
 final class EcrApproved extends EcrResult {
   /// Carries what the terminal reported about the money it took.
   const EcrApproved({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.amount,
     required this.responseCode,
     required this.rrn,
@@ -118,7 +118,7 @@ final class EcrApproved extends EcrResult {
 
   @override
   String toString() =>
-      'EcrApproved(merchantReferenceId: $merchantReferenceId, amount: $amount, '
+      'EcrApproved(merchantReference: $merchantReference, amount: $amount, '
       'rrn: $rrn, partialApproval: $partialApproval)';
 }
 
@@ -126,7 +126,7 @@ final class EcrApproved extends EcrResult {
 final class EcrDeclined extends EcrResult {
   /// Carries the terminal's refusal and the words that came with it.
   const EcrDeclined({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.responseCode,
     required this.reason,
     required this.raw,
@@ -186,7 +186,7 @@ final class EcrDeclined extends EcrResult {
 
   @override
   String toString() =>
-      'EcrDeclined(merchantReferenceId: $merchantReferenceId, '
+      'EcrDeclined(merchantReference: $merchantReference, '
       'responseCode: $responseCode, reason: $reason)';
 }
 
@@ -194,7 +194,7 @@ final class EcrDeclined extends EcrResult {
 final class EcrFailed extends EcrResult {
   /// Carries why there was no answer, and whether money may have moved.
   const EcrFailed({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.failure,
     this.recovered,
   });
@@ -206,7 +206,7 @@ final class EcrFailed extends EcrResult {
   /// asked.
   ///
   /// The native SDK follows a lost exchange with an inquiry by
-  /// [merchantReferenceId] — see `EcrConfig.autoInquireOnFailure` — because that
+  /// [merchantReference] — see `EcrConfig.autoInquireOnFailure` — because that
   /// is the only way to learn an outcome whose answer never arrived, and the
   /// thing a till reaches for instead is sending the sale again.
   ///
@@ -243,6 +243,6 @@ final class EcrFailed extends EcrResult {
 
   @override
   String toString() =>
-      'EcrFailed(merchantReferenceId: $merchantReferenceId, '
+      'EcrFailed(merchantReference: $merchantReference, '
       'failure: $failure, settled: $settled)';
 }

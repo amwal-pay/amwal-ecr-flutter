@@ -11,11 +11,11 @@ import 'ecr_transaction.dart';
 /// inquiry is how to find out, instead of retrying and risking a second charge.
 sealed class EcrInquiry {
   /// Every inquiry outcome names the reference it was sent with.
-  const EcrInquiry({required this.merchantReferenceId});
+  const EcrInquiry({required this.merchantReference});
 
   /// The reference this request was sent with, so a caller can match the
-  /// answer to what it asked. See `EcrResult.merchantReferenceId`.
-  final String merchantReferenceId;
+  /// answer to what it asked. See `EcrResult.merchantReference`.
+  final String merchantReference;
 }
 
 /// The transaction was found. What became of it is
@@ -23,7 +23,7 @@ sealed class EcrInquiry {
 final class EcrInquiryFound extends EcrInquiry {
   /// Carries the backend's own record of the transaction.
   const EcrInquiryFound({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.transaction,
     required this.raw,
   });
@@ -46,7 +46,7 @@ final class EcrInquiryFound extends EcrInquiry {
 final class EcrInquiryNotFound extends EcrInquiry {
   /// Carries whatever the backend said about the lookup.
   const EcrInquiryNotFound({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.reason,
     required this.raw,
   });
@@ -66,7 +66,7 @@ final class EcrInquiryNotFound extends EcrInquiry {
 /// Unlike a failed sale this is harmless to retry: an inquiry changes nothing.
 final class EcrInquiryFailed extends EcrInquiry {
   /// Carries why the lookup could not be made.
-  const EcrInquiryFailed({required super.merchantReferenceId, required this.failure});
+  const EcrInquiryFailed({required super.merchantReference, required this.failure});
 
   /// Why there was no answer. Safe to retry whatever it says.
   final EcrFailure failure;

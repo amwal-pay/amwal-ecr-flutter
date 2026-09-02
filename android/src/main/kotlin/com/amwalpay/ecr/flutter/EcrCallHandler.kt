@@ -94,13 +94,13 @@ internal class EcrCallHandler(
 
     private fun sale(call: Call, reply: EcrReply) {
         val amount = call.requiredAmount()
-        call.run(reply, EcrMapping::result) { it.sale(amount, call.merchantReferenceId) }
+        call.run(reply, EcrMapping::result) { it.sale(amount, call.merchantReference) }
     }
 
     private fun voidTransaction(call: Call, reply: EcrReply) {
         val receiptNumber = call.requiredReceiptNumber("A void")
         call.run(reply, EcrMapping::result) {
-            it.void(receiptNumber, call.originalTerminalId, call.merchantReferenceId)
+            it.void(receiptNumber, call.originalTerminalId, call.merchantReference)
         }
     }
 
@@ -113,7 +113,7 @@ internal class EcrCallHandler(
                 receiptNumber,
                 call.transactionDate,
                 call.originalTerminalId,
-                call.merchantReferenceId,
+                call.merchantReference,
             )
         }
     }
@@ -125,7 +125,7 @@ internal class EcrCallHandler(
                 receiptNumber,
                 call.transactionDate,
                 call.originalTerminalId,
-                call.merchantReferenceId,
+                call.merchantReference,
             )
         }
     }
@@ -137,19 +137,28 @@ internal class EcrCallHandler(
                 originalReference,
                 call.transactionDate,
                 call.originalTerminalId,
-                call.merchantReferenceId,
+                call.merchantReference,
             )
         }
     }
 
     private fun receipt(call: Call, reply: EcrReply) {
+        if (!call.isIpTransport) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Receipt fetch is only supported over Wi‑Fi / Ethernet ECR",
+                ),
+            )
+            return
+        }
         val receiptNumber = call.requiredReceiptNumber("A receipt")
         call.run(reply, EcrMapping::receipt) {
             it.receipt(
                 receiptNumber,
                 call.transactionDate,
                 call.originalTerminalId,
-                call.merchantReferenceId,
+                call.merchantReference,
             )
         }
     }
@@ -163,13 +172,11 @@ internal class EcrCallHandler(
         encode: (T) -> Map<String, Any?>,
         block: suspend (EcrTerminalPort) -> T,
     ) {
-        if (!isIpTransport) {
+        if (!isSupportedTransport) {
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
-                    "A terminal opens its ECR listener only for the IP transports " +
-                        "(ethernet, wifi). \"$transport\" is driven by other machinery, " +
-                        "so nothing was sent.",
+                    unsupportedTransportMessage(transport),
                 ),
             )
             return
@@ -251,19 +258,26 @@ internal class EcrCallHandler(
             ?: throw EcrInvalidArgument("The call carried no arguments")
 
         val operationId: String = map.requireString(EcrArgs.OPERATION_ID)
-        val host: String = map.requireString(EcrArgs.HOST)
-        val serialNumber: String = map[EcrArgs.SERIAL_NUMBER] as? String ?: ""
         val transport: String = map[EcrArgs.TRANSPORT] as? String ?: EcrTransports.WIFI
+        val host: String = when (transport) {
+            EcrTransports.WEB_SERVICE -> map[EcrArgs.HOST] as? String ?: ""
+            else -> map.requireString(EcrArgs.HOST)
+        }
+        val serialNumber: String = map[EcrArgs.SERIAL_NUMBER] as? String ?: ""
         val transactionDate: String = map[EcrArgs.TRANSACTION_DATE] as? String ?: ""
         val originalTerminalId: String = map[EcrArgs.ORIGINAL_TERMINAL_ID] as? String ?: ""
-        val merchantReferenceId: String = map[EcrArgs.MERCHANT_REFERENCE_ID] as? String ?: ""
+        val merchantReference: String = map[EcrArgs.MERCHANT_REFERENCE] as? String ?: ""
 
         val isIpTransport: Boolean get() = EcrTransports.isIpTransport(transport)
 
-        private val config = EcrMapping.config(map[EcrArgs.CONFIG] as? Map<*, *>)
+        val isSupportedTransport: Boolean get() = EcrTransports.isSupportedTransport(transport)
+
+        val isWebServiceTransport: Boolean get() = transport == EcrTransports.WEB_SERVICE
+
+        val config = EcrMapping.config(map[EcrArgs.CONFIG] as? Map<*, *>)
 
         fun terminal(factory: EcrTerminalFactory): EcrTerminalPort =
-            factory.create(host, serialNumber, config)
+            factory.create(host, serialNumber, transport, config)
 
         fun requiredAmount(): BigDecimal = EcrMapping.amount(map[EcrArgs.AMOUNT])
             ?: throw EcrInvalidArgument("This operation needs an amount")
@@ -287,6 +301,11 @@ internal class EcrCallHandler(
         }
     }
 }
+
+private fun unsupportedTransportMessage(transport: String): String =
+    "A terminal opens its ECR listener only for the IP transports " +
+        "(ethernet, wifi) or Web Service REST. \"$transport\" is driven by " +
+        "other machinery, so nothing was sent."
 
 private fun Map<*, *>?.requireString(key: String): String {
     val value = this?.get(key) as? String

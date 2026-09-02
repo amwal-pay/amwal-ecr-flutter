@@ -106,7 +106,7 @@ final class FakeEcrHost {
 
 /// The map an approved sale comes back as.
 Map<String, Object?> approvedPayload({
-  String merchantReferenceId = 'A1B2C3D4E5F6',
+  String merchantReference = 'A1B2C3D4E5F6',
   String amount = '1.234',
   String responseCode = '00',
   bool partialApproval = false,
@@ -114,7 +114,7 @@ Map<String, Object?> approvedPayload({
 }) =>
     <String, Object?>{
       EcrResultKeys.outcome: EcrOutcomes.approved,
-      EcrResultKeys.merchantReferenceId: merchantReferenceId,
+      EcrResultKeys.merchantReference: merchantReference,
       EcrResultKeys.amount: amount,
       EcrResultKeys.responseCode: responseCode,
       EcrResultKeys.rrn: '622113155340',
@@ -127,13 +127,13 @@ Map<String, Object?> approvedPayload({
 
 /// The map a decline comes back as.
 Map<String, Object?> declinedPayload({
-  String merchantReferenceId = 'A1B2C3D4E5F6',
+  String merchantReference = 'A1B2C3D4E5F6',
   String responseCode = '51',
   String reason = 'Insufficient funds',
 }) =>
     <String, Object?>{
       EcrResultKeys.outcome: EcrOutcomes.declined,
-      EcrResultKeys.merchantReferenceId: merchantReferenceId,
+      EcrResultKeys.merchantReference: merchantReference,
       EcrResultKeys.responseCode: responseCode,
       EcrResultKeys.responseMessage: reason,
       EcrResultKeys.raw: '{"approved":false}',
@@ -141,13 +141,13 @@ Map<String, Object?> declinedPayload({
 
 /// The map a failure comes back as.
 Map<String, Object?> failedPayload({
-  String merchantReferenceId = 'A1B2C3D4E5F6',
+  String merchantReference = 'A1B2C3D4E5F6',
   String kind = EcrFailureKinds.timeout,
   String message = 'The terminal did not answer',
 }) =>
     <String, Object?>{
       EcrResultKeys.outcome: EcrOutcomes.failed,
-      EcrResultKeys.merchantReferenceId: merchantReferenceId,
+      EcrResultKeys.merchantReference: merchantReference,
       EcrResultKeys.failure: <String, Object?>{
         EcrFailureKeys.kind: kind,
         EcrFailureKeys.message: message,

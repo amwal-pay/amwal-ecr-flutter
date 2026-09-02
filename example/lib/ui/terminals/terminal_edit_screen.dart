@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/ecr_mode.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 
-/// Adds a terminal, or edits the one whose serial number was passed in.
-///
-/// Mirrors `TerminalEditScreen.kt`: the same four fields, the same validation,
-/// the same refusal on a duplicate serial number.
 class TerminalEditScreen extends StatefulWidget {
   const TerminalEditScreen({
     super.key,
@@ -16,8 +13,6 @@ class TerminalEditScreen extends StatefulWidget {
   });
 
   final TerminalRepository repository;
-
-  /// The terminal being edited, or null when adding one.
   final Terminal? original;
 
   @override
@@ -29,11 +24,20 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
       TextEditingController(text: widget.original?.name ?? '');
   late final TextEditingController _serial =
       TextEditingController(text: widget.original?.serialNumber ?? '');
+  late EcrMode _mode = widget.original?.mode ?? EcrMode.defaultMode;
   late final TextEditingController _ip =
       TextEditingController(text: widget.original?.ipAddress ?? '');
   late final TextEditingController _port = TextEditingController(
-    text: (widget.original?.port ?? 0) > 0 ? '${widget.original!.port}' : '',
+    text: (widget.original?.port ?? 0) > 0
+        ? '${widget.original!.port}'
+        : widget.original == null
+            ? '9100'
+            : '',
   );
+  late final TextEditingController _merchantId =
+      TextEditingController(text: widget.original?.merchantId ?? '');
+  late final TextEditingController _terminalId =
+      TextEditingController(text: widget.original?.terminalId ?? '');
 
   _TerminalErrors _errors = const _TerminalErrors();
   String? _saveError;
@@ -44,18 +48,15 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
     _serial.dispose();
     _ip.dispose();
     _port.dispose();
+    _merchantId.dispose();
+    _terminalId.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     setState(() => _saveError = null);
 
-    final _TerminalErrors validated = _validate(
-      _name.text,
-      _serial.text,
-      _ip.text,
-      _port.text,
-    );
+    final _TerminalErrors validated = _validate();
     setState(() => _errors = validated);
     if (validated.any) return;
 
@@ -63,8 +64,11 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
       Terminal(
         serialNumber: _serial.text.trim(),
         name: _name.text.trim(),
+        ecrMode: _mode.value,
         ipAddress: _ip.text.trim(),
-        port: int.parse(_port.text.trim()),
+        port: int.tryParse(_port.text.trim()) ?? 0,
+        merchantId: _merchantId.text.trim(),
+        terminalId: _terminalId.text.trim(),
       ),
       originalSerial: widget.original?.serialNumber,
     );
@@ -104,26 +108,67 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
               error: _errors.serial ?? _saveError,
               capitalization: TextCapitalization.characters,
             ),
-            _Field(
-              fieldKey: const Key('ipAddress'),
-              controller: _ip,
-              label: 'IP address',
-              error: _errors.ip,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              formatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-              ],
+            Text('ECR mode', style: Theme.of(context).textTheme.titleSmall),
+            ...EcrMode.values.map(
+              (EcrMode option) => RadioListTile<EcrMode>(
+                key: Key('mode-${option.name}'),
+                value: option,
+                groupValue: _mode,
+                onChanged: (EcrMode? value) {
+                  if (value != null) setState(() => _mode = value);
+                },
+                title: Text(option.label),
+                subtitle: option == EcrMode.bluetooth
+                    ? const Text('Not supported in this simulator')
+                    : null,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
-            _Field(
-              fieldKey: const Key('port'),
-              controller: _port,
-              label: 'Port',
-              error: _errors.port,
-              keyboardType: TextInputType.number,
-              formatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-            ),
+            if (_mode.isIpBased) ...<Widget>[
+              _Field(
+                fieldKey: const Key('ipAddress'),
+                controller: _ip,
+                label: 'IP address',
+                error: _errors.ip,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                formatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                ],
+              ),
+              _Field(
+                fieldKey: const Key('port'),
+                controller: _port,
+                label: 'Port',
+                error: _errors.port,
+                keyboardType: TextInputType.number,
+                formatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+              ),
+            ],
+            if (_mode == EcrMode.webService) ...<Widget>[
+              _Field(
+                fieldKey: const Key('merchantId'),
+                controller: _merchantId,
+                label: 'Merchant ID',
+                error: _errors.merchantId,
+                keyboardType: TextInputType.number,
+                formatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+              ),
+              _Field(
+                fieldKey: const Key('terminalId'),
+                controller: _terminalId,
+                label: 'Terminal ID',
+                error: _errors.terminalId,
+                keyboardType: TextInputType.number,
+                formatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               height: 52,
@@ -136,6 +181,49 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  _TerminalErrors _validate() {
+    final int? portNumber = int.tryParse(_port.text.trim());
+    return _TerminalErrors(
+      name: _name.text.trim().isEmpty ? 'Enter a terminal name' : null,
+      serial:
+          _serial.text.trim().isEmpty ? 'Enter the terminal serial number' : null,
+      ip: switch (_mode.isIpBased) {
+        false => null,
+        true => switch (_ip.text.trim()) {
+            '' => 'Enter the terminal IP address',
+            final String value when !_ipv4.hasMatch(value) =>
+              'Enter a valid IPv4 address, for example 192.168.1.50',
+            _ => null,
+          },
+      },
+      port: switch (_mode.isIpBased) {
+        false => null,
+        true => switch (portNumber) {
+            null => 'Enter the communication port',
+            final int value when value < 1 || value > 65535 =>
+              'Port must be between 1 and 65535',
+            _ => null,
+          },
+      },
+      merchantId: switch (_mode) {
+        EcrMode.webService when _merchantId.text.trim().isEmpty =>
+          'Enter the merchant ID',
+        EcrMode.webService
+            when int.tryParse(_merchantId.text.trim()) == null =>
+          'Merchant ID must be numeric',
+        _ => null,
+      },
+      terminalId: switch (_mode) {
+        EcrMode.webService when _terminalId.text.trim().isEmpty =>
+          'Enter the terminal ID',
+        EcrMode.webService
+            when int.tryParse(_terminalId.text.trim()) == null =>
+          'Terminal ID must be numeric',
+        _ => null,
+      },
     );
   }
 }
@@ -180,37 +268,31 @@ class _Field extends StatelessWidget {
 }
 
 class _TerminalErrors {
-  const _TerminalErrors({this.name, this.serial, this.ip, this.port});
+  const _TerminalErrors({
+    this.name,
+    this.serial,
+    this.ip,
+    this.port,
+    this.merchantId,
+    this.terminalId,
+  });
 
   final String? name;
   final String? serial;
   final String? ip;
   final String? port;
+  final String? merchantId;
+  final String? terminalId;
 
-  bool get any => name != null || serial != null || ip != null || port != null;
+  bool get any =>
+      name != null ||
+      serial != null ||
+      ip != null ||
+      port != null ||
+      merchantId != null ||
+      terminalId != null;
 }
 
-/// Dotted-quad, each octet 0-255.
 final RegExp _ipv4 = RegExp(
   r'^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$',
 );
-
-_TerminalErrors _validate(String name, String serial, String ip, String port) {
-  final int? portNumber = int.tryParse(port.trim());
-  return _TerminalErrors(
-    name: name.trim().isEmpty ? 'Enter a terminal name' : null,
-    serial: serial.trim().isEmpty ? 'Enter the terminal serial number' : null,
-    ip: switch (ip.trim()) {
-      '' => 'Enter the terminal IP address',
-      final String value when !_ipv4.hasMatch(value) =>
-        'Enter a valid IPv4 address, for example 192.168.1.50',
-      _ => null,
-    },
-    port: switch (portNumber) {
-      null => 'Enter the communication port',
-      final int value when value < 1 || value > 65535 =>
-        'Port must be between 1 and 65535',
-      _ => null,
-    },
-  );
-}

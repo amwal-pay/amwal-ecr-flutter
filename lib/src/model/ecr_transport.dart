@@ -32,6 +32,10 @@ enum EcrTransport {
   /// whether this SDK can drive it.
   final bool isIpTransport;
 
+  /// Whether this Flutter plugin can drive transactions over this transport.
+  bool get isSupportedByPlugin =>
+      isIpTransport || this == EcrTransport.webService;
+
   /// The transport for a TMS `ecrMode`, or `null` when the profile carries a
   /// value this version does not know.
   static EcrTransport? fromWireValue(int value) {

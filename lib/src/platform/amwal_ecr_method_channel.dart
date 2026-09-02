@@ -92,7 +92,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.inquiry(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrInquiryFailed(merchantReferenceId: '', failure: failure),
+            EcrInquiryFailed(merchantReference: '', failure: failure),
       );
 
   @override
@@ -102,7 +102,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.receipt(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrReceiptFailed(merchantReferenceId: '', failure: failure),
+            EcrReceiptFailed(merchantReference: '', failure: failure),
       );
 
   Future<EcrResult> _invokeResult(String method, EcrRequest request) =>
@@ -112,7 +112,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.result(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrFailed(merchantReferenceId: '', failure: failure),
+            EcrFailed(merchantReference: '', failure: failure),
       );
 
   @override

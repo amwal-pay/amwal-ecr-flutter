@@ -347,7 +347,7 @@ In unit tests, replace the platform rather than the network:
 final class FakeEcrPlatform extends AmwalEcrPlatform {
   @override
   Future<EcrResult> sale(EcrRequest request) async => const EcrFailed(
-        merchantReferenceId: '',
+        merchantReference: '',
         failure: EcrTimeout('no answer'),
       );
   // … the rest of the interface

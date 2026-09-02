@@ -81,6 +81,15 @@ enum EcrMapping {
            CFGetTypeID(auto) == CFBooleanGetTypeID() {
             config.autoInquireOnFailure = auto.boolValue
         }
+        if let merchantId = raw[EcrConfigKeys.merchantId] as? String {
+            config.merchantId = merchantId
+        }
+        if let terminalId = raw[EcrConfigKeys.terminalId] as? String {
+            config.terminalId = terminalId
+        }
+        if let environment = raw[EcrConfigKeys.environment] as? String {
+            config.environment = EcrEnvironment.fromName(environment)
+        }
         return config
     }
 
@@ -103,7 +112,7 @@ enum EcrMapping {
         case let .approved(approved):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.approved,
-                EcrResultKeys.merchantReferenceId: approved.merchantReferenceId,
+                EcrResultKeys.merchantReference: approved.merchantReference,
                 EcrResultKeys.amount: approved.amount,
                 EcrResultKeys.responseCode: approved.responseCode,
                 EcrResultKeys.rrn: approved.rrn,
@@ -117,7 +126,7 @@ enum EcrMapping {
         case let .declined(declined):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.declined,
-                EcrResultKeys.merchantReferenceId: declined.merchantReferenceId,
+                EcrResultKeys.merchantReference: declined.merchantReference,
                 EcrResultKeys.responseCode: declined.responseCode,
                 EcrResultKeys.reason: declined.reason,
                 EcrResultKeys.nextStep: declined.nextStep.channelName,
@@ -127,7 +136,7 @@ enum EcrMapping {
         case let .failed(reference, failure, recovered):
             var map: [String: Any] = [
                 EcrResultKeys.outcome: EcrOutcomes.failed,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.failure: self.failure(failure),
             ]
             // Left out rather than sent as null when nothing was asked: the Dart
@@ -145,7 +154,7 @@ enum EcrMapping {
         case let .found(reference, transaction, raw):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.found,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.transaction: self.transaction(transaction),
                 EcrResultKeys.raw: raw,
             ]
@@ -153,7 +162,7 @@ enum EcrMapping {
         case let .notFound(reference, reason, raw):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.notFound,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.reason: reason,
                 EcrResultKeys.raw: raw,
             ]
@@ -161,7 +170,7 @@ enum EcrMapping {
         case let .failed(reference, failure):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.failed,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.failure: self.failure(failure),
             ]
         }
@@ -172,7 +181,7 @@ enum EcrMapping {
         case let .ready(reference, url, raw):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.ready,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.url: url,
                 EcrResultKeys.raw: raw,
             ]
@@ -180,7 +189,7 @@ enum EcrMapping {
         case let .unavailable(reference, reason, raw):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.unavailable,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.reason: reason,
                 EcrResultKeys.raw: raw,
             ]
@@ -188,7 +197,7 @@ enum EcrMapping {
         case let .failed(reference, failure):
             return [
                 EcrResultKeys.outcome: EcrOutcomes.failed,
-                EcrResultKeys.merchantReferenceId: reference,
+                EcrResultKeys.merchantReference: reference,
                 EcrResultKeys.failure: self.failure(failure),
             ]
         }
@@ -213,6 +222,8 @@ enum EcrMapping {
             EcrTransactionKeys.isRefunded: transaction.isRefunded,
             EcrTransactionKeys.canVoid: transaction.canVoid,
             EcrTransactionKeys.canRefund: transaction.canRefund,
+            EcrTransactionKeys.partialApproval: transaction.partialApproval,
+            EcrTransactionKeys.authorizedAmount: transaction.authorizedAmount,
         ]
     }
 
@@ -235,7 +246,7 @@ enum EcrMapping {
     static func failedResult(kind: String, message: String) -> [String: Any] {
         [
             EcrResultKeys.outcome: EcrOutcomes.failed,
-            EcrResultKeys.merchantReferenceId: "",
+            EcrResultKeys.merchantReference: "",
             EcrResultKeys.failure: wrapperFailure(kind: kind, message: message),
         ]
     }

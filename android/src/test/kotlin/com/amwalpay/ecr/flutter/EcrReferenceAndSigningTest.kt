@@ -43,25 +43,25 @@ class EcrReferenceAndSigningTest {
 
         val calls = mutableListOf<String>()
         var config: EcrConfig? = null
-        var lastMerchantReferenceId: String? = null
+        var lastmerchantReference: String? = null
         var lastOriginalReference: String? = null
         var lastTransactionDate: String? = null
 
         override suspend fun isReachable(): Boolean = true
 
-        override suspend fun sale(amount: BigDecimal, merchantReferenceId: String): EcrResult {
+        override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult {
             calls += "sale"
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return result
         }
 
         override suspend fun void(
             receiptNumber: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrResult {
             calls += "void"
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return result
         }
 
@@ -70,10 +70,10 @@ class EcrReferenceAndSigningTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrResult {
             calls += "refund"
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return result
         }
 
@@ -81,10 +81,10 @@ class EcrReferenceAndSigningTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrInquiry {
             calls += "inquire"
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return inquiry
         }
 
@@ -92,12 +92,12 @@ class EcrReferenceAndSigningTest {
             originalReference: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrInquiry {
             calls += "inquireByReference"
             lastOriginalReference = originalReference
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return inquiry
         }
 
@@ -105,10 +105,10 @@ class EcrReferenceAndSigningTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrReceipt {
             calls += "receipt"
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             return EcrReceipt.Unavailable("REQ", "no", "{}")
         }
     }
@@ -127,7 +127,7 @@ class EcrReferenceAndSigningTest {
     }
 
     private fun args(
-        merchantReferenceId: String = "",
+        merchantReference: String = "",
         originalMerchantReference: String = "",
         transactionDate: String = "",
         secureHashKey: String = "",
@@ -152,12 +152,12 @@ class EcrReferenceAndSigningTest {
         EcrArgs.RECEIPT_NUMBER to "215",
         EcrArgs.TRANSACTION_DATE to transactionDate,
         EcrArgs.ORIGINAL_TERMINAL_ID to "",
-        EcrArgs.MERCHANT_REFERENCE_ID to merchantReferenceId,
+        EcrArgs.MERCHANT_REFERENCE to merchantReference,
         EcrArgs.ORIGINAL_MERCHANT_REFERENCE to originalMerchantReference,
     )
 
     private fun handlerFor(terminal: SpyTerminal, scope: TestScope): EcrCallHandler =
-        EcrCallHandler(scope) { _, _, config ->
+        EcrCallHandler(scope) { _, _, _, config ->
             terminal.config = config
             terminal
         }
@@ -220,7 +220,7 @@ class EcrReferenceAndSigningTest {
         runTest(UnconfinedTestDispatcher()) {
             val terminal = SpyTerminal(
                 result = EcrResult.Approved(
-                    merchantReferenceId = "ORDER-4471",
+                    merchantReference = "ORDER-4471",
                     amount = "1.234",
                     responseCode = "00",
                     rrn = "622113155340",
@@ -235,12 +235,12 @@ class EcrReferenceAndSigningTest {
 
             handlerFor(terminal, this).handle(
                 EcrMethods.SALE,
-                args(merchantReferenceId = "ORDER-4471"),
+                args(merchantReference = "ORDER-4471"),
                 reply,
             )
 
-            assertEquals("ORDER-4471", terminal.lastMerchantReferenceId)
-            assertEquals("ORDER-4471", reply.result()[EcrResultKeys.MERCHANT_REFERENCE_ID])
+            assertEquals("ORDER-4471", terminal.lastmerchantReference)
+            assertEquals("ORDER-4471", reply.result()[EcrResultKeys.MERCHANT_REFERENCE])
         }
 
     @Test
@@ -257,10 +257,10 @@ class EcrReferenceAndSigningTest {
             val terminal = SpyTerminal()
             handlerFor(terminal, this).handle(
                 method,
-                args(merchantReferenceId = "REF-1"),
+                args(merchantReference = "REF-1"),
                 Recorder(),
             )
-            assertEquals("REF-1", terminal.lastMerchantReferenceId, method)
+            assertEquals("REF-1", terminal.lastmerchantReference, method)
         }
     }
 
@@ -273,13 +273,13 @@ class EcrReferenceAndSigningTest {
 
             handlerFor(terminal, this).handle(
                 EcrMethods.INQUIRE_BY_REFERENCE,
-                args(merchantReferenceId = "LOOKUP-1", originalMerchantReference = "ORDER-4471"),
+                args(merchantReference = "LOOKUP-1", originalMerchantReference = "ORDER-4471"),
                 Recorder(),
             )
 
             assertEquals(listOf("inquireByReference"), terminal.calls)
             assertEquals("ORDER-4471", terminal.lastOriginalReference)
-            assertEquals("LOOKUP-1", terminal.lastMerchantReferenceId)
+            assertEquals("LOOKUP-1", terminal.lastmerchantReference)
         }
 
     @Test
@@ -301,7 +301,7 @@ class EcrReferenceAndSigningTest {
         runTest(UnconfinedTestDispatcher()) {
             val terminal = SpyTerminal(
                 result = EcrResult.Failed(
-                    merchantReferenceId = "ORDER-4471",
+                    merchantReference = "ORDER-4471",
                     failure = Failure.Timeout("no answer in 120s"),
                     recovered = EcrInquiry.Found("ORDER-4471", transaction("Approved"), "{}"),
                 ),
@@ -316,6 +316,8 @@ class EcrReferenceAndSigningTest {
             @Suppress("UNCHECKED_CAST")
             val found = recovered[EcrResultKeys.TRANSACTION] as Map<String, Any?>
             assertEquals("Approved", found[EcrTransactionKeys.STATUS])
+            assertEquals(false, found[EcrTransactionKeys.PARTIAL_APPROVAL])
+            assertEquals("", found[EcrTransactionKeys.AUTHORIZED_AMOUNT])
         }
 
     @Test
@@ -344,7 +346,7 @@ class EcrReferenceAndSigningTest {
         runTest(UnconfinedTestDispatcher()) {
             val terminal = SpyTerminal(
                 result = EcrResult.Declined(
-                    merchantReferenceId = "ORDER-1",
+                    merchantReference = "ORDER-1",
                     responseCode = "05",
                     reason = "Do not honour",
                     nextStep = NextStep.INQUIRE_BY_MERCHANT_REFERENCE,
@@ -366,7 +368,7 @@ class EcrReferenceAndSigningTest {
         runTest(UnconfinedTestDispatcher()) {
             val terminal = SpyTerminal(
                 result = EcrResult.Declined(
-                    merchantReferenceId = "ORDER-1",
+                    merchantReference = "ORDER-1",
                     responseCode = "51",
                     reason = "Insufficient funds",
                     nextStep = NextStep.NONE,
@@ -379,6 +381,26 @@ class EcrReferenceAndSigningTest {
 
             assertEquals(EcrNextSteps.NONE, reply.result()[EcrResultKeys.NEXT_STEP])
             assertFalse(reply.errors.isNotEmpty())
+        }
+
+    @Test
+    fun `declined result carries raw JSON across the channel`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val raw = """{"success":false,"message":"Declined","errorList":["Insufficient funds"]}"""
+            val terminal = SpyTerminal(
+                result = EcrResult.Declined(
+                    merchantReference = "ORDER-1",
+                    responseCode = "51",
+                    reason = "Declined",
+                    nextStep = NextStep.NONE,
+                    raw = raw,
+                ),
+            )
+            val reply = Recorder()
+
+            handlerFor(terminal, this).handle(EcrMethods.SALE, args(), reply)
+
+            assertEquals(raw, reply.result()[EcrResultKeys.RAW])
         }
 
     private fun transaction(status: String) = EcrTransaction(
@@ -399,5 +421,30 @@ class EcrReferenceAndSigningTest {
         isRefunded = false,
         canVoid = true,
         canRefund = true,
+        partialApproval = false,
+        authorizedAmount = "",
     )
+
+    @Test
+    fun `inquiry transaction carries partial approval fields from the SDK`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = SpyTerminal(
+                inquiry = EcrInquiry.Found(
+                    merchantReference = "ORDER-1",
+                    transaction = transaction("Approved").copy(
+                        partialApproval = true,
+                        authorizedAmount = "1.000",
+                    ),
+                    raw = "{}",
+                ),
+            )
+            val reply = Recorder()
+
+            handlerFor(terminal, this).handle(EcrMethods.INQUIRE, args(), reply)
+
+            @Suppress("UNCHECKED_CAST")
+            val found = reply.result()[EcrResultKeys.TRANSACTION] as Map<String, Any?>
+            assertEquals(true, found[EcrTransactionKeys.PARTIAL_APPROVAL])
+            assertEquals("1.000", found[EcrTransactionKeys.AUTHORIZED_AMOUNT])
+        }
 }

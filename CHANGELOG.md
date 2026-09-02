@@ -11,7 +11,7 @@ Brings the package level with `com.amwal-pay:ecr-sdk` 1.0.4 and `AmwalECR` 0.2.0
 — the same three features on both platforms, over the same channel contract.
 
 **Breaking.** The protocol renamed the field that names a transaction, so
-`requestId` is `merchantReferenceId` everywhere: on `EcrResult`, `EcrInquiry`,
+`requestId` is `merchantReference` everywhere: on `EcrResult`, `EcrInquiry`,
 `EcrReceipt` and on the platform channel. Rename it at the call sites; the type
 is unchanged and it still arrives filled in whether or not you supply one. The
 channel contract changed too, so the Dart side and the native hosts must be
@@ -19,12 +19,12 @@ upgraded together — an old host does not lose a field, it stops being understo
 
 ### Added
 
-- **A reference the till chooses.** `merchantReferenceId` on `sale`,
+- **A reference the till chooses.** `merchantReference` on `sale`,
   `voidTransaction`, `refund`, `run`, `inquire` and `receipt` — an order number,
   a basket id, whatever already names the sale in your system. Pass it and the
   same string identifies the transaction in your books, in the terminal's records
   and in any later lookup; leave it out and the host generates one. Either way it
-  comes back on `EcrResult.merchantReferenceId`, and it is the only handle you
+  comes back on `EcrResult.merchantReference`, and it is the only handle you
   hold if the answer never arrives.
 - **`EcrTerminal.inquireByReference`.** The answer to an outcome you never
   received: looks a transaction up by the reference it was sent with, rather than
@@ -51,7 +51,7 @@ upgraded together — an old host does not lose a field, it stops being understo
 ### Changed
 
 - Config, arguments and results carry the new fields across the channel:
-  `secureHashKey`, `autoInquireOnFailure`, `merchantReferenceId`,
+  `secureHashKey`, `autoInquireOnFailure`, `merchantReference`,
   `originalMerchantReference`, `nextStep`, `recovered`, and the
   `unauthenticated` failure kind. The frozen contract test lists them all.
 - A reference the wire format cannot carry — over 32 characters, or containing a

@@ -11,18 +11,18 @@ import 'ecr_failure.dart';
 /// terminal is busy taking a payment.
 sealed class EcrReceipt {
   /// Every receipt outcome names the reference it was sent with.
-  const EcrReceipt({required this.merchantReferenceId});
+  const EcrReceipt({required this.merchantReference});
 
   /// The reference this request was sent with, so a caller can match the
-  /// answer to what it asked. See `EcrResult.merchantReferenceId`.
-  final String merchantReferenceId;
+  /// answer to what it asked. See `EcrResult.merchantReference`.
+  final String merchantReference;
 }
 
 /// The receipt is published. Put [url] in a QR code as it stands.
 final class EcrReceiptReady extends EcrReceipt {
   /// Carries the published URL.
   const EcrReceiptReady({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.url,
     required this.raw,
   });
@@ -47,7 +47,7 @@ final class EcrReceiptReady extends EcrReceipt {
 final class EcrReceiptUnavailable extends EcrReceipt {
   /// Carries whatever the backend said about the refusal.
   const EcrReceiptUnavailable({
-    required super.merchantReferenceId,
+    required super.merchantReference,
     required this.reason,
     required this.raw,
   });
@@ -65,7 +65,7 @@ final class EcrReceiptUnavailable extends EcrReceipt {
 /// The exchange itself failed. Safe to retry: nothing was changed.
 final class EcrReceiptFailed extends EcrReceipt {
   /// Carries why the receipt could not be asked for.
-  const EcrReceiptFailed({required super.merchantReferenceId, required this.failure});
+  const EcrReceiptFailed({required super.merchantReference, required this.failure});
 
   /// Why there was no answer. Safe to retry whatever it says.
   final EcrFailure failure;

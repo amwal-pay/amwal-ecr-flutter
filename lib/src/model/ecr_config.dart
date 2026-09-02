@@ -1,3 +1,4 @@
+import 'ecr_environment.dart';
 import 'ecr_errors.dart';
 
 /// How this till identifies itself and how it talks to a terminal.
@@ -17,6 +18,9 @@ final class EcrConfig {
     this.responseTimeout = const Duration(seconds: 120),
     this.probeTimeout = const Duration(seconds: 3),
     this.secureHashKey = '',
+    this.merchantId = '',
+    this.terminalId = '',
+    this.environment = EcrEnvironment.sit,
     this.autoInquireOnFailure = true,
   }) {
     if (minorUnitDigits < 0 || minorUnitDigits > 4) {
@@ -114,8 +118,20 @@ final class EcrConfig {
   /// not have the extra round trip on a failure.
   final bool autoInquireOnFailure;
 
+  /// Backend merchant ID — Web Service / Hub ECR.
+  final String merchantId;
+
+  /// Backend terminal ID — Web Service / Hub ECR.
+  final String terminalId;
+
+  /// Hub deployment (SIT, UAT, PROD) for Web Service ECR.
+  final EcrEnvironment environment;
+
   /// Whether this till signs what it sends.
   bool get signsMessages => secureHashKey.isNotEmpty;
+
+  /// Whether [key] is a valid signing secret (even-length hex, ≥16 chars).
+  static bool isValidSecureHashKey(String key) => _isValidSecret(key.trim());
 
   /// A copy with the named fields replaced.
   EcrConfig copyWith({
@@ -127,6 +143,9 @@ final class EcrConfig {
     Duration? responseTimeout,
     Duration? probeTimeout,
     String? secureHashKey,
+    String? merchantId,
+    String? terminalId,
+    EcrEnvironment? environment,
     bool? autoInquireOnFailure,
   }) {
     return EcrConfig(
@@ -138,6 +157,9 @@ final class EcrConfig {
       responseTimeout: responseTimeout ?? this.responseTimeout,
       probeTimeout: probeTimeout ?? this.probeTimeout,
       secureHashKey: secureHashKey ?? this.secureHashKey,
+      merchantId: merchantId ?? this.merchantId,
+      terminalId: terminalId ?? this.terminalId,
+      environment: environment ?? this.environment,
       autoInquireOnFailure: autoInquireOnFailure ?? this.autoInquireOnFailure,
     );
   }
@@ -158,6 +180,9 @@ final class EcrConfig {
       other.responseTimeout == responseTimeout &&
       other.probeTimeout == probeTimeout &&
       other.secureHashKey == secureHashKey &&
+      other.merchantId == merchantId &&
+      other.terminalId == terminalId &&
+      other.environment == environment &&
       other.autoInquireOnFailure == autoInquireOnFailure;
 
   @override
@@ -170,6 +195,9 @@ final class EcrConfig {
         responseTimeout,
         probeTimeout,
         secureHashKey,
+        merchantId,
+        terminalId,
+        environment,
         autoInquireOnFailure,
       );
 

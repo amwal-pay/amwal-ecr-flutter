@@ -1,6 +1,7 @@
 package com.amwalpay.ecr.flutter
 
 import com.amwalpay.ecr.EcrConfig
+import com.amwalpay.ecr.EcrEnvironment
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
@@ -48,6 +49,9 @@ internal object EcrMapping {
                 ?: defaults.secureHashKey,
             autoInquireOnFailure = map[EcrConfigKeys.AUTO_INQUIRE_ON_FAILURE] as? Boolean
                 ?: defaults.autoInquireOnFailure,
+            merchantId = map.string(EcrConfigKeys.MERCHANT_ID) ?: defaults.merchantId,
+            terminalId = map.string(EcrConfigKeys.TERMINAL_ID) ?: defaults.terminalId,
+            environment = EcrEnvironment.fromName(map.string(EcrConfigKeys.ENVIRONMENT)),
         )
     }
 
@@ -72,7 +76,7 @@ internal object EcrMapping {
     fun result(result: EcrResult): Map<String, Any?> = when (result) {
         is EcrResult.Approved -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.APPROVED,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to result.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to result.merchantReference,
             EcrResultKeys.AMOUNT to result.amount,
             EcrResultKeys.RESPONSE_CODE to result.responseCode,
             EcrResultKeys.RRN to result.rrn,
@@ -85,7 +89,7 @@ internal object EcrMapping {
 
         is EcrResult.Declined -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.DECLINED,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to result.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to result.merchantReference,
             EcrResultKeys.RESPONSE_CODE to result.responseCode,
             EcrResultKeys.REASON to result.reason,
             EcrResultKeys.NEXT_STEP to nextStep(result.nextStep),
@@ -94,7 +98,7 @@ internal object EcrMapping {
 
         is EcrResult.Failed -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to result.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to result.merchantReference,
             EcrResultKeys.FAILURE to failure(result.failure),
             // Absent rather than null when nothing was asked: the Dart side
             // reads absence as "no follow-up was made", which is not the same
@@ -106,21 +110,21 @@ internal object EcrMapping {
     fun inquiry(inquiry: EcrInquiry): Map<String, Any?> = when (inquiry) {
         is EcrInquiry.Found -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.FOUND,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to inquiry.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to inquiry.merchantReference,
             EcrResultKeys.TRANSACTION to transaction(inquiry.transaction),
             EcrResultKeys.RAW to inquiry.raw,
         )
 
         is EcrInquiry.NotFound -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.NOT_FOUND,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to inquiry.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to inquiry.merchantReference,
             EcrResultKeys.REASON to inquiry.reason,
             EcrResultKeys.RAW to inquiry.raw,
         )
 
         is EcrInquiry.Failed -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to inquiry.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to inquiry.merchantReference,
             EcrResultKeys.FAILURE to failure(inquiry.failure),
         )
     }
@@ -128,21 +132,21 @@ internal object EcrMapping {
     fun receipt(receipt: EcrReceipt): Map<String, Any?> = when (receipt) {
         is EcrReceipt.Ready -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.READY,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to receipt.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to receipt.merchantReference,
             EcrResultKeys.URL to receipt.url,
             EcrResultKeys.RAW to receipt.raw,
         )
 
         is EcrReceipt.Unavailable -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.UNAVAILABLE,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to receipt.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to receipt.merchantReference,
             EcrResultKeys.REASON to receipt.reason,
             EcrResultKeys.RAW to receipt.raw,
         )
 
         is EcrReceipt.Failed -> mapOf(
             EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
-            EcrResultKeys.MERCHANT_REFERENCE_ID to receipt.merchantReferenceId,
+            EcrResultKeys.MERCHANT_REFERENCE to receipt.merchantReference,
             EcrResultKeys.FAILURE to failure(receipt.failure),
         )
     }
@@ -165,6 +169,8 @@ internal object EcrMapping {
         EcrTransactionKeys.IS_REFUNDED to transaction.isRefunded,
         EcrTransactionKeys.CAN_VOID to transaction.canVoid,
         EcrTransactionKeys.CAN_REFUND to transaction.canRefund,
+        EcrTransactionKeys.PARTIAL_APPROVAL to transaction.partialApproval,
+        EcrTransactionKeys.AUTHORIZED_AMOUNT to transaction.authorizedAmount,
     )
 
     fun failure(failure: Failure): Map<String, Any?> = mapOf(
@@ -205,7 +211,7 @@ internal object EcrMapping {
      */
     fun failedResult(kind: String, message: String): Map<String, Any?> = mapOf(
         EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
-        EcrResultKeys.MERCHANT_REFERENCE_ID to "",
+        EcrResultKeys.MERCHANT_REFERENCE to "",
         EcrResultKeys.FAILURE to wrapperFailure(kind, message),
     )
 

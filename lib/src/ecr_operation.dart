@@ -25,7 +25,7 @@ final class EcrOperation<T extends Object> {
 
   /// The handle the host knows this call by.
   ///
-  /// Not the protocol's `merchantReferenceId` — that one names the transaction
+  /// Not the protocol's `merchantReference` — that one names the transaction
   /// to the terminal and arrives on the result. This one never leaves the
   /// device, and exists so a cancel can name a call that has not answered yet.
   final String operationId;

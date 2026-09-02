@@ -21,19 +21,19 @@ final class EcrReferenceAndSigningTests: XCTestCase {
     /// Answers what it is told to, and remembers what it was asked.
     private final class SpyTerminal: EcrTerminalPort {
         var result: EcrResult = .failed(
-            merchantReferenceId: "REQ",
+            merchantReference: "REQ",
             failure: .timeout("no answer"),
             recovered: nil
         )
         var inquiry: EcrInquiry = .notFound(
-            merchantReferenceId: "REQ",
+            merchantReference: "REQ",
             reason: "nothing",
             raw: "{}"
         )
 
         private(set) var calls: [String] = []
         var config: EcrConfig?
-        private(set) var lastMerchantReferenceId: String?
+        private(set) var lastMerchantReference: String?
         private(set) var lastOriginalReference: String?
         private(set) var lastTransactionDate: String?
 
@@ -41,19 +41,19 @@ final class EcrReferenceAndSigningTests: XCTestCase {
 
         func isReachable() -> Bool { true }
 
-        func sale(amount: Decimal, merchantReferenceId: String) throws -> EcrResult {
+        func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
             calls.append("sale")
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             return result
         }
 
         func void(
             receiptNumber: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrResult {
             calls.append("void")
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             return result
         }
 
@@ -62,10 +62,10 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrResult {
             calls.append("refund")
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             return result
         }
 
@@ -73,10 +73,10 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrInquiry {
             calls.append("inquire")
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             return inquiry
         }
 
@@ -84,12 +84,12 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             _ originalReference: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrInquiry {
             calls.append("inquireByReference")
             lastOriginalReference = originalReference
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             return inquiry
         }
 
@@ -97,11 +97,11 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrReceipt {
             calls.append("receipt")
-            lastMerchantReferenceId = merchantReferenceId
-            return .unavailable(merchantReferenceId: "REQ", reason: "no", raw: "{}")
+            lastMerchantReference = merchantReference
+            return .unavailable(merchantReference: "REQ", reason: "no", raw: "{}")
         }
 
         func cancel() {}
@@ -128,7 +128,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
     // MARK: - Helpers
 
     private func args(
-        merchantReferenceId: String = "",
+        merchantReference: String = "",
         originalMerchantReference: String = "",
         transactionDate: String = "",
         secureHashKey: String = "",
@@ -143,7 +143,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             EcrArgs.receiptNumber: "215",
             EcrArgs.transactionDate: transactionDate,
             EcrArgs.originalTerminalId: "",
-            EcrArgs.merchantReferenceId: merchantReferenceId,
+            EcrArgs.merchantReference: merchantReference,
             EcrArgs.originalMerchantReference: originalMerchantReference,
             EcrArgs.config: [
                 EcrConfigKeys.ecrId: "TILL7",
@@ -167,7 +167,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         terminal: SpyTerminal
     ) -> [String: Any] {
         let reply = Recorder()
-        let handler = EcrCallHandler { _, _, config in
+        let handler = EcrCallHandler { _, _, _, config in
             terminal.config = config
             return terminal
         }
@@ -205,7 +205,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         // refusal will retry, and the cardholder pays twice.
         let terminal = SpyTerminal()
         terminal.result = .failed(
-            merchantReferenceId: "ORDER-1",
+            merchantReference: "ORDER-1",
             failure: .unauthenticated("not signed with this terminal's key"),
             recovered: nil
         )
@@ -223,7 +223,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         let terminal = SpyTerminal()
         terminal.result = .approved(
             EcrApproved(
-                merchantReferenceId: "ORDER-4471",
+                merchantReference: "ORDER-4471",
                 amount: "1.234",
                 responseCode: "00",
                 rrn: "622113155340",
@@ -235,19 +235,19 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             )
         )
 
-        let map = call(EcrMethods.sale, args(merchantReferenceId: "ORDER-4471"),
+        let map = call(EcrMethods.sale, args(merchantReference: "ORDER-4471"),
                        terminal: terminal)
 
-        XCTAssertEqual("ORDER-4471", terminal.lastMerchantReferenceId)
-        XCTAssertEqual("ORDER-4471", map[EcrResultKeys.merchantReferenceId] as? String)
+        XCTAssertEqual("ORDER-4471", terminal.lastMerchantReference)
+        XCTAssertEqual("ORDER-4471", map[EcrResultKeys.merchantReference] as? String)
     }
 
     func testEveryOperationCarriesTheReference() {
         for method in [EcrMethods.sale, EcrMethods.void_, EcrMethods.refund,
                        EcrMethods.inquire, EcrMethods.receipt] {
             let terminal = SpyTerminal()
-            call(method, args(merchantReferenceId: "REF-1"), terminal: terminal)
-            XCTAssertEqual("REF-1", terminal.lastMerchantReferenceId, method)
+            call(method, args(merchantReference: "REF-1"), terminal: terminal)
+            XCTAssertEqual("REF-1", terminal.lastMerchantReference, method)
         }
     }
 
@@ -258,20 +258,20 @@ final class EcrReferenceAndSigningTests: XCTestCase {
 
         call(
             EcrMethods.inquireByReference,
-            args(merchantReferenceId: "LOOKUP-1", originalMerchantReference: "ORDER-4471"),
+            args(merchantReference: "LOOKUP-1", originalMerchantReference: "ORDER-4471"),
             terminal: terminal
         )
 
         XCTAssertEqual(["inquireByReference"], terminal.calls)
         XCTAssertEqual("ORDER-4471", terminal.lastOriginalReference)
-        XCTAssertEqual("LOOKUP-1", terminal.lastMerchantReferenceId)
+        XCTAssertEqual("LOOKUP-1", terminal.lastMerchantReference)
     }
 
     func testTheLookupIsRefusedWithoutTheReferenceItLooksUp() {
         let terminal = SpyTerminal()
         let reply = Recorder()
 
-        EcrCallHandler { _, _, _ in terminal }
+        EcrCallHandler { _, _, _, _ in terminal }
             .handle(method: EcrMethods.inquireByReference, arguments: args(), reply: reply)
         wait(for: [reply.answered], timeout: 2)
 
@@ -284,10 +284,10 @@ final class EcrReferenceAndSigningTests: XCTestCase {
     func testAFailureThatWasFollowedUpCarriesWhatItFound() {
         let terminal = SpyTerminal()
         terminal.result = .failed(
-            merchantReferenceId: "ORDER-4471",
+            merchantReference: "ORDER-4471",
             failure: .timeout("no answer in 120s"),
             recovered: .found(
-                merchantReferenceId: "ORDER-4471",
+                merchantReference: "ORDER-4471",
                 transaction: transaction(status: "Approved"),
                 raw: "{}"
             )
@@ -306,7 +306,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         // the same as "the follow-up found nothing".
         let terminal = SpyTerminal()
         terminal.result = .failed(
-            merchantReferenceId: "ORDER-4471",
+            merchantReference: "ORDER-4471",
             failure: .timeout("no answer"),
             recovered: nil
         )
@@ -322,7 +322,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         let terminal = SpyTerminal()
         terminal.result = .declined(
             EcrDeclined(
-                merchantReferenceId: "ORDER-1",
+                merchantReference: "ORDER-1",
                 responseCode: "05",
                 reason: "Do not honour",
                 nextStep: .inquireByMerchantReference,
@@ -342,7 +342,7 @@ final class EcrReferenceAndSigningTests: XCTestCase {
         let terminal = SpyTerminal()
         terminal.result = .declined(
             EcrDeclined(
-                merchantReferenceId: "ORDER-1",
+                merchantReference: "ORDER-1",
                 responseCode: "51",
                 reason: "Insufficient funds",
                 raw: "{}"
