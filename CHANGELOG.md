@@ -14,6 +14,9 @@ outcome *means* is breaking, however small the diff.
 - **`EcrSecureHashKeys` removed.** The plugin/SDK only accepts
   `EcrConfig.secureHashKey`. Apps persist secrets and assign the value for the
   selected terminal mode.
+- Unit-test placeholders renamed to match `ecr_sdk`: `SECURE_HASH_KEY_ECR_WIFI`,
+  `SECURE_HASH_KEY_ECR_WIFI_OTHER`, `SECURE_HASH_KEY_WEBSERVICE` on
+  `EcrTestConfigs` (`lan` / `lanOther` / `webService`).
 - **`EcrTerminal.probeReachability()` / `EcrReachability`.** Matches `ecr_sdk`
   and AmwalECR: the same probe as `isReachable()`, plus host, port, endpoint and
   the underlying error when the link fails. Channel method `probeReachability`;

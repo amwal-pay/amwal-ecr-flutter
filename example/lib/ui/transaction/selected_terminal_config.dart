@@ -101,13 +101,14 @@ class SelectedTerminalConfig {
         ? terminal.port
         : EcrConfig.defaultPort;
 
+    // Preserve EcrConfig defaults (including autoInquireOnFailure) — same as
+    // ecr_sdk app SelectedTerminalConfig.resolve.
     final EcrConfig config = EcrConfig(
       secureHashKey: sanitizedKey,
       merchantId: terminal.merchantId,
       terminalId: terminal.terminalId,
       environment: environment,
       port: port,
-      autoInquireOnFailure: !usesWebService,
     );
 
     final String summary = usesWebService

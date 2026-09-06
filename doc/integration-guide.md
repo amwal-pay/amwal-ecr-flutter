@@ -360,6 +360,11 @@ AmwalEcrPlatform.instance = FakeEcrPlatform();
 of its effort on is the one you cannot arrange on real hardware on demand: a
 payment whose outcome nobody knows.
 
+Shared signing placeholders for unit tests live in `EcrTestConfigs` (same names
+as `ecr_sdk`): `SECURE_HASH_KEY_ECR_WIFI`, `SECURE_HASH_KEY_ECR_WIFI_OTHER`, and
+`SECURE_HASH_KEY_WEBSERVICE` as `lan` / `lanOther` / `webService`. Never commit
+real Amwal keys.
+
 ---
 
 ## A checklist before going live

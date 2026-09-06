@@ -290,13 +290,19 @@ inquiry rather than a retry.
 ## Signing the link
 
 A terminal refuses what it cannot verify, so in practice a till needs the secret
-Amwal issues for it:
+Amwal issues for it. **The app owns persistence** and passes **one** value on
+`EcrConfig.secureHashKey` for the selected mode — LAN (Wi‑Fi / USB cable) and
+Web Service use different secrets, but the plugin only consumes the field you
+assign (see the example app's `secureHashKeyFor`):
 
 ```dart
-final EcrTerminal terminal = EcrTerminal(
+// App-owned: pick the stored secret for this terminal mode
+final String secret = settings.secureHashKeyFor(terminal.mode);
+
+final EcrTerminal ecr = EcrTerminal(
   host: '192.168.1.50',
   serialNumber: 'P653200085189',
-  config: EcrConfig(secureHashKey: secret),   // hex, from your key store
+  config: EcrConfig(secureHashKey: secret),
 );
 ```
 
@@ -390,6 +396,11 @@ cd example && flutter test      # the example app
 ./tool/run_swift_tests.sh       # the iOS bridge, no simulator needed
 cd example/android && ./gradlew :amwal_ecr:testDebugUnitTest   # the Android host
 ```
+
+Unit tests share signing placeholders via `EcrTestConfigs` (aligned with
+`ecr_sdk`): `SECURE_HASH_KEY_ECR_WIFI`, `SECURE_HASH_KEY_ECR_WIFI_OTHER`, and
+`SECURE_HASH_KEY_WEBSERVICE`, exposed as `lan` / `lanOther` / `webService`
+configs. Never commit real Amwal keys.
 
 The wire protocol is not tested here: it lives in the native SDKs, each with its
 own suite — [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) on iOS, `ecr-sdk` in the

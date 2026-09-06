@@ -91,11 +91,15 @@ final class EcrConfig {
 
   /// The secret this till shares with the terminal, as hex.
   ///
+  /// **The app owns persistence and chooses which secret to pass** for the
+  /// selected terminal mode (LAN vs Web Service use different secrets and
+  /// signing formats, but both are supplied through this single field).
+  /// LAN ECR signs sorted `key=value` pairs; Web Service ECR signs the JSON
+  /// request body with HMAC-SHA256 under the hex-decoded key.
+  ///
   /// Set it and every request is signed and every response is checked. Required
-  /// in practice: a terminal refuses everything it cannot verify, so a till
-  /// without the key is answered with a security violation and nothing else.
-  /// Amwal issues it per terminal — it is not a value to invent, and not one to
-  /// commit to a repository or to ship inside an app bundle.
+  /// in practice: a terminal refuses everything it cannot verify. Amwal issues
+  /// it per terminal — never invent it, and never commit it to source.
   ///
   /// An answer that cannot be shown to have come from the terminal is reported
   /// as [EcrUnauthenticated], which leaves the outcome unknown — never as a
