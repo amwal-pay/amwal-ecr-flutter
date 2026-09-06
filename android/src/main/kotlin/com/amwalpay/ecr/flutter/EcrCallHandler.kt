@@ -46,6 +46,7 @@ internal class EcrCallHandler(
             when (method) {
                 EcrMethods.CANCEL -> once.success(cancel(arguments.requireString(EcrArgs.OPERATION_ID)))
                 EcrMethods.IS_REACHABLE -> reachable(Call(arguments), once)
+                EcrMethods.PROBE_REACHABILITY -> probe(Call(arguments), once)
                 EcrMethods.SALE -> sale(Call(arguments), once)
                 EcrMethods.VOID -> voidTransaction(Call(arguments), once)
                 EcrMethods.REFUND -> refund(Call(arguments), once)
@@ -83,12 +84,33 @@ internal class EcrCallHandler(
         // A probe is not registered as cancellable: it is bounded by
         // probeTimeout, which is three seconds, and a cancel that arrives
         // inside that window has nothing useful to do.
-        if (!call.isIpTransport) {
+        if (!call.isIpTransport && !call.isUsbCable) {
             reply.success(false)
             return
         }
         scope.launch {
             reply.settle { call.terminal(terminals).isReachable() }
+        }
+    }
+
+    private fun probe(call: Call, reply: EcrReply) {
+        if (!call.isIpTransport && !call.isUsbCable) {
+            reply.success(
+                EcrMapping.reachability(
+                    com.amwalpay.ecr.EcrReachability(
+                        reachable = false,
+                        host = call.host,
+                        port = 0,
+                        endpoint = call.host.ifEmpty { call.transport },
+                    ),
+                ),
+            )
+            return
+        }
+        scope.launch {
+            reply.settle {
+                EcrMapping.reachability(call.terminal(terminals).probeReachability())
+            }
         }
     }
 
@@ -143,11 +165,11 @@ internal class EcrCallHandler(
     }
 
     private fun receipt(call: Call, reply: EcrReply) {
-        if (!call.isIpTransport) {
+        if (!call.supportsReceipt) {
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
-                    "Receipt fetch is only supported over Wi‑Fi / Ethernet ECR",
+                    "Receipt fetch is only supported over Wi‑Fi / USB cable ECR",
                 ),
             )
             return
@@ -259,8 +281,9 @@ internal class EcrCallHandler(
 
         val operationId: String = map.requireString(EcrArgs.OPERATION_ID)
         val transport: String = map[EcrArgs.TRANSPORT] as? String ?: EcrTransports.WIFI
-        val host: String = when (transport) {
-            EcrTransports.WEB_SERVICE -> map[EcrArgs.HOST] as? String ?: ""
+        val host: String = when {
+            EcrTransports.isWebService(transport) || EcrTransports.isUsbCable(transport) ->
+                map[EcrArgs.HOST] as? String ?: ""
             else -> map.requireString(EcrArgs.HOST)
         }
         val serialNumber: String = map[EcrArgs.SERIAL_NUMBER] as? String ?: ""
@@ -270,9 +293,13 @@ internal class EcrCallHandler(
 
         val isIpTransport: Boolean get() = EcrTransports.isIpTransport(transport)
 
+        val isUsbCable: Boolean get() = EcrTransports.isUsbCable(transport)
+
+        val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
+
         val isSupportedTransport: Boolean get() = EcrTransports.isSupportedTransport(transport)
 
-        val isWebServiceTransport: Boolean get() = transport == EcrTransports.WEB_SERVICE
+        val isWebServiceTransport: Boolean get() = EcrTransports.isWebService(transport)
 
         val config = EcrMapping.config(map[EcrArgs.CONFIG] as? Map<*, *>)
 
@@ -303,9 +330,8 @@ internal class EcrCallHandler(
 }
 
 private fun unsupportedTransportMessage(transport: String): String =
-    "A terminal opens its ECR listener only for the IP transports " +
-        "(ethernet, wifi) or Web Service REST. \"$transport\" is driven by " +
-        "other machinery, so nothing was sent."
+    "A terminal opens its ECR listener for Wi‑Fi, USB cable, or Web Service " +
+        "REST. \"$transport\" is driven by other machinery, so nothing was sent."
 
 private fun Map<*, *>?.requireString(key: String): String {
     val value = this?.get(key) as? String

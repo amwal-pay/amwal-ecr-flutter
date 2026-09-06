@@ -1,6 +1,7 @@
 package com.amwalpay.ecr.flutter
 
 import com.amwalpay.ecr.EcrInquiry
+import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
 import java.math.BigDecimal
@@ -14,6 +15,8 @@ import java.math.BigDecimal
 internal interface EcrTerminalPort {
 
     suspend fun isReachable(): Boolean
+
+    suspend fun probeReachability(): EcrReachability
 
     suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult
 

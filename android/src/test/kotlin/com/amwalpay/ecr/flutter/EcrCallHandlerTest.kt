@@ -58,6 +58,17 @@ class EcrCallHandlerTest {
             return reachable
         }
 
+        override suspend fun probeReachability(): com.amwalpay.ecr.EcrReachability {
+            calls += "probeReachability"
+            waitIfHeld()
+            return com.amwalpay.ecr.EcrReachability(
+                reachable = reachable,
+                host = "192.168.1.50",
+                port = 9100,
+                error = if (reachable) null else "Connection refused",
+            )
+        }
+
         override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult {
             calls += "sale"
             lastAmount = amount
@@ -361,6 +372,48 @@ class EcrCallHandlerTest {
 
             assertTrue(terminal.calls.isEmpty())
             assertEquals(false, reply.successes.single())
+        }
+
+    @Test
+    fun `probeReachability over a transport with no listener skips the terminal`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = FakeTerminal()
+            val reply = RecordingReply()
+
+            handlerFor(terminal, this).handle(
+                EcrMethods.PROBE_REACHABILITY,
+                args(transport = "bluetooth"),
+                reply,
+            )
+
+            assertTrue(terminal.calls.isEmpty())
+            @Suppress("UNCHECKED_CAST")
+            val map = reply.successes.single() as Map<String, Any?>
+            assertEquals(false, map[EcrReachabilityKeys.REACHABLE])
+            assertEquals("192.168.1.50", map[EcrReachabilityKeys.ENDPOINT])
+            assertEquals(0, map[EcrReachabilityKeys.PORT])
+        }
+
+    @Test
+    fun `probeReachability returns the SDK map when the terminal answers`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = FakeTerminal(reachable = false)
+            val reply = RecordingReply()
+
+            handlerFor(terminal, this).handle(
+                EcrMethods.PROBE_REACHABILITY,
+                args(transport = "wifi"),
+                reply,
+            )
+
+            assertEquals(listOf("probeReachability"), terminal.calls)
+            @Suppress("UNCHECKED_CAST")
+            val map = reply.successes.single() as Map<String, Any?>
+            assertEquals(false, map[EcrReachabilityKeys.REACHABLE])
+            assertEquals("192.168.1.50", map[EcrReachabilityKeys.HOST])
+            assertEquals(9100, map[EcrReachabilityKeys.PORT])
+            assertEquals("Connection refused", map[EcrReachabilityKeys.ERROR])
+            assertEquals("192.168.1.50:9100", map[EcrReachabilityKeys.ENDPOINT])
         }
 
     @Test

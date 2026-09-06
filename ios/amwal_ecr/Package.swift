@@ -18,7 +18,7 @@ let package = Package(
         // apps. Ranged to the patch line for the reason given in the podspec.
         .package(
             url: "https://github.com/amwal-pay/AmwalECR-iOS-SPM.git",
-            .upToNextMinor(from: "0.3.0")
+            .upToNextMinor(from: "0.3.1")
         ),
     ],
     targets: [

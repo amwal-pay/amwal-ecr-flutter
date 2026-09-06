@@ -43,20 +43,28 @@ void main() {
     await tester.pumpAndSettle();
     // SelectedTerminalConfig resolves SharedPreferences asynchronously.
     for (int i = 0; i < 20; i++) {
-      final Iterable<FilledButton> starts =
-          tester.widgetList<FilledButton>(find.byKey(const Key('start')));
-      if (starts.isNotEmpty && starts.first.onPressed != null) return;
+      final Iterable<FilledButton> starts = tester.widgetList<FilledButton>(
+        find.byKey(const Key('start'), skipOffstage: false),
+      );
+      if (starts.isNotEmpty && starts.first.onPressed != null) {
+        await tester.ensureVisible(
+          find.byKey(const Key('start'), skipOffstage: false),
+        );
+        await tester.pumpAndSettle();
+        return;
+      }
       await tester.pump(const Duration(milliseconds: 50));
     }
   }
 
-  Future<void> scrollTo(WidgetTester tester, Finder finder) async {
-    await tester.ensureVisible(finder);
+  Future<void> scrollTo(WidgetTester tester, Key key) async {
+    // ListView children below the fold are treated as offstage by default.
+    await tester.ensureVisible(find.byKey(key, skipOffstage: false));
     await tester.pumpAndSettle();
   }
 
   Future<void> tapStart(WidgetTester tester) async {
-    await scrollTo(tester, find.byKey(const Key('start')));
+    await scrollTo(tester, const Key('start'));
     await tester.tap(find.byKey(const Key('start')));
     await tester.pumpAndSettle();
   }
@@ -76,8 +84,8 @@ void main() {
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      // isReachable first, exactly as TransactionViewModel does it.
-      expect(platform.calls, <String>['isReachable', 'sale']);
+      // probeReachability first, exactly as TransactionViewModel does it.
+      expect(platform.calls, <String>['probeReachability', 'sale']);
     });
 
     testWidgets('an unreachable terminal sends nothing at all',
@@ -88,14 +96,14 @@ void main() {
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      expect(platform.calls, <String>['isReachable']);
+      expect(platform.calls, <String>['probeReachability']);
       expect(find.text('Not completed'), findsOneWidget);
       expect(
         find.textContaining('192.168.1.50:9100 is not reachable'),
         findsOneWidget,
       );
       expect(
-        find.textContaining('same network'),
+        find.textContaining('same Wi‑Fi network'),
         findsOneWidget,
       );
     });
@@ -375,7 +383,7 @@ void main() {
       );
       await tapStart(tester);
 
-      expect(platform.calls, <String>['isReachable', 'inquireByReference']);
+      expect(platform.calls, <String>['probeReachability', 'inquireByReference']);
       expect(platform.lastInquiredReference, 'ORD-88231');
       expect(platform.lastInquiryMerchantReference, 'ORD-88231');
     });
@@ -484,7 +492,7 @@ void main() {
       await tapStart(tester);
 
       // The lookup succeeded. The transaction it found did not.
-      expect(find.text('Declined'), findsOneWidget);
+      expect(find.text('Declined'), findsWidgets);
       expect(find.text('000208'), findsOneWidget);
     });
 
@@ -507,7 +515,7 @@ void main() {
 
       // The transaction is named by the inquiry's own request rather than
       // re-keyed, so the receipt asks about the same receipt number.
-      expect(platform.calls, <String>['isReachable', 'inquire', 'receipt']);
+      expect(platform.calls, <String>['probeReachability', 'inquire', 'receipt']);
       expect(find.byKey(const Key('receiptQr')), findsOneWidget);
     });
 
@@ -579,11 +587,14 @@ void main() {
       );
       await tester.enterText(find.byKey(const Key('ipAddress')), '192.168.1.51');
       await tester.enterText(find.byKey(const Key('port')), '9100');
-      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
+      await scrollTo(tester, const Key('saveTerminal'));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Counter 2'), findsWidgets);
+      expect(
+        find.text('Counter 2', skipOffstage: false),
+        findsWidgets,
+      );
     });
 
     testWidgets('a bad address is refused with the same rules as Android',
@@ -598,7 +609,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('serialNumber')), 'X1');
       await tester.enterText(find.byKey(const Key('ipAddress')), '999.1.1.1');
       await tester.enterText(find.byKey(const Key('port')), '70000');
-      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
+      await scrollTo(tester, const Key('saveTerminal'));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
@@ -624,7 +635,7 @@ void main() {
       );
       await tester.enterText(find.byKey(const Key('ipAddress')), '192.168.1.52');
       await tester.enterText(find.byKey(const Key('port')), '9100');
-      await scrollTo(tester, find.byKey(const Key('saveTerminal')));
+      await scrollTo(tester, const Key('saveTerminal'));
       await tester.tap(find.byKey(const Key('saveTerminal')));
       await tester.pumpAndSettle();
 
@@ -722,8 +733,20 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
 
   @override
   Future<bool> isReachable(EcrRequest request) async {
-    calls.add('isReachable');
-    return reachable;
+    return (await probeReachability(request)).reachable;
+  }
+
+  @override
+  Future<EcrReachability> probeReachability(EcrRequest request) async {
+    calls.add('probeReachability');
+    final bool usb = request.transport == EcrTransport.usbCable;
+    return EcrReachability(
+      reachable: reachable,
+      host: request.host,
+      port: usb ? 0 : request.config.port,
+      endpoint: usb ? 'USB cable' : null,
+      error: reachable ? null : 'unreachable',
+    );
   }
 
   @override

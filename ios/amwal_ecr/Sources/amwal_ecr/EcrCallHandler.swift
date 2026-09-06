@@ -58,6 +58,8 @@ final class EcrCallHandler {
                 once.success(cancel(try requireString(arguments, EcrArgs.operationId)))
             case EcrMethods.isReachable:
                 try reachable(Call(arguments), once)
+            case EcrMethods.probeReachability:
+                try probe(Call(arguments), once)
             case EcrMethods.sale:
                 try sale(Call(arguments), once)
             case EcrMethods.void_:
@@ -119,6 +121,24 @@ final class EcrCallHandler {
         }
         let terminal = call.terminal(terminals)
         queue.async { reply.success(terminal.isReachable()) }
+    }
+
+    private func probe(_ call: Call, _ reply: EcrReply) throws {
+        guard call.isIpTransport else {
+            reply.success(
+                EcrMapping.reachability(
+                    EcrReachability(
+                        reachable: false,
+                        host: call.host,
+                        port: 0,
+                        endpoint: call.host.isEmpty ? call.transport : call.host
+                    )
+                )
+            )
+            return
+        }
+        let terminal = call.terminal(terminals)
+        queue.async { reply.success(EcrMapping.reachability(terminal.probeReachability())) }
     }
 
     private func sale(_ call: Call, _ reply: OneShotReply) throws {
@@ -252,7 +272,7 @@ final class EcrCallHandler {
             raw = arguments
             operationId = try requireString(arguments, EcrArgs.operationId)
             transport = arguments[EcrArgs.transport] as? String ?? EcrTransports.wifi
-            host = transport == EcrTransports.webService
+            host = (EcrTransports.isWebService(transport) || EcrTransports.isUsbCable(transport))
                 ? (arguments[EcrArgs.host] as? String ?? "")
                 : try requireString(arguments, EcrArgs.host)
             serialNumber = arguments[EcrArgs.serialNumber] as? String ?? ""

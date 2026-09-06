@@ -1,5 +1,6 @@
 package com.amwalpay.ecr.flutter
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.amwalpay.ecr.EcrLogger
@@ -37,6 +38,9 @@ class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
      */
     private var hostAppIsDebuggable = false
 
+    /** Application context for USB accessory channel construction. */
+    private var appContext: Context? = null
+
     /**
      * On in a debug build, as the Android example is; off in release.
      *
@@ -59,11 +63,19 @@ class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val handler = EcrCallHandler(
         scope = scope,
         terminals = { host, serialNumber, transport, config ->
-            EcrSessionPorts.create(host, serialNumber, transport, config, logger)
+            EcrSessionPorts.create(
+                host = host,
+                serialNumber = serialNumber,
+                transport = transport,
+                config = config,
+                logger = logger,
+                context = appContext,
+            )
         },
     )
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        appContext = binding.applicationContext
         hostAppIsDebuggable = (
             binding.applicationContext.applicationInfo.flags and
                 ApplicationInfo.FLAG_DEBUGGABLE
@@ -76,6 +88,7 @@ class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        appContext = null
         // Cancels every operation still waiting. Their Dart futures are going
         // away with the engine, so there is nobody left to answer — but the
         // terminal may still complete what it was given, which is why a till

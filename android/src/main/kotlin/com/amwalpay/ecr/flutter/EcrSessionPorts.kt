@@ -1,9 +1,11 @@
 package com.amwalpay.ecr.flutter
 
+import android.content.Context
 import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrLink
 import com.amwalpay.ecr.EcrLogger
+import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSessionPlan
@@ -25,6 +27,7 @@ internal object EcrSessionPorts {
         transport: String,
         config: EcrConfig,
         logger: EcrLogger,
+        context: Context? = null,
     ): EcrTerminalPort {
         val link = linkFor(host, transport, config) ?: return UnsupportedEcrTerminalPort(transport)
         val plan = EcrSessions.plan(
@@ -38,21 +41,33 @@ internal object EcrSessionPorts {
         return when {
             plan.usesWebService -> SdkWebServiceTerminal(serialNumber, plan, logger)
             plan.usesLan -> SdkLanTerminal(serialNumber, plan, logger)
+            plan.usesUsbCable -> {
+                val ctx = context ?: return UnsupportedEcrTerminalPort(transport)
+                SdkUsbCableTerminal(
+                    serialNumber = serialNumber,
+                    plan = plan,
+                    channel = UsbAccessoryEcrChannel(ctx, log = { logger.debug(it) }),
+                    logger = logger,
+                )
+            }
             else -> UnsupportedEcrTerminalPort(transport)
         }
     }
 
     private fun linkFor(host: String, transport: String, config: EcrConfig): EcrLink? =
-        when (transport) {
-            EcrTransports.WEB_SERVICE -> EcrLink.WebService(
-                merchantId = config.merchantId,
-                terminalId = config.terminalId,
-            )
+        when {
+            transport == EcrTransports.WEB_SERVICE || transport == EcrTransports.WEB_SERVICE_SNAKE ->
+                EcrLink.WebService(
+                    merchantId = config.merchantId,
+                    terminalId = config.terminalId,
+                )
 
-            EcrTransports.ETHERNET, EcrTransports.WIFI -> EcrLink.Lan(
+            transport == EcrTransports.WIFI -> EcrLink.Lan(
                 host = host,
                 port = config.port,
             )
+
+            EcrTransports.isUsbCable(transport) -> EcrLink.UsbCable
 
             else -> null
         }
@@ -71,6 +86,90 @@ internal class SdkLanTerminal(
     )
 
     override suspend fun isReachable(): Boolean = terminal.probeReachability().reachable
+
+    override suspend fun probeReachability(): EcrReachability = terminal.probeReachability()
+
+    override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
+        terminal.sale(amount = amount, merchantReference = merchantReference)
+
+    override suspend fun void(
+        receiptNumber: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.void(
+        receiptNumber = receiptNumber,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun refund(
+        amount: BigDecimal,
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.refund(
+        amount = amount,
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun inquire(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquire(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun inquireByReference(
+        originalReference: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquireByReference(
+        originalReference = originalReference,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun receipt(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrReceipt = terminal.receipt(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+}
+
+internal class SdkUsbCableTerminal(
+    serialNumber: String,
+    plan: EcrSessionPlan,
+    channel: com.amwalpay.ecr.EcrChannel,
+    logger: EcrLogger,
+) : EcrTerminalPort {
+
+    private val terminal = EcrSessions.usbCableTerminal(
+        terminalSerial = serialNumber,
+        plan = plan,
+        channel = channel,
+        logger = logger,
+    )
+
+    override suspend fun isReachable(): Boolean = terminal.probeReachability().reachable
+
+    override suspend fun probeReachability(): EcrReachability = terminal.probeReachability()
 
     override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
         terminal.sale(amount = amount, merchantReference = merchantReference)
@@ -150,6 +249,13 @@ internal class SdkWebServiceTerminal(
 
     override suspend fun isReachable(): Boolean = false
 
+    override suspend fun probeReachability(): EcrReachability = EcrReachability(
+        reachable = false,
+        host = "",
+        port = 0,
+        endpoint = "webService",
+    )
+
     override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
         terminal.sale(amount = amount, merchantReference = merchantReference)
 
@@ -210,11 +316,18 @@ internal class UnsupportedEcrTerminalPort(
 ) : EcrTerminalPort {
 
     private val message =
-        "A terminal opens its ECR listener only for the IP transports " +
-            "(ethernet, wifi) or Web Service REST. \"$transport\" is driven by " +
-            "other machinery, so nothing was sent."
+        "A terminal opens its ECR listener for Wi‑Fi, USB cable, or Web " +
+            "Service REST. \"$transport\" is driven by other machinery, so " +
+            "nothing was sent."
 
     override suspend fun isReachable(): Boolean = false
+
+    override suspend fun probeReachability(): EcrReachability = EcrReachability(
+        reachable = false,
+        host = "",
+        port = 0,
+        endpoint = transport,
+    )
 
     override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
         unsupported()
@@ -277,6 +390,14 @@ internal class InvalidPlanTerminalPort(
         issues.joinToString("; ").ifEmpty { "Terminal configuration is incomplete" }
 
     override suspend fun isReachable(): Boolean = false
+
+    override suspend fun probeReachability(): EcrReachability = EcrReachability(
+        reachable = false,
+        host = "",
+        port = 0,
+        error = message,
+        endpoint = "",
+    )
 
     override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
         configFailed(merchantReference)

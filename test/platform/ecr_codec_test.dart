@@ -283,12 +283,47 @@ void main() {
         });
         // A kind that fell through would come back as EcrMalformed carrying the
         // "this version does not know" wording.
-        expect(
-          failure.message,
-          isNot(contains('does not know')),
+        expect(failure.message, isNot(contains('does not know')),
           reason: '"$kind" is in the contract but is not mapped',
         );
       }
+    });
+  });
+
+  group('a reachability probe map', () {
+    test('carries every field the native SDKs report', () {
+      final EcrReachability probe = EcrCodec.reachability(<String, Object?>{
+        EcrReachabilityKeys.reachable: false,
+        EcrReachabilityKeys.host: '192.168.1.50',
+        EcrReachabilityKeys.port: 9100,
+        EcrReachabilityKeys.error: 'Connection refused',
+        EcrReachabilityKeys.endpoint: '192.168.1.50:9100',
+      });
+
+      expect(probe.reachable, isFalse);
+      expect(probe.host, '192.168.1.50');
+      expect(probe.port, 9100);
+      expect(probe.error, 'Connection refused');
+      expect(probe.endpoint, '192.168.1.50:9100');
+    });
+
+    test('derives endpoint when the host omits it', () {
+      final EcrReachability probe = EcrCodec.reachability(<String, Object?>{
+        EcrReachabilityKeys.reachable: true,
+        EcrReachabilityKeys.host: '10.0.0.2',
+        EcrReachabilityKeys.port: 9100,
+      });
+
+      expect(probe.reachable, isTrue);
+      expect(probe.endpoint, '10.0.0.2:9100');
+      expect(probe.error, isNull);
+    });
+
+    test('an unreadable payload is not reachable, not a throw', () {
+      final EcrReachability probe = EcrCodec.reachability('nope');
+
+      expect(probe.reachable, isFalse);
+      expect(probe.error, isNotNull);
     });
   });
 }

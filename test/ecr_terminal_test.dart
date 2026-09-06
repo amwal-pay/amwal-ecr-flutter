@@ -1,5 +1,6 @@
 import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:amwal_ecr/amwal_ecr_platform_interface.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'platform/fake_host.dart';
@@ -10,7 +11,7 @@ void main() {
   late FakeEcrHost host;
 
   EcrTerminal terminalOn(EcrTransport transport) => EcrTerminal(
-        host: '192.168.1.50',
+        host: transport.isUsbCable ? '' : '192.168.1.50',
         serialNumber: 'P653200085189',
         transport: transport,
         platform: MethodChannelAmwalEcr(channel: FakeEcrHost.channel),
@@ -223,6 +224,15 @@ void main() {
       expect(host.calls, isEmpty);
     });
 
+    test('probeReachability answers locally for bluetooth', () async {
+      final EcrReachability probe =
+          await terminalOn(EcrTransport.bluetooth).probeReachability();
+
+      expect(probe.reachable, isFalse);
+      expect(probe.port, 0);
+      expect(host.calls, isEmpty);
+    });
+
     test('cancelling one is harmless and says nothing was running', () async {
       final EcrOperation<EcrResult> sale =
           terminalOn(EcrTransport.bluetooth).startSale(EcrAmount.parse('1.000'));
@@ -232,17 +242,30 @@ void main() {
     });
   });
 
-  group('the IP transports go through', () {
-    test('ethernet and wifi both reach the host', () async {
+  group('local transports go through', () {
+    test('usbCable and wifi both reach the host', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
       host.answer(EcrMethods.sale, approvedPayload());
 
-      await terminalOn(EcrTransport.ethernet).sale(EcrAmount.parse('1.000'));
+      await terminalOn(EcrTransport.usbCable).sale(EcrAmount.parse('1.000'));
       await terminalOn(EcrTransport.wifi).sale(EcrAmount.parse('1.000'));
 
       expect(host.countOf(EcrMethods.sale), 2);
       expect(
         host.argumentValues(EcrArgs.transport),
-        <String>['ethernet', 'wifi'],
+        <String>['usb_cable', 'wifi'],
+      );
+    });
+
+    test('usbCable allows an empty host', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      expect(
+        () => EcrTerminal(host: '', transport: EcrTransport.usbCable),
+        returnsNormally,
       );
     });
 

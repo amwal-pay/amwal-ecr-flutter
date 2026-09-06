@@ -14,10 +14,10 @@ to use this package.
 Three things have to be true, and two of them are not in your code.
 
 **1. The terminal is in ECR mode.** Its TMS profile carries `terminalMode` `1`
-and an `ecrMode` of `1` (ethernet) or `2` (wi-fi). A terminal in any other state
-does not listen on port 9100, and connections are refused. If `isReachable()`
-answers `false` on an address you are sure of, check the profile before
-debugging the network.
+and an `ecrMode` of `1` (USB cable, Android) or `2` (wi‑fi). A terminal in wi‑fi
+mode listens on port 9100; USB cable has no IP. If `isReachable()` answers
+`false` on an address you are sure of, check the profile before debugging the
+network.
 
 **2. The phone can route to the terminal.** Same subnet, or a network that
 routes between them. A guest wi-fi with client isolation will not.

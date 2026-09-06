@@ -38,6 +38,7 @@ export 'src/model/ecr_errors.dart';
 export 'src/model/ecr_failure.dart';
 export 'src/model/ecr_inquiry.dart';
 export 'src/model/ecr_next_step.dart';
+export 'src/model/ecr_reachability.dart';
 export 'src/model/ecr_receipt.dart';
 export 'src/model/ecr_response_code.dart';
 export 'src/model/ecr_result.dart';

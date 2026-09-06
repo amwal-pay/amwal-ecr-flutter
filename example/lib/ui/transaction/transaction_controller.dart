@@ -75,13 +75,29 @@ class TransactionController extends ChangeNotifier {
 
     final EcrTerminal terminal = _terminalFor(registered, active);
 
-    if (active.usesLan) {
-      if (!await terminal.isReachable()) {
-        _emit(TransactionFailed(
-          '${registered.ipAddress}:${registered.port} is not reachable.\n'
-          'Check that the POS app is in ECR mode (Wi‑Fi), the registered IP '
-          'and port match, and both devices are on the same network.',
-        ));
+    if (active.usesLocalTerminal) {
+      final EcrReachability probe = await terminal.probeReachability();
+      if (!probe.reachable) {
+        final String message = (StringBuffer()
+              ..write('${probe.endpoint} is not reachable')
+              ..write(probe.error == null ? '' : '\n(${probe.error})')
+              ..write('\n\n')
+              ..write(
+                active.usesUsbCable
+                    ? 'Check:\n'
+                        '• The USB cable is connected to the terminal\n'
+                        '• POS app is in ECR mode (USB cable) and says it is waiting\n'
+                        '• Serial number matches the terminal you selected\n'
+                        '• This device can act as a USB host (OTG)'
+                    : 'Check:\n'
+                        '• POS app is in ECR mode (Wi‑Fi) and shows its IP under the card logos\n'
+                        '• Registered IP matches that address (port ${probe.port})\n'
+                        '• Serial number matches the terminal you selected\n'
+                        '• Both devices are on the same Wi‑Fi network\n'
+                        '• If testing on one phone, try IP 127.0.0.1',
+              ))
+            .toString();
+        _emit(TransactionFailed(message));
         return;
       }
     }
@@ -187,12 +203,12 @@ class TransactionController extends ChangeNotifier {
     }
 
     final SelectedTerminalConfig active = await _resolveConfig(registered);
-    if (!active.usesLan) {
+    if (!active.usesLocalTerminal) {
       _emit(current.copyWith(
         fetchingReceipt: false,
         receipt: const EcrReceiptUnavailable(
           merchantReference: '',
-          reason: 'Receipt fetch is only supported over Wi‑Fi / Ethernet ECR',
+          reason: 'Receipt fetch is only supported over Wi‑Fi / USB cable ECR',
           raw: '',
         ),
       ));
@@ -244,7 +260,7 @@ class TransactionController extends ChangeNotifier {
 
   EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) {
     final EcrTransport transport = switch (terminal.mode) {
-      EcrMode.ethernet => EcrTransport.ethernet,
+      EcrMode.usbCable => EcrTransport.usbCable,
       EcrMode.wifi => EcrTransport.wifi,
       EcrMode.bluetooth => EcrTransport.bluetooth,
       EcrMode.webService => EcrTransport.webService,

@@ -124,6 +124,18 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
             ),
+            if (_mode.isUsbCable)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Connect the till to the terminal with a USB cable. '
+                  'There is no address to enter — the cable is found when it '
+                  'is plugged in.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
             if (_mode.isIpBased) ...<Widget>[
               _Field(
                 fieldKey: const Key('ipAddress'),

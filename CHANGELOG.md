@@ -5,6 +5,27 @@ with the addition described in [the release policy](doc/release-policy.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## Unreleased
+
+### Added
+
+- **`EcrTerminal.probeReachability()` / `EcrReachability`.** Matches `ecr_sdk`
+  and AmwalECR: the same probe as `isReachable()`, plus host, port, endpoint and
+  the underlying error when the link fails. Channel method `probeReachability`;
+  `isReachable` remains as a convenience over it.
+
+### Changed
+
+- Channel transport still uses primary name `webService`; accepts `web_service`
+  as an alias without breaking existing callers.
+
+### Breaking
+
+- **`ecrMode` 1 is USB cable.** Matches `ecr_sdk`: Dart `EcrTransport.usbCable`,
+  channel name `"usb_cable"` (wire value `1`). `isIpTransport` is true only for
+  Wi‑Fi. USB cable is driven on Android via AOA; iOS returns typed unsupported.
+  There is no Ethernet transport or channel name.
+
 ## 0.2.0
 
 Brings the package level with `com.amwal-pay:ecr-sdk` 1.0.4 and `AmwalECR` 0.2.0

@@ -187,7 +187,7 @@ void main() {
     });
 
     test('isReachable answers false rather than throwing on a host error', () async {
-      host.fail(EcrMethods.isReachable, PlatformException(code: 'whatever'));
+      host.fail(EcrMethods.probeReachability, PlatformException(code: 'whatever'));
 
       // An unreachable terminal is an answer. A probe that throws would make
       // every caller wrap it, and one of them would forget.
@@ -196,7 +196,7 @@ void main() {
 
     test('isReachable still throws on a bad argument', () async {
       host.fail(
-        EcrMethods.isReachable,
+        EcrMethods.probeReachability,
         PlatformException(
           code: EcrErrorCodes.invalidArgument,
           message: '"host" is required',
@@ -207,6 +207,18 @@ void main() {
         terminal.isReachable(),
         throwsA(isA<EcrArgumentError>()),
       );
+    });
+
+    test('probeReachability carries the host error on the result', () async {
+      host.fail(
+        EcrMethods.probeReachability,
+        PlatformException(code: 'whatever', message: 'socket closed'),
+      );
+
+      final EcrReachability probe = await terminal.probeReachability();
+
+      expect(probe.reachable, isFalse);
+      expect(probe.error, 'socket closed');
     });
   });
 

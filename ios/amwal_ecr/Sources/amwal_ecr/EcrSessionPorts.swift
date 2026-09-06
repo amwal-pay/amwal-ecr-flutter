@@ -33,14 +33,18 @@ enum EcrSessionPorts {
     }
 
     private static func linkFor(host: String, transport: String, config: EcrConfig) -> EcrLink? {
-        switch transport {
-        case EcrTransports.webService:
+        if EcrTransports.isWebService(transport) {
             return .webService(merchantId: config.merchantId, terminalId: config.terminalId)
-        case EcrTransports.ethernet, EcrTransports.wifi:
+        }
+        if transport == EcrTransports.wifi {
             return .lan(host: host, port: config.port)
-        default:
+        }
+        // USB cable is Android-only (AOA). Reach UnsupportedEcrTerminalPort
+        // with a typed failure rather than pretending it is LAN.
+        if EcrTransports.isUsbCable(transport) {
             return nil
         }
+        return nil
     }
 }
 
@@ -56,6 +60,8 @@ final class SdkLanTerminal: EcrTerminalPort {
     }
 
     func isReachable() -> Bool { terminal.probeReachability().reachable }
+
+    func probeReachability() -> EcrReachability { terminal.probeReachability() }
 
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
         try terminal.sale(amount: amount, merchantReference: merchantReference)
@@ -147,6 +153,10 @@ final class SdkWebServiceTerminal: EcrTerminalPort {
 
     func isReachable() -> Bool { false }
 
+    func probeReachability() -> EcrReachability {
+        EcrReachability(reachable: false, host: "", port: 0, endpoint: "webService")
+    }
+
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
         try terminal.sale(amount: amount, merchantReference: merchantReference)
     }
@@ -214,12 +224,18 @@ final class SdkWebServiceTerminal: EcrTerminalPort {
 
 final class UnsupportedEcrTerminalPort: EcrTerminalPort {
     private let message: String
+    private let transport: String
 
     init(transport: String) {
+        self.transport = transport
         message = unsupportedTransportMessage(transport)
     }
 
     func isReachable() -> Bool { false }
+
+    func probeReachability() -> EcrReachability {
+        EcrReachability(reachable: false, host: "", port: 0, endpoint: transport)
+    }
 
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult { try unsupported() }
 
@@ -282,6 +298,10 @@ final class InvalidPlanTerminalPort: EcrTerminalPort {
 
     func isReachable() -> Bool { false }
 
+    func probeReachability() -> EcrReachability {
+        EcrReachability(reachable: false, host: "", port: 0, error: message, endpoint: "")
+    }
+
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
         configFailed(merchantReference)
     }
@@ -343,7 +363,7 @@ final class InvalidPlanTerminalPort: EcrTerminalPort {
 }
 
 func unsupportedTransportMessage(_ transport: String) -> String {
-    "A terminal opens its ECR listener only for the IP transports "
-        + "(ethernet, wifi) or Web Service REST. \"\(transport)\" is driven by "
-        + "other machinery, so nothing was sent."
+    "A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), or "
+        + "Web Service REST. \"\(transport)\" is driven by other machinery, "
+        + "so nothing was sent."
 }

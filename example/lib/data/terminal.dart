@@ -53,7 +53,8 @@ class Terminal {
             return buffer.isEmpty ? 'Web Service' : buffer.toString();
           }(),
         EcrMode.bluetooth => 'Bluetooth',
-        EcrMode.ethernet || EcrMode.wifi => switch ((ipAddress, port)) {
+        EcrMode.usbCable => 'USB cable',
+        EcrMode.wifi => switch ((ipAddress, port)) {
             (final String ip, final int p) when ip.isNotEmpty && p > 0 =>
               '$ip:$p',
             (final String ip, _) when ip.isNotEmpty => ip,

@@ -11,6 +11,8 @@ protocol EcrTerminalPort: AnyObject {
 
     func isReachable() -> Bool
 
+    func probeReachability() -> EcrReachability
+
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult
 
     func void(

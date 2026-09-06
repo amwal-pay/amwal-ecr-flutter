@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Which USB devices this till will talk to.
+
+  A terminal switched into accessory mode comes back under Google's ids, and
+  those are fixed by the accessory protocol rather than chosen by the vendor -
+  0x18D1 with 0x2D00..0x2D05, the pairs being accessory alone, accessory with
+  adb, and the audio variants.
+
+  Declaring them is not cosmetic. Android grants a matching app permission for
+  the attached device automatically, so the operator is not asked a second time
+  after the terminal re-enumerates - which is exactly where a sale stopped: the
+  first dialog was answered, the second went unanswered, and the terminal fell
+  back out of accessory mode 60 seconds later.
+
+  It also puts this app in front of Samsung's Smart Switch, which otherwise
+  claims any Android device on the cable and never lets go.
+-->
+<resources>
+    <usb-device vendor-id="6353" product-id="11520" /> <!-- 18D1:2D00 accessory -->
+    <usb-device vendor-id="6353" product-id="11521" /> <!-- 18D1:2D01 accessory + adb -->
+    <usb-device vendor-id="6353" product-id="11524" /> <!-- 18D1:2D04 accessory + audio -->
+    <usb-device vendor-id="6353" product-id="11525" /> <!-- 18D1:2D05 accessory + audio + adb -->
+</resources>

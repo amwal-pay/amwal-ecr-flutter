@@ -30,9 +30,11 @@ class TerminalConfigCard extends StatelessWidget {
               label: 'Transport',
               value: config.usesWebService
                   ? 'Web Service'
-                  : config.usesLan
-                      ? 'Wi‑Fi / LAN'
-                      : config.mode.label,
+                  : config.usesUsbCable
+                      ? 'USB cable'
+                      : config.usesLan
+                          ? 'Wi‑Fi / LAN'
+                          : config.mode.label,
             ),
             _Line(label: 'Connection', value: config.connectionSummary),
             _Line(

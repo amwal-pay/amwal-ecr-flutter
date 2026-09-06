@@ -3,6 +3,7 @@ package com.amwalpay.ecr.flutter
 import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrEnvironment
 import com.amwalpay.ecr.EcrInquiry
+import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrTransaction
@@ -72,6 +73,14 @@ internal object EcrMapping {
             throw EcrInvalidArgument("\"$text\" is not a decimal amount", e)
         }
     }
+
+    fun reachability(probe: EcrReachability): Map<String, Any?> = mapOf(
+        EcrReachabilityKeys.REACHABLE to probe.reachable,
+        EcrReachabilityKeys.HOST to probe.host,
+        EcrReachabilityKeys.PORT to probe.port,
+        EcrReachabilityKeys.ERROR to probe.error,
+        EcrReachabilityKeys.ENDPOINT to probe.endpoint,
+    )
 
     fun result(result: EcrResult): Map<String, Any?> = when (result) {
         is EcrResult.Approved -> mapOf(

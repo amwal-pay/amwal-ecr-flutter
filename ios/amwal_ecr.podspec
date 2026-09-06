@@ -26,7 +26,7 @@ AmwalECR SDK: sale, void, refund, inquiry and e-receipt.
   # both. The range is safe by the release policy: anything that changes what an
   # outcome means takes a major version, so 0.2.x cannot report differently from
   # what this bridge is contract-tested against.
-  s.dependency 'AmwalECR', '~> 0.3.0'
+  s.dependency 'AmwalECR', '~> 0.3.1'
 
   # The wrapper's floor, not the SDK's. Raise it here, in the two iOS SDK
   # repositories' manifests, in amwal_ecr/Package.swift and in the compatibility

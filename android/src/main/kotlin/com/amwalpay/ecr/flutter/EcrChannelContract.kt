@@ -12,6 +12,7 @@ package com.amwalpay.ecr.flutter
  */
 internal object EcrMethods {
     const val IS_REACHABLE = "isReachable"
+    const val PROBE_REACHABILITY = "probeReachability"
     const val SALE = "sale"
     const val VOID = "void"
     const val REFUND = "refund"
@@ -67,6 +68,14 @@ internal object EcrResultKeys {
     const val URL = "url"
     const val NEXT_STEP = "nextStep"
     const val RECOVERED = "recovered"
+}
+
+internal object EcrReachabilityKeys {
+    const val REACHABLE = "reachable"
+    const val HOST = "host"
+    const val PORT = "port"
+    const val ERROR = "error"
+    const val ENDPOINT = "endpoint"
 }
 
 internal object EcrOutcomes {
@@ -136,15 +145,26 @@ internal const val ECR_METHOD_CHANNEL = "com.amwalpay.ecr/methods"
 
 /** Transport names as the Dart side spells them. */
 internal object EcrTransports {
-    const val ETHERNET = "ethernet"
+    const val USB_CABLE = "usb_cable"
     const val WIFI = "wifi"
     const val BLUETOOTH = "bluetooth"
     const val WEB_SERVICE = "webService"
+    /** Snake_case alias; maps to [WEB_SERVICE]. */
+    const val WEB_SERVICE_SNAKE = "web_service"
 
-    /** Whether the terminal opens a socket for this transport. */
-    fun isIpTransport(name: String?): Boolean = name == ETHERNET || name == WIFI
+    fun isUsbCable(name: String?): Boolean = name == USB_CABLE
+
+    fun isWebService(name: String?): Boolean =
+        name == WEB_SERVICE || name == WEB_SERVICE_SNAKE
+
+    /** Whether the terminal opens a socket for this transport. Wi‑Fi only. */
+    fun isIpTransport(name: String?): Boolean = name == WIFI
+
+    /** Whether receipt fetch is available (Wi‑Fi or USB cable). */
+    fun supportsReceipt(name: String?): Boolean =
+        name == WIFI || isUsbCable(name)
 
     /** Whether this Flutter plugin can drive transactions over this transport. */
     fun isSupportedTransport(name: String?): Boolean =
-        isIpTransport(name) || name == WEB_SERVICE
+        isIpTransport(name) || isUsbCable(name) || isWebService(name)
 }

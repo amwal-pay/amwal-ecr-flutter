@@ -21,6 +21,12 @@ abstract final class EcrMethods {
   /// `isReachable(args) -> bool`
   static const String isReachable = 'isReachable';
 
+  /// `probeReachability(args) -> reachability map`
+  ///
+  /// The detailed form of [isReachable]: same probe, plus host, port, endpoint
+  /// and the underlying error when the terminal is not there.
+  static const String probeReachability = 'probeReachability';
+
   /// `sale(args) -> result map`
   static const String sale = 'sale';
 
@@ -48,6 +54,7 @@ abstract final class EcrMethods {
   /// Every method the contract defines, in the order the API presents them.
   static const List<String> all = <String>[
     isReachable,
+    probeReachability,
     sale,
     voidTransaction,
     refund,
@@ -203,6 +210,23 @@ abstract final class EcrResultKeys {
     url,
     nextStep,
     recovered,
+  ];
+}
+
+/// Keys in the map returned by [EcrMethods.probeReachability].
+abstract final class EcrReachabilityKeys {
+  static const String reachable = 'reachable';
+  static const String host = 'host';
+  static const String port = 'port';
+  static const String error = 'error';
+  static const String endpoint = 'endpoint';
+
+  static const List<String> all = <String>[
+    reachable,
+    host,
+    port,
+    error,
+    endpoint,
   ];
 }
 

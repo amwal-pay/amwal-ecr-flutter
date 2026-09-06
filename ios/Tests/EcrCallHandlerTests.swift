@@ -59,6 +59,16 @@ final class EcrCallHandlerTests: XCTestCase {
             return reachable
         }
 
+        func probeReachability() -> EcrReachability {
+            record("probeReachability")
+            return EcrReachability(
+                reachable: reachable,
+                host: "192.168.1.50",
+                port: 9100,
+                error: reachable ? nil : "Connection refused"
+            )
+        }
+
         func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
             lastAmount = amount
             lastMerchantReference = merchantReference
@@ -353,6 +363,44 @@ final class EcrCallHandlerTests: XCTestCase {
 
         XCTAssertTrue(terminal.calls.isEmpty)
         XCTAssertEqual(false, reply.successes.first as? Bool)
+    }
+
+    func testProbeReachabilityOverATransportWithNoListenerSkipsTheTerminal() {
+        let terminal = FakeTerminal()
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.probeReachability,
+            arguments: args(transport: "bluetooth"),
+            reply: reply
+        )
+
+        XCTAssertTrue(terminal.calls.isEmpty)
+        let map = reply.successes.first as? [String: Any]
+        XCTAssertEqual(false, map?[EcrReachabilityKeys.reachable] as? Bool)
+        XCTAssertEqual("192.168.1.50", map?[EcrReachabilityKeys.endpoint] as? String)
+        XCTAssertEqual(0, map?[EcrReachabilityKeys.port] as? Int)
+    }
+
+    func testProbeReachabilityReturnsTheSdkMapWhenTheTerminalAnswers() {
+        let terminal = FakeTerminal()
+        terminal.reachable = false
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.probeReachability,
+            arguments: args(transport: "wifi"),
+            reply: reply
+        )
+
+        wait(for: [reply.answered], timeout: 1)
+        XCTAssertEqual(["probeReachability"], terminal.calls)
+        let map = reply.successes.first as? [String: Any]
+        XCTAssertEqual(false, map?[EcrReachabilityKeys.reachable] as? Bool)
+        XCTAssertEqual("192.168.1.50", map?[EcrReachabilityKeys.host] as? String)
+        XCTAssertEqual(9100, map?[EcrReachabilityKeys.port] as? Int)
+        XCTAssertEqual("Connection refused", map?[EcrReachabilityKeys.error] as? String)
+        XCTAssertEqual("192.168.1.50:9100", map?[EcrReachabilityKeys.endpoint] as? String)
     }
 
     func testAnUnknownMethodIsReportedAsNotImplementedOnce() {

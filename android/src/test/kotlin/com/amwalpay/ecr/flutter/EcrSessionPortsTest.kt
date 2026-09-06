@@ -3,7 +3,6 @@ package com.amwalpay.ecr.flutter
 import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrLogger
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class EcrSessionPortsTest {
@@ -82,6 +81,22 @@ class EcrSessionPortsTest {
             transport = EcrTransports.BLUETOOTH,
             config = EcrConfig(),
             logger = logger,
+        )
+
+        assertIs<UnsupportedEcrTerminalPort>(port)
+    }
+
+    @Test
+    fun `USB cable without context stays unsupported`() {
+        val port = EcrSessionPorts.create(
+            host = "",
+            serialNumber = "TW1",
+            transport = EcrTransports.USB_CABLE,
+            config = EcrConfig(
+                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
+            ),
+            logger = logger,
+            context = null,
         )
 
         assertIs<UnsupportedEcrTerminalPort>(port)

@@ -90,19 +90,16 @@ an unsupported platform degrades instead of crashing.
 
 | `EcrTransport` | `ecrMode` | Android | iOS | Behaviour |
 |---|---|---|---|---|
-| `ethernet` | 1 | ✔ | ✔ | TCP to the terminal |
+| `usbCable` (`usb_cable`) | 1 | ✔ | ✘ | USB AOA cable; typed unsupported on iOS |
 | `wifi` | 2 | ✔ | ✔ | TCP to the terminal |
 | `bluetooth` | 3 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
-| `webService` | 4 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
+| `webService` | 4 | ✔ | ✔ | REST / Hub |
 
-The two unsupported transports are unsupported **identically on both
-platforms**, and for the same reason: the terminal does not open its ECR
-listener for them at all, so there is nothing to connect to. This is not a gap
-in the wrapper.
+`ecrMode` `1` is USB cable on the channel (`"usb_cable"`). Wire value `1` is
+unchanged. There is no Ethernet transport.
 
-A `EcrTransport` value the running build does not recognise reads as `null` from
-`fromWireValue` rather than being guessed at — a profile carrying a future
-`ecrMode` will not be treated as an IP transport by accident.
+Wi‑Fi alone is an IP transport. USB cable carries no IP. Bluetooth remains
+unsupported on both platforms. Web Service is driven over REST.
 
 ---
 

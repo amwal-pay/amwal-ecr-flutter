@@ -2,7 +2,7 @@ import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Wi‑Fi / Ethernet LAN and Web Service signing settings.
+/// Wi‑Fi / USB cable and Web Service signing settings.
 class EcrSimulatorSettingsPanel extends StatelessWidget {
   const EcrSimulatorSettingsPanel({
     super.key,
@@ -27,9 +27,9 @@ class EcrSimulatorSettingsPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _SettingsCard(
-          title: 'Wi‑Fi / LAN settings',
+          title: 'Wi‑Fi / USB cable settings',
           subtitle:
-              'Signing key for Ethernet, Wi‑Fi, and Bluetooth ECR (LAN protocol).',
+              'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR (LAN protocol).',
           child: _SecureHashKeyField(
             value: wifiSecureHashKey,
             label: 'LAN secure hash key',

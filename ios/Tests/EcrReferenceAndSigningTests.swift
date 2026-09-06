@@ -41,6 +41,10 @@ final class EcrReferenceAndSigningTests: XCTestCase {
 
         func isReachable() -> Bool { true }
 
+        func probeReachability() -> EcrReachability {
+            EcrReachability(reachable: true, host: "127.0.0.1", port: 9100)
+        }
+
         func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
             calls.append("sale")
             lastMerchantReference = merchantReference

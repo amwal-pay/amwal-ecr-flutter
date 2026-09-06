@@ -256,7 +256,12 @@ void main() {
         EcrResultKeys.responseMessage: '',
         EcrResultKeys.raw: '{}',
       });
-      host.answer(EcrMethods.isReachable, true);
+      host.answer(EcrMethods.probeReachability, <String, Object?>{
+        EcrReachabilityKeys.reachable: true,
+        EcrReachabilityKeys.host: '192.168.1.50',
+        EcrReachabilityKeys.port: 9100,
+        EcrReachabilityKeys.endpoint: '192.168.1.50:9100',
+      });
 
       await terminal.isReachable();
       await terminal.sale(EcrAmount.parse('1.000'));
@@ -270,7 +275,7 @@ void main() {
       await terminal.receipt(receiptNumber: '208', transactionDate: '20260809');
 
       expect(host.methods, <String>[
-        'isReachable',
+        'probeReachability',
         'sale',
         'void',
         'refund',

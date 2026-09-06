@@ -6,6 +6,7 @@ import 'model/ecr_config.dart';
 import 'model/ecr_errors.dart';
 import 'model/ecr_failure.dart';
 import 'model/ecr_inquiry.dart';
+import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
 import 'model/ecr_result.dart';
 import 'model/ecr_transaction_type.dart';
@@ -43,15 +44,16 @@ import 'platform/ecr_request.dart';
 /// and where it is set, [inquire] on the receipt number instead.
 final class EcrTerminal {
   /// [host] is the terminal's address on the local network for IP transports.
-  /// For [EcrTransport.webService], leave empty — addressing comes from
-  /// [config.merchantId] and [config.terminalId].
+  /// For [EcrTransport.webService] and [EcrTransport.usbCable], leave empty —
+  /// Web Service addressing comes from [config.merchantId] and
+  /// [config.terminalId]; USB finds the cable on the bus.
   ///
   /// [serialNumber] is what the operator registered — the terminal shows its
   /// own address on screen under the card scheme logos when the link is Wi-Fi.
   ///
   /// [transport] declares how the terminal is attached, from its TMS profile.
-  /// IP transports and Web Service can be driven from here; Bluetooth becomes
-  /// an [EcrUnsupported] failure at the first operation.
+  /// Wi‑Fi, USB cable (Android), and Web Service can be driven from here;
+  /// Bluetooth becomes an [EcrUnsupported] failure at the first operation.
   EcrTerminal({
     required this.host,
     this.serialNumber = '',
@@ -89,11 +91,34 @@ final class EcrTerminal {
   /// cardholder waits through. It proves the port is open, not that the
   /// terminal is idle — a terminal already taking a payment answers too.
   ///
-  /// Answers `false` for a transport that has no listener at all, rather than
-  /// spending [EcrConfig.probeTimeout] finding out.
-  Future<bool> isReachable() {
-    if (!transport.isIpTransport) return Future<bool>.value(false);
-    return _platform.isReachable(_request(operationId: _newOperationId()));
+  /// Answers `false` for a transport that has no listener / cable probe at all,
+  /// rather than spending [EcrConfig.probeTimeout] finding out.
+  ///
+  /// Prefer [probeReachability] when the till should show *why* the link
+  /// failed — host, port, endpoint and the underlying error.
+  Future<bool> isReachable() async => (await probeReachability()).reachable;
+
+  /// Asks whether the terminal is there, before sending anything.
+  ///
+  /// [EcrReachability.error] carries whatever the link reported — connection
+  /// refused, a timeout, a cable that is not plugged in — so callers can show
+  /// why the till cannot reach the terminal rather than only that it cannot.
+  ///
+  /// Answers immediately with [EcrReachability.reachable] `false` for a
+  /// transport that has no listener / cable probe, rather than spending
+  /// [EcrConfig.probeTimeout] finding out.
+  Future<EcrReachability> probeReachability() {
+    if (!transport.isIpTransport && !transport.isUsbCable) {
+      return Future<EcrReachability>.value(
+        EcrReachability(
+          reachable: false,
+          host: host,
+          port: 0,
+          endpoint: host.isEmpty ? transport.name : host,
+        ),
+      );
+    }
+    return _platform.probeReachability(_request(operationId: _newOperationId()));
   }
 
   /// Takes a payment. The cardholder presents their card at the terminal.
@@ -429,7 +454,7 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport) {
+    if (!transport.isIpTransport && !transport.isUsbCable) {
       return _refusedInquiry(id, 'Inquiry by reference');
     }
 
@@ -483,7 +508,7 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport) {
+    if (!transport.isIpTransport && !transport.isUsbCable) {
       return _refusedWith<EcrReceipt>(
         id,
         (EcrFailure failure) =>
@@ -574,9 +599,9 @@ final class EcrTerminal {
 
   EcrUnsupported _unsupportedTransport(String operation) => EcrUnsupported(
         '$operation is not available over ${transport.name}. '
-        'A terminal opens its ECR listener only for the IP transports '
-        '(ethernet, wifi); on ${transport.name} the port stays closed and the '
-        'terminal is driven by other machinery entirely.',
+        'A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), '
+        'or Web Service REST; on ${transport.name} the port stays closed and '
+        'the terminal is driven by other machinery entirely.',
       );
 
   /// A date the protocol can carry, or nothing at all.

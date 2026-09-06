@@ -1,6 +1,7 @@
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_next_step.dart';
+import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
@@ -19,6 +20,36 @@ import 'ecr_channel_contract.dart';
 /// unknown, rather than a decline — because a till that reads an unreadable
 /// answer as a refusal will retry, and the customer pays twice.
 abstract final class EcrCodec {
+  /// Reads the answer to [EcrMethods.probeReachability].
+  ///
+  /// A payload that cannot be read becomes "not reachable" rather than a
+  /// throw — the same rule [MethodChannelAmwalEcr.probeReachability] applies
+  /// when the host itself breaks. A till that cannot ask has no terminal.
+  static EcrReachability reachability(Object? payload) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return const EcrReachability(
+        reachable: false,
+        host: '',
+        port: 0,
+        error: 'The host answered a reachability probe with nothing usable',
+      );
+    }
+
+    final String host = _string(map, EcrReachabilityKeys.host);
+    final int port = _int(map, EcrReachabilityKeys.port);
+    final String? errorText = map[EcrReachabilityKeys.error]?.toString();
+    final String endpoint = _string(map, EcrReachabilityKeys.endpoint);
+
+    return EcrReachability(
+      reachable: _bool(map, EcrReachabilityKeys.reachable),
+      host: host,
+      port: port,
+      error: (errorText == null || errorText.isEmpty) ? null : errorText,
+      endpoint: endpoint.isEmpty ? null : endpoint,
+    );
+  }
+
   /// Reads the answer to a sale, void or refund.
   static EcrResult result(Object? payload, {required String operationId}) {
     final Map<Object?, Object?>? map = _asMap(payload);
@@ -254,6 +285,17 @@ abstract final class EcrCodec {
       final bool flag => flag,
       'true' => true,
       _ => false,
+    };
+  }
+
+  /// Reads an integer field, accepting a num that crossed the channel as such.
+  static int _int(Map<Object?, Object?> map, String key) {
+    final Object? value = map[key];
+    return switch (value) {
+      final int n => n,
+      final num n => n.toInt(),
+      final String text => int.tryParse(text) ?? 0,
+      _ => 0,
     };
   }
 

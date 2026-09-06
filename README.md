@@ -115,7 +115,8 @@ other.
 
 A terminal does not listen on port 9100 by default. Its TMS profile decides:
 `terminalMode` `1` puts it in ECR mode, and `ecrMode` says how it is attached.
-**The listener opens only for `ecrMode` 1 (ethernet) and 2 (wi-fi).**
+**The terminal opens a listener for `ecrMode` 2 (wi‑fi). `ecrMode` 1 is USB
+cable (Android only, no IP). Web Service (`ecrMode` 4) uses REST.**
 
 ```dart
 EcrTerminal(
@@ -125,10 +126,11 @@ EcrTerminal(
 );
 ```
 
-On `bluetooth` or `webService` every operation answers with an
+On `bluetooth` every operation answers with an
 [`EcrUnsupported`] failure immediately, without opening a socket — so a till
 reading a profile it does not control handles it as one more outcome rather
-than as a hang.
+than as a hang. USB cable is supported on Android; on iOS it returns the same
+typed unsupported failure.
 
 The terminal shows its own IP and port under the card scheme logos when the link
 is wi-fi. That is what the operator reads off and registers.
@@ -328,7 +330,7 @@ shop floor.
 `example/` is a direct port of the Android example in `app/`: the same two
 screens, the same settings, the same order of checks, the same dialogs.
 
-- **Terminals** — register POS terminals by ECR mode (Wi‑Fi/Ethernet or Web
+- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable, or Web
   Service), with separate LAN and Web Service signing keys and environment
   (SIT/UAT/PROD), matching the Android simulator app.
 - **Transaction** — type, amount, receipt number, the original's date, and which

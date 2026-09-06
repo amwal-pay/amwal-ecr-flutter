@@ -1,6 +1,8 @@
 /// How an ECR reaches the POS terminal — TMS `ecrMode` values.
+///
+/// `1` USB cable, `2` Wi‑Fi, `3` Bluetooth, `4` Web Service.
 enum EcrMode {
-  ethernet(1, 'Ethernet'),
+  usbCable(1, 'USB Cable'),
   wifi(2, 'Wi‑Fi'),
   bluetooth(3, 'Bluetooth'),
   webService(4, 'Web Service');
@@ -10,9 +12,14 @@ enum EcrMode {
   final int value;
   final String label;
 
-  bool get isIpBased => this == EcrMode.ethernet || this == EcrMode.wifi;
+  /// Whether the terminal is reached over a socket. Wi‑Fi alone.
+  bool get isIpBased => this == EcrMode.wifi;
 
-  bool get isSupportedInSimulator => isIpBased || this == EcrMode.webService;
+  /// Whether the till reaches the terminal down a USB cable.
+  bool get isUsbCable => this == EcrMode.usbCable;
+
+  bool get isSupportedInSimulator =>
+      isIpBased || isUsbCable || this == EcrMode.webService;
 
   static const EcrMode defaultMode = EcrMode.wifi;
 

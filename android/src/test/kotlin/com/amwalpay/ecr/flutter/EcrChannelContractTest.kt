@@ -21,6 +21,7 @@ class EcrChannelContractTest {
     @Test
     fun `method names are spelled exactly this way`() {
         assertEquals("isReachable", EcrMethods.IS_REACHABLE)
+        assertEquals("probeReachability", EcrMethods.PROBE_REACHABILITY)
         assertEquals("sale", EcrMethods.SALE)
         assertEquals("void", EcrMethods.VOID)
         assertEquals("refund", EcrMethods.REFUND)
@@ -144,11 +145,15 @@ class EcrChannelContractTest {
     }
 
     @Test
-    fun `only the IP transports have a listener to reach`() {
-        assertEquals(true, EcrTransports.isIpTransport("ethernet"))
+    fun `only Wi-Fi is an IP transport and USB cable is not`() {
+        assertEquals(false, EcrTransports.isIpTransport("usb_cable"))
         assertEquals(true, EcrTransports.isIpTransport("wifi"))
         assertEquals(false, EcrTransports.isIpTransport("bluetooth"))
         assertEquals(false, EcrTransports.isIpTransport("webService"))
+        assertEquals(true, EcrTransports.isWebService("webService"))
+        assertEquals(true, EcrTransports.isWebService("web_service"))
+        assertEquals(true, EcrTransports.isUsbCable("usb_cable"))
+        assertEquals(false, EcrTransports.isUsbCable("wifi"))
         // A transport this build has not heard of is not an IP one either:
         // guessing would open a socket nothing is listening on.
         assertEquals(false, EcrTransports.isIpTransport("carrier-pigeon"))
@@ -156,10 +161,23 @@ class EcrChannelContractTest {
     }
 
     @Test
-    fun `IP and Web Service transports can be driven from the plugin`() {
-        assertEquals(true, EcrTransports.isSupportedTransport("ethernet"))
+    fun `Wi-Fi, USB cable and Web Service can be driven from the plugin`() {
+        assertEquals(true, EcrTransports.isSupportedTransport("usb_cable"))
         assertEquals(true, EcrTransports.isSupportedTransport("wifi"))
         assertEquals(true, EcrTransports.isSupportedTransport("webService"))
+        assertEquals(true, EcrTransports.isSupportedTransport("web_service"))
         assertEquals(false, EcrTransports.isSupportedTransport("bluetooth"))
+        assertEquals(true, EcrTransports.supportsReceipt("wifi"))
+        assertEquals(true, EcrTransports.supportsReceipt("usb_cable"))
+        assertEquals(false, EcrTransports.supportsReceipt("webService"))
+    }
+
+    @Test
+    fun `reachability keys are spelled exactly this way`() {
+        assertEquals("reachable", EcrReachabilityKeys.REACHABLE)
+        assertEquals("host", EcrReachabilityKeys.HOST)
+        assertEquals("port", EcrReachabilityKeys.PORT)
+        assertEquals("error", EcrReachabilityKeys.ERROR)
+        assertEquals("endpoint", EcrReachabilityKeys.ENDPOINT)
     }
 }

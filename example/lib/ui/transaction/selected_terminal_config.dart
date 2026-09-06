@@ -11,6 +11,7 @@ class SelectedTerminalConfig {
     required this.ecrConfig,
     required this.usesWebService,
     required this.usesLan,
+    required this.usesUsbCable,
     required this.hashKeyLabel,
     required this.connectionSummary,
   });
@@ -20,6 +21,7 @@ class SelectedTerminalConfig {
   final EcrConfig ecrConfig;
   final bool usesWebService;
   final bool usesLan;
+  final bool usesUsbCable;
   final String hashKeyLabel;
   final String connectionSummary;
 
@@ -30,6 +32,9 @@ class SelectedTerminalConfig {
   bool get isReady => isSupported && issues.isEmpty;
 
   bool get hashKeyConfigured => ecrConfig.secureHashKey.isNotEmpty;
+
+  /// Wi‑Fi or USB cable — both use the LAN signing key / protocol.
+  bool get usesLocalTerminal => usesLan || usesUsbCable;
 
   static SelectedTerminalConfig resolve({
     required Terminal terminal,
@@ -52,6 +57,7 @@ class SelectedTerminalConfig {
 
     final bool usesWebService = terminal.mode == EcrMode.webService;
     final bool usesLan = terminal.mode.isIpBased;
+    final bool usesUsbCable = terminal.mode.isUsbCable;
 
     if (usesLan) {
       if (terminal.ipAddress.trim().isEmpty) {
@@ -114,7 +120,9 @@ class SelectedTerminalConfig {
             }
             return buffer.toString();
           }()
-        : '${terminal.ipAddress}:$port';
+        : usesUsbCable
+            ? 'USB cable'
+            : '${terminal.ipAddress}:$port';
 
     return SelectedTerminalConfig(
       terminal: terminal,
@@ -122,6 +130,7 @@ class SelectedTerminalConfig {
       ecrConfig: config,
       usesWebService: usesWebService,
       usesLan: usesLan,
+      usesUsbCable: usesUsbCable,
       hashKeyLabel: usesWebService
           ? 'Web Service secure hash key'
           : 'LAN secure hash key',

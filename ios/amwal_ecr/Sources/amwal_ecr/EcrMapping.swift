@@ -107,6 +107,19 @@ enum EcrMapping {
         return value
     }
 
+    static func reachability(_ probe: EcrReachability) -> [String: Any] {
+        var map: [String: Any] = [
+            EcrReachabilityKeys.reachable: probe.reachable,
+            EcrReachabilityKeys.host: probe.host,
+            EcrReachabilityKeys.port: probe.port,
+            EcrReachabilityKeys.endpoint: probe.endpoint,
+        ]
+        if let error = probe.error {
+            map[EcrReachabilityKeys.error] = error
+        }
+        return map
+    }
+
     static func result(_ result: EcrResult) -> [String: Any] {
         switch result {
         case let .approved(approved):

@@ -15,6 +15,7 @@ final class EcrChannelContractTests: XCTestCase {
 
     func testMethodNamesAreSpelledExactlyThisWay() {
         XCTAssertEqual("isReachable", EcrMethods.isReachable)
+        XCTAssertEqual("probeReachability", EcrMethods.probeReachability)
         XCTAssertEqual("sale", EcrMethods.sale)
         XCTAssertEqual("void", EcrMethods.void_)
         XCTAssertEqual("refund", EcrMethods.refund)
@@ -125,15 +126,34 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("com.amwalpay.ecr/methods", kEcrMethodChannel)
     }
 
-    func testOnlyTheIpTransportsHaveAListenerToReach() {
-        XCTAssertTrue(EcrTransports.isIpTransport("ethernet"))
+    func testOnlyWifiIsAnIpTransport() {
+        XCTAssertFalse(EcrTransports.isIpTransport("usb_cable"))
         XCTAssertTrue(EcrTransports.isIpTransport("wifi"))
         XCTAssertFalse(EcrTransports.isIpTransport("bluetooth"))
         XCTAssertFalse(EcrTransports.isIpTransport("webService"))
+        XCTAssertTrue(EcrTransports.isWebService("webService"))
+        XCTAssertTrue(EcrTransports.isWebService("web_service"))
+        XCTAssertTrue(EcrTransports.isUsbCable("usb_cable"))
         // A transport this build has not heard of is not an IP one either:
         // guessing would open a socket nothing is listening on.
         XCTAssertFalse(EcrTransports.isIpTransport("carrier-pigeon"))
         XCTAssertFalse(EcrTransports.isIpTransport(nil))
+    }
+
+    func testIosSupportsWifiAndWebServiceOnly() {
+        XCTAssertFalse(EcrTransports.isSupportedTransport("usb_cable"))
+        XCTAssertTrue(EcrTransports.isSupportedTransport("wifi"))
+        XCTAssertTrue(EcrTransports.isSupportedTransport("webService"))
+        XCTAssertTrue(EcrTransports.isSupportedTransport("web_service"))
+        XCTAssertFalse(EcrTransports.isSupportedTransport("bluetooth"))
+    }
+
+    func testReachabilityKeysAreSpelledExactlyThisWay() {
+        XCTAssertEqual("reachable", EcrReachabilityKeys.reachable)
+        XCTAssertEqual("host", EcrReachabilityKeys.host)
+        XCTAssertEqual("port", EcrReachabilityKeys.port)
+        XCTAssertEqual("error", EcrReachabilityKeys.error)
+        XCTAssertEqual("endpoint", EcrReachabilityKeys.endpoint)
     }
 
     func testMessageTypesMatchTheProtocolDocument() {

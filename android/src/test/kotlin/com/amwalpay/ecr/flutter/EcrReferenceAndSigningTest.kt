@@ -49,6 +49,13 @@ class EcrReferenceAndSigningTest {
 
         override suspend fun isReachable(): Boolean = true
 
+        override suspend fun probeReachability(): com.amwalpay.ecr.EcrReachability =
+            com.amwalpay.ecr.EcrReachability(
+                reachable = true,
+                host = "127.0.0.1",
+                port = 9100,
+            )
+
         override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult {
             calls += "sale"
             lastmerchantReference = merchantReference

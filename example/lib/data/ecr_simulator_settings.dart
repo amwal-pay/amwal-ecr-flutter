@@ -47,7 +47,7 @@ class EcrSimulatorSettings {
 
   String secureHashKeyFor(EcrMode mode) => switch (mode) {
         EcrMode.webService => webServiceSecureHashKey,
-        EcrMode.ethernet ||
+        EcrMode.usbCable ||
         EcrMode.wifi ||
         EcrMode.bluetooth =>
           wifiSecureHashKey,
