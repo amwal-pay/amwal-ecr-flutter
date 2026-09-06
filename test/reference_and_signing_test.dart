@@ -3,6 +3,7 @@ import 'package:amwal_ecr/amwal_ecr_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'platform/fake_host.dart';
+import 'support/ecr_test_configs.dart';
 
 /// The three things the 1.0.4 protocol added, from the Dart side.
 ///
@@ -16,7 +17,8 @@ import 'platform/fake_host.dart';
 /// so what is asserted here is that the setting reaches the host, and that what
 /// the host reports about it is read correctly.
 void main() {
-  const String key = '881dc200c9833da726e9376c2e32cff7';
+  final EcrConfig lanConfig = EcrTestConfigs.lan;
+  final String key = lanConfig.secureHashKey;
 
   late FakeEcrHost host;
 
@@ -41,25 +43,25 @@ void main() {
     test('an empty key is allowed and means unsigned', () {
       expect(EcrConfig().signsMessages, isFalse);
       expect(EcrConfig(secureHashKey: '').signsMessages, isFalse);
-      expect(EcrConfig(secureHashKey: key).signsMessages, isTrue);
+      expect(lanConfig.signsMessages, isTrue);
     });
 
     test('is never printed, because a toString ends up in logs', () {
-      expect(EcrConfig(secureHashKey: key).toString(), isNot(contains(key)));
-      expect(EcrConfig(secureHashKey: key).toString(), contains('signed: true'));
+      expect(lanConfig.toString(), isNot(contains(key)));
+      expect(lanConfig.toString(), contains('signed: true'));
     });
 
     test('reaches the host, which is where the signing happens', () async {
       host.answer(EcrMethods.sale, approvedPayload());
 
-      await terminalWith(EcrConfig(secureHashKey: key))
+      await terminalWith(lanConfig)
           .sale(EcrAmount.parse('1.234'));
 
-      final Map<Object?, Object?> config =
+      final Map<Object?, Object?> wireConfig =
           host.argumentsOf(EcrMethods.sale)[EcrArgs.config]!
               as Map<Object?, Object?>;
-      expect(config[EcrConfigKeys.secureHashKey], key);
-      expect(config[EcrConfigKeys.autoInquireOnFailure], isTrue);
+      expect(wireConfig[EcrConfigKeys.secureHashKey], key);
+      expect(wireConfig[EcrConfigKeys.autoInquireOnFailure], isTrue);
     });
 
     test('auto-inquire can be turned off, and says so on the wire', () async {
@@ -68,10 +70,10 @@ void main() {
       await terminalWith(EcrConfig(autoInquireOnFailure: false))
           .sale(EcrAmount.parse('1.234'));
 
-      final Map<Object?, Object?> config =
+      final Map<Object?, Object?> wireConfig =
           host.argumentsOf(EcrMethods.sale)[EcrArgs.config]!
               as Map<Object?, Object?>;
-      expect(config[EcrConfigKeys.autoInquireOnFailure], isFalse);
+      expect(wireConfig[EcrConfigKeys.autoInquireOnFailure], isFalse);
     });
 
     test('an answer that cannot be shown to be the terminal is unknown, not a '
@@ -87,7 +89,7 @@ void main() {
       );
 
       final EcrResult result =
-          await terminalWith(EcrConfig(secureHashKey: key))
+          await terminalWith(lanConfig)
               .sale(EcrAmount.parse('1.234'));
 
       expect(result, isA<EcrFailed>());

@@ -1,4 +1,5 @@
 import 'package:amwal_ecr/amwal_ecr.dart';
+import '../../data/ecr_secure_hash_labels.dart';
 
 import '../../data/ecr_mode.dart';
 import '../../data/terminal.dart';
@@ -91,8 +92,8 @@ class SelectedTerminalConfig {
     if (sanitizedKey.isEmpty) {
       issues.add(
         usesWebService
-            ? 'Web Service secure hash key is not configured'
-            : 'LAN secure hash key is not configured',
+            ? '${EcrSecureHashLabels.webService} is not configured'
+            : '${EcrSecureHashLabels.wifi} is not configured',
       );
     }
 
@@ -132,8 +133,8 @@ class SelectedTerminalConfig {
       usesLan: usesLan,
       usesUsbCable: usesUsbCable,
       hashKeyLabel: usesWebService
-          ? 'Web Service secure hash key'
-          : 'LAN secure hash key',
+          ? EcrSecureHashLabels.webService
+          : EcrSecureHashLabels.wifi,
       connectionSummary: summary,
     );
   }

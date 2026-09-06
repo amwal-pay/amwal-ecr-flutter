@@ -1,21 +1,18 @@
 import 'package:amwal_ecr/amwal_ecr.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ecr_mode.dart';
 
-/// App-wide signing and Web Service settings persisted across launches.
+/// App-owned signing and Web Service settings.
+///
+/// Persists secrets locally and exposes [secureHashKeyFor] so the selected
+/// terminal's mode picks one value for [EcrConfig.secureHashKey]. The ECR
+/// plugin/SDK does not store or choose keys.
 class EcrSimulatorSettings {
-  static const String _prefs = 'ecr_simulator_settings';
   static const String _keyEnvironment = 'environment';
-  static const String _keyLegacySecureHash = 'secure_hash_key';
   static const String _keyWifiSecureHash = 'wifi_secure_hash_key';
+  static const String _keySecureHashLegacy = 'secure_hash_key';
   static const String _keyWebServiceSecureHash = 'web_service_secure_hash_key';
-
-  static const String debugWifiSecureHashKey =
-      '881dc200c9833da726e9376c2e32cff7';
-  static const String debugWebServiceSecureHashKey =
-      'F04359CFB77000AD30DC47136EA1E8B61FD3CAC792B8DDA7CCDC835948260707';
 
   EcrSimulatorSettings(this._prefsInstance);
 
@@ -32,19 +29,19 @@ class EcrSimulatorSettings {
 
   String get wifiSecureHashKey =>
       _prefsInstance.getString(_keyWifiSecureHash) ??
-      _prefsInstance.getString(_keyLegacySecureHash) ??
-      _defaultWifiSecureHashKey();
+      _prefsInstance.getString(_keySecureHashLegacy) ??
+      '';
 
   set wifiSecureHashKey(String value) =>
       _prefsInstance.setString(_keyWifiSecureHash, value.trim());
 
   String get webServiceSecureHashKey =>
-      _prefsInstance.getString(_keyWebServiceSecureHash) ??
-      _defaultWebServiceSecureHashKey();
+      _prefsInstance.getString(_keyWebServiceSecureHash) ?? '';
 
   set webServiceSecureHashKey(String value) =>
       _prefsInstance.setString(_keyWebServiceSecureHash, value.trim());
 
+  /// Secret to put on [EcrConfig] for the selected terminal [mode].
   String secureHashKeyFor(EcrMode mode) => switch (mode) {
         EcrMode.webService => webServiceSecureHashKey,
         EcrMode.usbCable ||
@@ -52,10 +49,4 @@ class EcrSimulatorSettings {
         EcrMode.bluetooth =>
           wifiSecureHashKey,
       };
-
-  static String _defaultWifiSecureHashKey() =>
-      kDebugMode ? debugWifiSecureHashKey : '';
-
-  static String _defaultWebServiceSecureHashKey() =>
-      kDebugMode ? debugWebServiceSecureHashKey : '';
 }

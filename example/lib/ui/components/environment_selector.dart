@@ -1,4 +1,5 @@
 import 'package:amwal_ecr/amwal_ecr.dart';
+import '../../data/ecr_secure_hash_labels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -32,7 +33,7 @@ class EcrSimulatorSettingsPanel extends StatelessWidget {
               'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR (LAN protocol).',
           child: _SecureHashKeyField(
             value: wifiSecureHashKey,
-            label: 'LAN secure hash key',
+            label: EcrSecureHashLabels.wifi,
             onChanged: onWifiSecureHashKeyChanged,
           ),
         ),
@@ -57,7 +58,7 @@ class EcrSimulatorSettingsPanel extends StatelessWidget {
               const SizedBox(height: 8),
               _SecureHashKeyField(
                 value: webServiceSecureHashKey,
-                label: 'Web Service secure hash key',
+                label: EcrSecureHashLabels.webService,
                 onChanged: onWebServiceSecureHashKeyChanged,
               ),
             ],

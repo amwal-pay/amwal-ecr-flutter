@@ -22,7 +22,7 @@ final class EcrConfig {
     this.terminalId = '',
     this.environment = EcrEnvironment.sit,
     this.autoInquireOnFailure = true,
-  }) {
+  }) {      
     if (minorUnitDigits < 0 || minorUnitDigits > 4) {
       throw EcrArgumentError(
         'minorUnitDigits must be between 0 and 4, got $minorUnitDigits',

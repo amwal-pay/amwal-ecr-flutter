@@ -8,6 +8,8 @@ import kotlin.test.assertIs
 class EcrSessionPortsTest {
 
     private val logger = EcrLogger { _ -> }
+    private val lanConfig = EcrTestConfigs.lan
+    private val lanKey get() = lanConfig.secureHashKey
 
     @Test
     fun `incomplete web service plan is refused before the SDK is called`() {
@@ -18,7 +20,7 @@ class EcrSessionPortsTest {
             config = EcrConfig(
                 merchantId = "",
                 terminalId = "",
-                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
+                secureHashKey = lanKey,
             ),
             logger = logger,
         )
@@ -32,11 +34,7 @@ class EcrSessionPortsTest {
             host = "",
             serialNumber = "TW1",
             transport = EcrTransports.WEB_SERVICE,
-            config = EcrConfig(
-                merchantId = "13593",
-                terminalId = "101311",
-                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
-            ),
+            config = EcrTestConfigs.webService,
             logger = logger,
         )
 
@@ -49,9 +47,7 @@ class EcrSessionPortsTest {
             host = "",
             serialNumber = "TW1",
             transport = EcrTransports.WIFI,
-            config = EcrConfig(
-                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
-            ),
+            config = lanConfig,
             logger = logger,
         )
 
@@ -64,9 +60,7 @@ class EcrSessionPortsTest {
             host = "192.168.1.50",
             serialNumber = "TW1",
             transport = EcrTransports.WIFI,
-            config = EcrConfig(
-                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
-            ),
+            config = lanConfig,
             logger = logger,
         )
 
@@ -92,9 +86,7 @@ class EcrSessionPortsTest {
             host = "",
             serialNumber = "TW1",
             transport = EcrTransports.USB_CABLE,
-            config = EcrConfig(
-                secureHashKey = "881dc200c9833da726e9376c2e32cff7",
-            ),
+            config = lanConfig,
             logger = logger,
             context = null,
         )

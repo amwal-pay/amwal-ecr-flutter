@@ -9,6 +9,11 @@ outcome *means* is breaking, however small the diff.
 
 ### Added
 
+### Changed
+
+- **`EcrSecureHashKeys` removed.** The plugin/SDK only accepts
+  `EcrConfig.secureHashKey`. Apps persist secrets and assign the value for the
+  selected terminal mode.
 - **`EcrTerminal.probeReachability()` / `EcrReachability`.** Matches `ecr_sdk`
   and AmwalECR: the same probe as `isReachable()`, plus host, port, endpoint and
   the underlying error when the link fails. Channel method `probeReachability`;

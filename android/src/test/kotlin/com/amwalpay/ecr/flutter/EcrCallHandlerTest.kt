@@ -349,7 +349,7 @@ class EcrCallHandlerTest {
                         EcrConfigKeys.MERCHANT_ID to "13593",
                         EcrConfigKeys.TERMINAL_ID to "1",
                         EcrConfigKeys.SECURE_HASH_KEY to
-                            "881dc200c9833da726e9376c2e32cff7",
+                            EcrTestConfigs.lan.secureHashKey,
                     ),
                 ),
                 reply,

@@ -14,7 +14,8 @@ import AmwalECR
 /// here is that nothing is dropped on the way across the channel.
 final class EcrReferenceAndSigningTests: XCTestCase {
 
-    private let key = "881dc200c9833da726e9376c2e32cff7"
+    private let config = EcrTestConfigs.lan
+    private var key: String { config.secureHashKey }
 
     // MARK: - Doubles
 

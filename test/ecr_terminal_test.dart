@@ -2,6 +2,7 @@ import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:amwal_ecr/amwal_ecr_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/ecr_test_configs.dart';
 
 import 'platform/fake_host.dart';
 
@@ -189,7 +190,7 @@ void main() {
         config: EcrConfig(
           merchantId: '13593',
           terminalId: '1',
-          secureHashKey: '881dc200c9833da726e9376c2e32cff7',
+          secureHashKey: EcrTestConfigs.lan.secureHashKey,
         ),
         platform: MethodChannelAmwalEcr(channel: FakeEcrHost.channel),
       );

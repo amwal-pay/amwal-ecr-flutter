@@ -18,7 +18,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private const val KEY = "881dc200c9833da726e9376c2e32cff7"
+private val config = EcrTestConfigs.lan
+private val KEY get() = config.secureHashKey
 
 /**
  * What the Android host does with the 1.0.4 additions.
