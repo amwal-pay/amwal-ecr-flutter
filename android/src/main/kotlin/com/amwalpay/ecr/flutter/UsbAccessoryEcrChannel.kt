@@ -113,6 +113,8 @@ class UsbAccessoryEcrChannel(
                 throw IOException("The cable has no bulk endpoints to talk over")
             }
 
+            discardStaleAnswers(connection, input)
+
             val millis = timeout.inWholeMilliseconds.toInt()
             val packet = EcrFrames.wrap(body)
             val written = connection.bulkTransfer(output, packet, packet.size, WRITE_TIMEOUT_MS)
@@ -124,6 +126,43 @@ class UsbAccessoryEcrChannel(
         } finally {
             connection.close()
         }
+    }
+
+    /**
+     * Throws away anything already waiting on the cable before a request goes
+     * out.
+     *
+     * A socket gives each exchange a connection of its own, and an answer
+     * nobody read dies with it. The cable does not: it is one pipe held open
+     * for the life of the link, so an answer that arrived after its request had
+     * given up stays there, and the *next* exchange reads it as its own.
+     *
+     * Measured against terminal 33527: a sale timed out, its answer was written
+     * afterwards, and the following inquiry read that answer instead of its
+     * own. The SDK caught it — the nonce did not match, and it reported the
+     * outcome as unknown rather than believing the wrong record — but every
+     * transaction after a single timeout then failed the same way, one stale
+     * answer behind for good.
+     *
+     * Draining first costs one non-blocking read when the pipe is empty, which
+     * is every ordinary exchange.
+     */
+    private fun discardStaleAnswers(connection: UsbDeviceConnection, input: UsbEndpoint) {
+        val scratch = ByteArray(READ_SIZE)
+        var dropped = 0
+        while (true) {
+            val read = connection.bulkTransfer(input, scratch, scratch.size, DRAIN_TIMEOUT_MS)
+            if (read <= 0) break
+            dropped += read
+            if (dropped > MAX_DRAIN_BYTES) {
+                // Something is producing faster than this can throw away, which
+                // is not a backlog. Stop rather than loop for ever; the nonce
+                // check downstream still refuses whatever comes back.
+                log("Gave up draining the cable after $dropped bytes")
+                break
+            }
+        }
+        if (dropped > 0) log("Discarded $dropped stale bytes left on the cable")
     }
 
     /**
@@ -324,5 +363,14 @@ class UsbAccessoryEcrChannel(
 
         /** Big enough to take a whole USB transfer in one read. */
         const val READ_SIZE = 16 * 1024
+
+        /**
+         * Long enough that a frame already in the pipe is seen, short enough
+         * that an empty pipe — every ordinary exchange — costs nothing.
+         */
+        const val DRAIN_TIMEOUT_MS = 50
+
+        /** A backlog larger than this is not a backlog. */
+        const val MAX_DRAIN_BYTES = 256 * 1024
     }
 }
