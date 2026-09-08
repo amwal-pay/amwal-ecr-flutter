@@ -324,8 +324,8 @@ shop floor.
   patterns a till actually needs.
 - **[Compatibility matrix](doc/compatibility-matrix.md)** — exact native
   versions, platform floors, and every place the two platforms differ.
-- **[Release policy](doc/release-policy.md)** — versioning, release order and
-  how to roll back.
+- **[Changelog](CHANGELOG.md)** — what changed in each version, and what a
+  version number promises.
 - **[Wire protocol](https://github.com/amwal-pay/ECR-simulator/blob/main/ecr-sdk/docs/protocol.md)** — what actually goes over
   the socket, if you are debugging on the wire.
 
@@ -343,10 +343,9 @@ screens, the same settings, the same order of checks, the same dialogs.
   terminal. It probes the terminal before it sends anything, then shows the
   outcome in the same dialogs.
 
-Where the two apps differ, the Android one is right and this is a bug. It is
-deliberately *not* a showcase: the package offers cancellation, transport
-selection and a standalone reachability probe, and the example uses none of
-them, because the Android example does not — see
+It is deliberately a plain till rather than a showcase: the package also offers
+cancellation, transport selection and a standalone reachability probe, and the
+example uses none of them — see
 [response code 96](#a-sale-comes-back-96) for why that matters.
 
 ```bash
@@ -361,20 +360,6 @@ which Android Gradle Plugin does not support yet. Use JDK 17:
 flutter config --jdk-dir="$(/usr/libexec/java_home -v 17)"
 ```
 
-Then run `flutter run` again. Alternatively, uncomment `org.gradle.java.home` in
-`example/android/gradle.properties` and point it at your JDK 17 install.
-
-**Using the local `ecr_sdk` checkout on Android?** The plugin reads
-`android/gradle.properties`:
-
-| `ecrSdkDependency` | Use when |
-|---|---|
-| `jar` (default in this repo) | Sibling `ecr_sdk` checkout — build once: `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
-| `project` | Live Gradle module — also set `ecrSdkDependency=project` in `example/android/gradle.properties` |
-| `maven` | Published `com.amwal-pay:ecr-sdk` from Maven Central |
-
-Paths assume `amwal-ecr-flutter` and `ecr_sdk` sit under the same parent directory.
-
 Without hardware, run the stand-in listener that ships with the reference
 implementation and point the app at the machine running it:
 
@@ -388,104 +373,34 @@ python3 fake_pos_server.py --port 9100 --delay 130   # a timeout
 
 ---
 
-## Testing
-
-```bash
-flutter test                    # the Dart API and the channel contract
-cd example && flutter test      # the example app
-./tool/run_swift_tests.sh       # the iOS bridge, no simulator needed
-cd example/android && ./gradlew :amwal_ecr:testDebugUnitTest   # the Android host
-```
-
-Unit tests share signing placeholders via `EcrTestConfigs` (aligned with
-`ecr_sdk`): `SECURE_HASH_KEY_ECR_WIFI`, `SECURE_HASH_KEY_ECR_WIFI_OTHER`, and
-`SECURE_HASH_KEY_WEBSERVICE`, exposed as `lan` / `lanOther` / `webService`
-configs. Never commit real Amwal keys.
-
-The wire protocol is not tested here: it lives in the native SDKs, each with its
-own suite — [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) on iOS, `ecr-sdk` in the
-[reference repository](https://github.com/amwal-pay/ECR-simulator) on Android.
-
-Working on the iOS SDK and this bridge together, point the bridge tests at a
-checkout instead of at the published version:
-
-```bash
-AMWAL_ECR_SDK_PATH=../AmwalECR-iOS-SPM ./tool/run_swift_tests.sh
-```
-
-For the example app, uncomment the local `pod` line in `example/ios/Podfile`.
-**A file added to or removed from that checkout's `Sources/AmwalECR` then needs
-`pod install` in `example/ios`** before the app will build: until then Xcode
-reports the new type as missing while `swift build` is clean, because the pod's
-file list is a snapshot taken at install time, not a live glob.
-
-```bash
-(cd example/ios && pod install)
-```
-
-End to end, on a device, against a real listener:
-
-```bash
-cd example
-flutter test integration_test/app_test.dart \
-  --dart-define=ECR_HOST=192.168.1.50 \
-  --dart-define=ECR_SERIAL=P653200085189
-```
-
-Money-moving cases are skipped unless `--dart-define=ECR_ALLOW_FINANCIAL=true`,
-so a stray CI run cannot charge anybody.
-
-### Continuous integration
-
-[`codemagic.yaml`](codemagic.yaml) runs on Codemagic. Every push and pull
-request runs the four suites above, builds the example APK, and builds the
-example for iOS twice — once with CocoaPods, once with Flutter's Swift Package
-Manager integration — so both faces of the plugin resolve `AmwalECR` from its
-registry the way an integrator's build will. A `vX.Y.Z` tag publishes to
-pub.dev, after checking that the tag, `pubspec.yaml` and `CHANGELOG.md` agree
-and that the `AmwalECR` range the iOS host asks for is live on trunk; a version
-already on pub.dev is skipped, not re-pushed. Credentials come from a Codemagic
-environment group, never from the repository — see
-[the release policy](doc/release-policy.md#first-time-setup).
-
----
-
 ## Troubleshooting
 
 ### A sale comes back `96`
 
 > Declined — A transaction is already in progress on this terminal
 
-**This is the terminal's state, not a wrapper error, and the Android example
-gets exactly the same answer in the same situation.** Nothing was attempted, so
-nothing has to be reconciled.
+**This is the terminal's state, not an error in the package.** Nothing was
+attempted, so nothing has to be reconciled.
 
 Two things on the terminal produce it, and the second is almost always the one:
 
-1. `EcrServer` is already serving another ECR request. Cleared as soon as that
+1. The terminal is already serving another ECR request. Cleared as soon as that
    one finishes.
-2. **The terminal's own transaction screen is open.** `EcrTransactionService`
-   refuses every money-moving request while
-   `PosTransactionActivityTracker.isActive` is set, and the POS SDK sets that
-   flag in `SaleByCardPosCubit`'s **constructor** — "as soon as the screen is
-   opened" — and clears it in `close()`, when the screen is disposed.
+2. **The terminal's own transaction screen is open.** The terminal refuses every
+   money-moving request from the moment that screen opens until it is closed —
+   while a card is being read, while a status screen is up, while a **receipt is
+   still showing**, and for as long as anyone leaves it open. Neither a closed
+   socket nor time clears it; only closing the screen does.
 
-So the flag is set for as long as that screen exists: while a card is being
-read, while a status screen is up, while a **receipt is still showing**, and for
-as long as anyone leaves it open. It is in-memory on the POS app; a socket
-closing does not clear it, and neither does time.
-
-**Two ways to tell it is stuck.** The screen saver also refuses to appear while
-the flag is set (`ScreenSaverManager._showScreenSaver`), so a terminal that
-never goes to its screen saver has it set. And an **inquiry still works**:
-`EcrTransactionService.handle` answers inquiries and receipts *before* it checks
-the flag. Run one from the example — an inquiry that succeeds while a sale is
+**Two ways to tell.** A terminal in this state never goes to its screen saver.
+And an **inquiry still works**, because the terminal answers inquiries and
+receipts whether or not it is busy. An inquiry that succeeds while a sale is
 refused proves the network, the plugin and the protocol are all fine and the
-terminal is simply busy.
+terminal is simply occupied.
 
 **To clear it:** on the terminal, close the transaction screen and get back to
-the idle payment screen. If it looks idle and still refuses, the cubit was never
-disposed — restart the POS app on the terminal.
+the idle payment screen. If it looks idle and still refuses, restart the POS app
+on the terminal.
 
 **To avoid it:** send one request at a time and keep the buttons disabled until
 it answers, as the example does. Do not offer a cancel unless the till genuinely
@@ -542,4 +457,3 @@ Release builds stay quiet. To make one talk for a session:
 ## Licence
 
 Apache 2.0. See [LICENSE](LICENSE).
-# amwal-ecr-flutter

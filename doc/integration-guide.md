@@ -330,13 +330,16 @@ never as an exception.
 
 ## Testing without hardware
 
-The repository ships a stand-in listener that speaks the same protocol:
+A stand-in listener that speaks the same protocol is published alongside the
+native SDK:
 
 ```bash
-python3 tools/fake_pos_server.py --port 9100                # approves
-python3 tools/fake_pos_server.py --port 9100 --decline 51   # declines
-python3 tools/fake_pos_server.py --port 9100 --delay 130    # forces a timeout
-python3 tools/fake_pos_server.py --port 9100 --not-found    # inquiry misses
+curl -O https://raw.githubusercontent.com/amwal-pay/ECR-simulator/main/tools/fake_pos_server.py
+
+python3 fake_pos_server.py --port 9100                # approves
+python3 fake_pos_server.py --port 9100 --decline 51   # declines
+python3 fake_pos_server.py --port 9100 --delay 130    # forces a timeout
+python3 fake_pos_server.py --port 9100 --not-found    # inquiry misses
 ```
 
 Point the example app, or your own till, at the machine running it.
@@ -356,14 +359,12 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
 AmwalEcrPlatform.instance = FakeEcrPlatform();
 ```
 
-`example/test/widget_test.dart` does exactly this, and the case it spends most
-of its effort on is the one you cannot arrange on real hardware on demand: a
-payment whose outcome nobody knows.
+The example app's tests do exactly this, and the case worth spending your own
+effort on is the one you cannot arrange on real hardware on demand: a payment
+whose outcome nobody knows.
 
-Shared signing placeholders for unit tests live in `EcrTestConfigs` (same names
-as `ecr_sdk`): `SECURE_HASH_KEY_ECR_WIFI`, `SECURE_HASH_KEY_ECR_WIFI_OTHER`, and
-`SECURE_HASH_KEY_WEBSERVICE` as `lan` / `lanOther` / `webService`. Never commit
-real Amwal keys.
+Use a placeholder signing key in tests, never a real Amwal one, and keep real
+keys out of the repository entirely.
 
 ---
 
