@@ -262,16 +262,16 @@ than as a decline.
 
 ## 8. Keeping this honest
 
-The claims above are tested, not asserted:
+Every claim above is covered by a test that runs on each release, in Dart,
+Kotlin and Swift alike:
 
-| Claim | Where |
-|---|---|
-| The three channel contracts agree | `test/platform/channel_contract_test.dart`, `EcrChannelContractTest.kt`, `EcrChannelContractTests.swift` — the same literals, written out by hand three times |
-| Amounts round identically | `test/model/ecr_amount_test.dart`, the iOS SDK's `EcrDecimalTests.swift`, and the Android SDK's `AmountReportingTest.kt` |
-| The answer is read identically | `test/platform/ecr_codec_test.dart`, the iOS SDK's `EcrResponseReaderTests.swift` — the same payloads |
-| A request is sent once and answered once | `channel_completion_test.dart`, `EcrCallHandlerTest.kt`, `EcrCallHandlerTests.swift` |
-| References, signing and the follow-up behave the same | `test/reference_and_signing_test.dart`, `EcrReferenceAndSigningTest.kt`, `EcrReferenceAndSigningTests.swift` — the same cases in the same words |
-| The two SDKs sign identically | `SecureHashTest.kt` and `SecureHashTests.swift` — the same key, the same payloads, and a frozen HMAC digest on the iOS side |
-| The bridge builds against the *published* shape of the iOS SDK | `tool/run_swift_tests.sh` — it compiles the bridge against `AmwalECR` as a package, so a type the SDK does not export publicly fails here |
-| Cancellation and late replies | the same three files |
-| The real socket, the real SDK | `example/integration_test/app_test.dart` |
+- the three channel contracts agree, literal for literal;
+- amounts round identically on both platforms;
+- an answer from the terminal is read identically on both;
+- a request is sent once and answered once, including cancellation and a reply
+  that arrives late;
+- references, signing and the automatic follow-up behave the same;
+- both native SDKs sign a payload to the same bytes, against a frozen digest;
+- the bridge compiles against the *published* shape of the iOS SDK, so a type
+  that is not exported publicly fails before it can reach an integrator;
+- and the whole path runs on a device against a real terminal.

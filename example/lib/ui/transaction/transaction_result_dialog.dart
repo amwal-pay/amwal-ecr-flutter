@@ -154,12 +154,25 @@ class InquiryResultDialog extends StatelessWidget {
 
       case EcrInquiryFound(:final EcrTransaction transaction, :final String raw):
         final bool settled = transaction.status.toLowerCase() == 'approved';
+        // A partial approval read back from an inquiry is the same fact the
+        // sale reported, and has to read the same. Showing `amount` alone said
+        // "Approved · 961.100" for a transaction where 50.000 was taken: the
+        // sale screen called that out and this one did not, so one payment
+        // looked like two different things depending on how it was reached.
+        final bool partial = settled && transaction.partialApproval;
         return ResultDialog(
-          headline: transaction.status.isEmpty ? 'Found' : transaction.status,
+          headline: partial
+              ? 'Partially approved'
+              : transaction.status.isEmpty
+              ? 'Found'
+              : transaction.status,
           icon: settled ? Icons.check_circle : Icons.cancel,
           tint: settled ? approvedGreen : declinedRed,
-          amount: transaction.amount,
-          message: settled
+          amount: partial ? transaction.authorizedAmount : transaction.amount,
+          message: partial
+              ? 'Only ${transaction.authorizedAmount} of ${transaction.amount} '
+                    'was approved. Collect the difference by another means.'
+              : settled
               ? null
               : EcrWireResponse.displayMessageFromRaw(
                   raw,

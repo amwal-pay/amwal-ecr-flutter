@@ -28,7 +28,7 @@
 #                         already on pub.dev is reported and skipped. Ends by
 #                         reading the version back from pub.dev.
 #
-# Credentials (doc/release-policy.md, "First-time setup"): a Codemagic
+# Credentials (RELEASING.md, "First-time setup"): a Codemagic
 # environment group `pub_credentials` holding the secure variable
 # PUB_CREDENTIALS — the contents of pub-credentials.json from a workstation
 # where `flutter pub login` was run with the account that owns `amwal_ecr`,
@@ -36,7 +36,7 @@
 # directory at publish time and nowhere else. The file never goes in this
 # repository.
 #
-# Release order is documented in doc/release-policy.md: ecr-sdk (Maven), then
+# Release order is documented in RELEASING.md: ecr-sdk (Maven), then
 # AmwalECR (SwiftPM tag, then trunk), then this package.
 definitions:
   env: &env
