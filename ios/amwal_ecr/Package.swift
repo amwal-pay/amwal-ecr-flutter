@@ -13,13 +13,7 @@ let package = Package(
         .library(name: "amwal-ecr", targets: ["amwal_ecr"]),
     ],
     dependencies: [
-        // The wire protocol: its own package, used unchanged by native iOS
-        // apps. Ranged to the patch line for the reason given in the podspec.
-        .package(
-            url: "https://github.com/amwal-pay/AmwalECR-iOS-SPM.git",
-            .upToNextMinor(from: "0.2.1")
-        ),
-        // .package(path: "../../../AmwalECR-iOS-SPM"),
+        .package(path: "../../../AmwalECR-iOS-SPM"),
     ],
     targets: [
         .target(
