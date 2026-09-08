@@ -29,6 +29,7 @@
 /// `doc/compatibility-matrix.md` for where the two platforms differ.
 library amwal_ecr;
 
+export 'src/ecr_opened_session.dart';
 export 'src/ecr_operation.dart';
 export 'src/ecr_terminal.dart';
 export 'src/model/ecr_amount.dart';

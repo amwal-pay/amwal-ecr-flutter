@@ -299,12 +299,17 @@ assign (see the example app's `secureHashKeyFor`):
 // App-owned: pick the stored secret for this terminal mode
 final String secret = settings.secureHashKeyFor(terminal.mode);
 
-final EcrTerminal ecr = EcrTerminal(
+final EcrOpenedSession session = EcrSessions.open(
   host: '192.168.1.50',
   serialNumber: 'P653200085189',
   config: EcrConfig(secureHashKey: secret),
 );
+final EcrTerminal ecr = session.terminal;
 ```
+
+The example app keeps secrets in **`flutter_secure_storage`** (not plaintext
+SharedPreferences). Prefer **`EcrSessions.open`** so the same transport is used
+for sale, inquiry, and receipt.
 
 Every request is then signed and every answer checked — both that it is signed
 with this terminal's key, and that it answers *this* request. An answer that
@@ -364,16 +369,50 @@ flutter config --jdk-dir="$(/usr/libexec/java_home -v 17)"
 Then run `flutter run` again. Alternatively, uncomment `org.gradle.java.home` in
 `example/android/gradle.properties` and point it at your JDK 17 install.
 
-**Using the local `ecr_sdk` checkout on Android?** The plugin reads
-`android/gradle.properties`:
+### Local native SDKs (this monorepo)
+
+Android and iOS both select the native ECR SDK via properties files. The example
+app always loads the **local plugin** (`amwal_ecr: path: ../`); the properties
+only choose how that plugin resolves **AmwalECR / ecr-sdk**.
+
+| Platform | Plugin config | Example override |
+|---|---|---|
+| Android | `android/gradle.properties` | `example/android/gradle.properties` |
+| iOS | `ios/ecr_sdk.properties` | `example/ios/ecr_sdk.properties` |
+
+**Android** — Gradle includes `:ecr-sdk` automatically. Modes:
 
 | `ecrSdkDependency` | Use when |
 |---|---|
-| `jar` (default in this repo) | Sibling `ecr_sdk` checkout — build once: `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
-| `project` | Live Gradle module — also set `ecrSdkDependency=project` in `example/android/gradle.properties` |
+| `project` (default here) | Live Gradle module from sibling `ecr_sdk` |
+| `jar` | Built JAR — `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
 | `maven` | Published `com.amwal-pay:ecr-sdk` from Maven Central |
 
-Paths assume `amwal-ecr-flutter` and `ecr_sdk` sit under the same parent directory.
+**iOS** — one setting syncs **both** faces of the plugin (`amwal_ecr.podspec` and
+`amwal_ecr/Package.swift`), then the example loads that plugin:
+
+```bash
+./tool/sync_ios_ecr_sdk.sh      # rewrite Package.swift + podspec version + SPM flag
+./tool/prepare_ios_example.sh   # sync + flutter pub get + pod install
+cd example && flutter run
+```
+
+| `ecrSdkDependency` | CocoaPods face (example) | SwiftPM face (`Package.swift`) |
+|---|---|---|
+| `project` (default here) | Sibling `AmwalECR-iOS-CocoaPods` | Sibling `AmwalECR-iOS-SPM` |
+| `cocoapods` | CocoaPods trunk | GitHub tags (published) |
+| `spm` | No path override; Flutter SPM on | GitHub tags (published) |
+
+One-off overrides:
+
+```bash
+ECR_SDK_DEPENDENCY=cocoapods ./tool/prepare_ios_example.sh
+ECR_SDK_ROOT=/path/to/AmwalECR-iOS-CocoaPods ./tool/prepare_ios_example.sh
+```
+
+Paths assume `amwal-ecr-flutter`, `ecr_sdk`, `AmwalECR-iOS-CocoaPods`, and
+`AmwalECR-iOS-SPM` sit under the same parent directory.
+
 
 Without hardware, run the stand-in listener that ships with the reference
 implementation and point the app at the machine running it:
@@ -413,11 +452,13 @@ checkout instead of at the published version:
 AMWAL_ECR_SDK_PATH=../AmwalECR-iOS-SPM ./tool/run_swift_tests.sh
 ```
 
-For the example app, uncomment the local `pod` line in `example/ios/Podfile`.
-**A file added to or removed from that checkout's `Sources/AmwalECR` then needs
-`pod install` in `example/ios`** before the app will build: until then Xcode
-reports the new type as missing while `swift build` is clean, because the pod's
-file list is a snapshot taken at install time, not a live glob.
+For the example app, local iOS SDK wiring is controlled by
+`ios/ecr_sdk.properties` (plugin) and `example/ios/ecr_sdk.properties` (override).
+Run `./tool/prepare_ios_example.sh` after changing the mode or after
+adding/removing files under the CocoaPods checkout's `Sources/AmwalECR` —
+CocoaPods snapshots the source glob into `Pods.xcodeproj`. Editing existing
+files needs nothing. `./tool/sync_ios_ecr_sdk.sh` alone rewrites
+`Package.swift` / podspec / the example SPM flag without installing pods.
 
 ```bash
 (cd example/ios && pod install)

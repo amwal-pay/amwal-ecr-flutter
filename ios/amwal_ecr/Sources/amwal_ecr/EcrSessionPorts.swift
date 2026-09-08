@@ -1,8 +1,8 @@
 import Foundation
 import AmwalECR
 
-/// Builds [EcrTerminalPort] instances through [EcrSessions.plan], matching the
-/// Android simulator app's session-planning pattern.
+/// Builds [EcrTerminalPort] instances through [EcrSessions.plan] / [EcrSessions.open],
+/// matching the Android simulator app's session-planning pattern.
 enum EcrSessionPorts {
 
     static func create(
@@ -23,13 +23,12 @@ enum EcrSessionPorts {
         if !plan.isReady {
             return InvalidPlanTerminalPort(issues: plan.issues)
         }
-        if plan.usesWebService {
-            return SdkWebServiceTerminal(serialNumber: serialNumber, plan: plan, logger: logger)
-        }
-        if plan.usesLan {
-            return SdkLanTerminal(serialNumber: serialNumber, plan: plan, logger: logger)
-        }
-        return UnsupportedEcrTerminalPort(transport: transport)
+        let session = EcrSessions.open(
+            terminalSerial: serialNumber,
+            plan: plan,
+            logger: logger
+        )
+        return SdkOpenedSessionPort(session: session)
     }
 
     private static func linkFor(host: String, transport: String, config: EcrConfig) -> EcrLink? {
@@ -48,23 +47,24 @@ enum EcrSessionPorts {
     }
 }
 
-final class SdkLanTerminal: EcrTerminalPort {
-    private let terminal: EcrTerminal
+final class SdkOpenedSessionPort: EcrTerminalPort {
+    private let session: EcrOpenedSession
 
-    init(serialNumber: String, plan: EcrSessionPlan, logger: EcrLogger) {
-        terminal = EcrSessions.lanTerminal(
-            terminalSerial: serialNumber,
-            plan: plan,
-            logger: logger
-        )
+    init(session: EcrOpenedSession) {
+        self.session = session
     }
 
-    func isReachable() -> Bool { terminal.probeReachability().reachable }
+    func isReachable() -> Bool {
+        session.probeReachability()?.reachable == true
+    }
 
-    func probeReachability() -> EcrReachability { terminal.probeReachability() }
+    func probeReachability() -> EcrReachability {
+        session.probeReachability()
+            ?? EcrReachability(reachable: false, host: "", port: 0, endpoint: "webService")
+    }
 
     func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
-        try terminal.sale(amount: amount, merchantReference: merchantReference)
+        try session.sale(amount: amount, merchantReference: merchantReference)
     }
 
     func void(
@@ -72,7 +72,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrResult {
-        try terminal.void(
+        try session.void(
             receiptNumber: receiptNumber,
             originalTerminalId: originalTerminalId,
             merchantReference: merchantReference
@@ -86,7 +86,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrResult {
-        try terminal.refund(
+        try session.refund(
             amount: amount,
             receiptNumber: receiptNumber,
             transactionDate: transactionDate,
@@ -101,7 +101,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrInquiry {
-        try terminal.inquire(
+        try session.inquire(
             receiptNumber: receiptNumber,
             transactionDate: transactionDate,
             originalTerminalId: originalTerminalId,
@@ -115,7 +115,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrInquiry {
-        try terminal.inquireByReference(
+        try session.inquireByReference(
             originalReference,
             transactionDate: transactionDate,
             originalTerminalId: originalTerminalId,
@@ -129,7 +129,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrReceipt {
-        try terminal.receipt(
+        try session.receipt(
             receiptNumber: receiptNumber,
             transactionDate: transactionDate,
             originalTerminalId: originalTerminalId,
@@ -137,89 +137,7 @@ final class SdkLanTerminal: EcrTerminalPort {
         )
     }
 
-    func cancel() { terminal.cancel() }
-}
-
-final class SdkWebServiceTerminal: EcrTerminalPort {
-    private let terminal: EcrWebServiceTerminal
-
-    init(serialNumber: String, plan: EcrSessionPlan, logger: EcrLogger) {
-        terminal = EcrSessions.webServiceTerminal(
-            terminalSerial: serialNumber,
-            plan: plan,
-            logger: logger
-        )
-    }
-
-    func isReachable() -> Bool { false }
-
-    func probeReachability() -> EcrReachability {
-        EcrReachability(reachable: false, host: "", port: 0, endpoint: "webService")
-    }
-
-    func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
-        try terminal.sale(amount: amount, merchantReference: merchantReference)
-    }
-
-    func void(
-        receiptNumber: String,
-        originalTerminalId: String,
-        merchantReference: String
-    ) throws -> EcrResult {
-        try terminal.void(receiptNumber: receiptNumber, merchantReference: merchantReference)
-    }
-
-    func refund(
-        amount: Decimal,
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String
-    ) throws -> EcrResult {
-        try terminal.refund(
-            amount: amount,
-            receiptNumber: receiptNumber,
-            transactionDate: transactionDate,
-            merchantReference: merchantReference
-        )
-    }
-
-    func inquire(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String
-    ) throws -> EcrInquiry {
-        try terminal.inquire(
-            receiptNumber: receiptNumber,
-            transactionDate: transactionDate,
-            merchantReference: merchantReference
-        )
-    }
-
-    func inquireByReference(
-        _ originalReference: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String
-    ) throws -> EcrInquiry {
-        try terminal.inquireByReference(
-            originalReference: originalReference,
-            transactionDate: transactionDate,
-            merchantReference: merchantReference
-        )
-    }
-
-    func receipt(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String
-    ) throws -> EcrReceipt {
-        throw EcrInvalidArgument("Receipt is LAN-only")
-    }
-
-    func cancel() {}
+    func cancel() { session.cancel() }
 }
 
 final class UnsupportedEcrTerminalPort: EcrTerminalPort {

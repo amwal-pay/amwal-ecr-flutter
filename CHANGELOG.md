@@ -9,6 +9,15 @@ outcome *means* is breaking, however small the diff.
 
 ### Added
 
+- **`EcrOpenedSession` / `EcrSessions.open`** (Dart) — names the same
+  session-open intent as native `ecr_sdk` / AmwalECR; wraps a transport-aware
+  `EcrTerminal`.
+- Android / iOS hosts open sessions via native **`EcrSessions.open`** so LAN,
+  USB cable, and Web Service share one dispatch path.
+- Example apps store signing secrets with **`flutter_secure_storage`**
+  (Keychain / Keystore), with one-shot migration from plaintext
+  SharedPreferences.
+
 ### Changed
 
 - **`EcrSecureHashKeys` removed.** The plugin/SDK only accepts
@@ -17,10 +26,16 @@ outcome *means* is breaking, however small the diff.
 - Unit-test placeholders renamed to match `ecr_sdk`: `SECURE_HASH_KEY_ECR_WIFI`,
   `SECURE_HASH_KEY_ECR_WIFI_OTHER`, `SECURE_HASH_KEY_WEBSERVICE` on
   `EcrTestConfigs` (`lan` / `lanOther` / `webService`).
+- **Example iOS local SDK wiring** matches Android: `ios/ecr_sdk.properties` +
+  `example/ios/ecr_sdk.properties` (`project` \| `cocoapods` \| `spm`), applied by
+  `./tool/sync_ios_ecr_sdk.sh` / `./tool/prepare_ios_example.sh` to both the
+  podspec and `Package.swift` faces.
 - **`EcrTerminal.probeReachability()` / `EcrReachability`.** Matches `ecr_sdk`
   and AmwalECR: the same probe as `isReachable()`, plus host, port, endpoint and
   the underlying error when the link fails. Channel method `probeReachability`;
   `isReachable` remains as a convenience over it.
+- Android USB accessory channel discards stale framed answers whose **nonce**
+  does not match the request just sent.
 
 ### Changed
 

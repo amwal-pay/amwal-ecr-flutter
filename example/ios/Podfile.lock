@@ -1,8 +1,8 @@
 PODS:
-  - amwal_ecr (0.2.0):
-    - AmwalECR (~> 0.3.0)
+  - amwal_ecr (0.2.1):
+    - AmwalECR (~> 0.2.1)
     - Flutter
-  - AmwalECR (0.3.0)
+  - AmwalECR (0.2.1)
   - Flutter (1.0.0)
   - integration_test (0.0.1):
     - Flutter
@@ -30,12 +30,12 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
 
 SPEC CHECKSUMS:
-  amwal_ecr: 7ea287b31868af7fec161049fd2c0f65049202ec
-  AmwalECR: 403366f4df45330b9174940e56320900967c4e57
+  amwal_ecr: 70abad24394423425bed1c26377ebb08b210a5e3
+  AmwalECR: 596eadf48d0ed486e44b92ef873f592f623fdf5e
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
 
-PODFILE CHECKSUM: ea8a5bb91912bf044f3f636d441798a63fab4555
+PODFILE CHECKSUM: 485ef4799ac60ef94b5b004e661562506089a21f
 
 COCOAPODS: 1.16.2

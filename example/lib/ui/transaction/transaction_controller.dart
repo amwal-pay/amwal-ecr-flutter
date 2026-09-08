@@ -266,11 +266,11 @@ class TransactionController extends ChangeNotifier {
       EcrMode.webService => EcrTransport.webService,
     };
 
-    return EcrTerminal(
+    return EcrSessions.open(
       host: active.usesLan ? terminal.ipAddress : '',
       serialNumber: terminal.serialNumber,
       transport: transport,
       config: active.ecrConfig,
-    );
+    ).terminal;
   }
 }

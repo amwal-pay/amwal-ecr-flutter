@@ -28,8 +28,11 @@ field, it fails to be understood by a current terminal.
 
 | Platform | Provider | Version | Source |
 |---|---|---|---|
-| Android | `com.amwal-pay:ecr-sdk` | **1.0.4**, exact | Maven Central |
-| iOS | `AmwalECR` | **`~> 0.2.0`** | [CocoaPods trunk](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), and [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| Android | `com.amwal-pay:ecr-sdk` | **1.0.5** (local / project), exact | Maven Central / sibling `:ecr-sdk` |
+| iOS | `AmwalECR` | **`0.2.1`** | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+
+Both providers expose **`EcrSessions.open` / `EcrOpenedSession`**. The Flutter
+hosts call that API so LAN, USB cable, and Web Service share one dispatch path.
 
 Both providers are published SDKs that native apps use directly, without
 Flutter. This package is a bridge over them and holds no protocol code of its

@@ -42,6 +42,7 @@ dependencies:
   #   Room        -> shared_preferences: registered terminals survive a restart
   #   ZXing       -> qr_flutter: the e-receipt as a QR code the customer scans
   shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.4
   qr_flutter: ^4.1.0
 
   # The following adds the Cupertino Icons font to your application.

@@ -115,6 +115,7 @@ class UsbAccessoryEcrChannel(
 
             discardStaleAnswers(connection, input)
 
+            val expectedNonce = nonceOf(body)
             val millis = timeout.inWholeMilliseconds.toInt()
             val packet = EcrFrames.wrap(body)
             val written = connection.bulkTransfer(output, packet, packet.size, WRITE_TIMEOUT_MS)
@@ -122,7 +123,7 @@ class UsbAccessoryEcrChannel(
                 throw IOException("Only $written of ${packet.size} bytes reached the terminal")
             }
 
-            return readFrame(connection, input, millis)
+            return readFrame(connection, input, millis, expectedNonce)
         } finally {
             connection.close()
         }
@@ -145,7 +146,10 @@ class UsbAccessoryEcrChannel(
      * answer behind for good.
      *
      * Draining first costs one non-blocking read when the pipe is empty, which
-     * is every ordinary exchange.
+     * is every ordinary exchange. It is not enough alone: a late answer can
+     * still arrive *after* this drain and before the matching reply. [readFrame]
+     * therefore also skips framed answers whose nonce does not match the
+     * request that was just sent.
      */
     private fun discardStaleAnswers(connection: UsbDeviceConnection, input: UsbEndpoint) {
         val scratch = ByteArray(READ_SIZE)
@@ -166,16 +170,22 @@ class UsbAccessoryEcrChannel(
     }
 
     /**
-     * Reads one framed answer.
+     * Reads one framed answer that belongs to [expectedNonce] when the request
+     * was signed.
      *
      * A transfer is not a frame: one may carry several, or half of one. What
      * arrives is accumulated and the frame is cut out of it, because treating a
      * transfer as a message works on a short answer and fails on a real one.
+     *
+     * When [expectedNonce] is non-empty, frames that echo a different nonce —
+     * late answers that arrived after the pre-send drain — are discarded and
+     * reading continues until a match or the timeout.
      */
     private fun readFrame(
         connection: UsbDeviceConnection,
         input: UsbEndpoint,
         timeoutMillis: Int,
+        expectedNonce: String,
     ): ByteArray {
         val buffer = ByteArray(READ_SIZE)
         var pending = ByteArray(0)
@@ -200,16 +210,43 @@ class UsbAccessoryEcrChannel(
             if (read == 0) continue
 
             pending += buffer.copyOf(read)
-            if (pending.size < EcrFrames.HEADER_BYTES) continue
 
-            val length = EcrFrames.bodyLength(pending)
-            if (length <= 0) throw IOException("Terminal returned an empty message")
-            if (pending.size < EcrFrames.HEADER_BYTES + length) continue
+            while (true) {
+                if (pending.size < EcrFrames.HEADER_BYTES) break
 
-            return pending.copyOfRange(
-                EcrFrames.HEADER_BYTES,
-                EcrFrames.HEADER_BYTES + length,
-            )
+                val length = EcrFrames.bodyLength(pending)
+                if (length <= 0) throw IOException("Terminal returned an empty message")
+                if (pending.size < EcrFrames.HEADER_BYTES + length) break
+
+                val body = pending.copyOfRange(
+                    EcrFrames.HEADER_BYTES,
+                    EcrFrames.HEADER_BYTES + length,
+                )
+                pending = pending.copyOfRange(
+                    EcrFrames.HEADER_BYTES + length,
+                    pending.size,
+                )
+
+                if (expectedNonce.isEmpty()) return body
+
+                val answered = nonceOf(body)
+                if (answered.isEmpty() || answered == expectedNonce) return body
+
+                log(
+                    "Discarded stale USB answer " +
+                        "(nonce=$answered, expected=$expectedNonce)",
+                )
+            }
+        }
+    }
+
+    /** Pulls the ECR `nonce` field from a JSON body, or empty when unsigned. */
+    private fun nonceOf(body: ByteArray): String {
+        if (body.isEmpty()) return ""
+        return try {
+            org.json.JSONObject(String(body, Charsets.UTF_8)).optString("nonce", "")
+        } catch (_: Exception) {
+            ""
         }
     }
 
@@ -366,7 +403,7 @@ class UsbAccessoryEcrChannel(
 
         /**
          * Long enough that a frame already in the pipe is seen, short enough
-         * that an empty pipe — every ordinary exchange — costs nothing.
+         * that an empty pipe - every ordinary exchange - costs nothing.
          */
         const val DRAIN_TIMEOUT_MS = 50
 

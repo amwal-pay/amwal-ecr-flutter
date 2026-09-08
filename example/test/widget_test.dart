@@ -7,6 +7,7 @@ import 'package:amwal_ecr_example/data/terminal_repository.dart';
 import 'package:amwal_ecr_example/main.dart';
 import 'package:amwal_ecr_example/ui/components/omr_symbol.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,6 +31,10 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'terminals': <String>[jsonEncode(registered.toJson())],
+    });
+    FlutterSecureStorage.setMockInitialValues(<String, String>{
+      'wifi_secure_hash_key': '0123456789abcdef0123456789abcdef',
+      'web_service_secure_hash_key': 'fedcba9876543210fedcba9876543210',
     });
     platform = FakeEcrPlatform();
     AmwalEcrPlatform.instance = platform;
@@ -540,6 +545,10 @@ void main() {
     testWidgets('with none registered, nothing can be started',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
+      FlutterSecureStorage.setMockInitialValues(<String, String>{
+      'wifi_secure_hash_key': '0123456789abcdef0123456789abcdef',
+      'web_service_secure_hash_key': 'fedcba9876543210fedcba9876543210',
+    });
       final TerminalRepository empty = TerminalRepository();
       addTearDown(empty.dispose);
 

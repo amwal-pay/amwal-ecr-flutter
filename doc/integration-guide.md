@@ -33,7 +33,7 @@ link is wi-fi.
 ```dart
 import 'package:amwal_ecr/amwal_ecr.dart';
 
-final EcrTerminal terminal = EcrTerminal(
+final EcrOpenedSession session = EcrSessions.open(
   host: '192.168.1.50',
   serialNumber: 'P653200085189',
   transport: EcrTransport.wifi,
@@ -43,8 +43,10 @@ final EcrTerminal terminal = EcrTerminal(
     minorUnitDigits: 3,      // 3 for OMR, 2 for USD, 0 for JPY
   ),
 );
+final EcrTerminal terminal = session.terminal;
 ```
 
+Prefer `EcrSessions.open` so sale, inquiry, and receipt share one transport.
 An `EcrTerminal` holds no connection between calls, so it is cheap to build and
 safe to keep. Build a new one when the settings change rather than mutating one.
 

@@ -29,7 +29,7 @@ class EcrSessionPortsTest {
     }
 
     @Test
-    fun `ready web service plan builds a web service terminal`() {
+    fun `ready web service plan builds an opened session`() {
         val port = EcrSessionPorts.create(
             host = "",
             serialNumber = "TW1",
@@ -38,7 +38,7 @@ class EcrSessionPortsTest {
             logger = logger,
         )
 
-        assertIs<SdkWebServiceTerminal>(port)
+        assertIs<SdkOpenedSessionPort>(port)
     }
 
     @Test
@@ -55,7 +55,7 @@ class EcrSessionPortsTest {
     }
 
     @Test
-    fun `ready LAN plan builds a LAN terminal`() {
+    fun `ready LAN plan builds an opened session`() {
         val port = EcrSessionPorts.create(
             host = "192.168.1.50",
             serialNumber = "TW1",
@@ -64,7 +64,7 @@ class EcrSessionPortsTest {
             logger = logger,
         )
 
-        assertIs<SdkLanTerminal>(port)
+        assertIs<SdkOpenedSessionPort>(port)
     }
 
     @Test

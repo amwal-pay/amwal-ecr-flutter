@@ -1,10 +1,10 @@
 group 'com.amwalpay.ecr.flutter'
-version '0.2.0'
+version '0.2.1'
 
 def ecrSdkDependency = (findProperty("ecrSdkDependency") ?: "maven").toString().trim()
-def ecrSdkVersion = (findProperty("ecrSdkVersion") ?: "1.0.4").toString().trim()
+def ecrSdkVersion = (findProperty("ecrSdkVersion") ?: "1.0.5").toString().trim()
 def ecrSdkJarPath = (findProperty("ecrSdkJarPath")
-        ?: "../../ecr_sdk/ecr-sdk/build/libs/ecr-sdk-${ecrSdkVersion}.jar").toString().trim()
+        ?: "../../ECR-simulator/ecr-sdk/build/libs/ecr-sdk-${ecrSdkVersion}.jar").toString().trim()
 
 buildscript {
     ext.kotlin_version = '1.9.24'

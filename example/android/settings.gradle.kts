@@ -49,7 +49,7 @@ plugins {
 val ecrSdkProps = java.util.Properties()
 file("gradle.properties").takeIf { it.exists() }?.inputStream()?.use { ecrSdkProps.load(it) }
 if (ecrSdkProps.getProperty("ecrSdkDependency", "jar") == "project") {
-    val ecrSdkRoot = ecrSdkProps.getProperty("ecrSdkRoot", "../../../ecr_sdk")
+    val ecrSdkRoot = ecrSdkProps.getProperty("ecrSdkRoot", "../../../ECR-simulator")
     include(":ecr-sdk")
     project(":ecr-sdk").projectDir = file("$ecrSdkRoot/ecr-sdk")
 }

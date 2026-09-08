@@ -5,19 +5,17 @@ import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrLink
 import com.amwalpay.ecr.EcrLogger
+import com.amwalpay.ecr.EcrOpenedSession
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
-import com.amwalpay.ecr.EcrSessionPlan
 import com.amwalpay.ecr.EcrSessions
-import com.amwalpay.ecr.EcrTerminal
-import com.amwalpay.ecr.EcrWebServiceTerminal
 import com.amwalpay.ecr.Failure
 import java.math.BigDecimal
 
 /**
- * Builds [EcrTerminalPort] instances through [EcrSessions.plan], matching the
- * Android simulator app's session-planning pattern.
+ * Builds [EcrTerminalPort] instances through [EcrSessions.plan] / [EcrSessions.open],
+ * matching the Android simulator app's session-planning pattern.
  */
 internal object EcrSessionPorts {
 
@@ -38,20 +36,20 @@ internal object EcrSessionPorts {
         if (!plan.isReady) {
             return InvalidPlanTerminalPort(plan.issues)
         }
-        return when {
-            plan.usesWebService -> SdkWebServiceTerminal(serialNumber, plan, logger)
-            plan.usesLan -> SdkLanTerminal(serialNumber, plan, logger)
-            plan.usesUsbCable -> {
-                val ctx = context ?: return UnsupportedEcrTerminalPort(transport)
-                SdkUsbCableTerminal(
-                    serialNumber = serialNumber,
-                    plan = plan,
-                    channel = UsbAccessoryEcrChannel(ctx, log = { logger.debug(it) }),
-                    logger = logger,
-                )
-            }
-            else -> UnsupportedEcrTerminalPort(transport)
+        if (plan.usesUsbCable && context == null) {
+            return UnsupportedEcrTerminalPort(transport)
         }
+        val session = EcrSessions.open(
+            terminalSerial = serialNumber,
+            plan = plan,
+            usbChannel = if (plan.usesUsbCable) {
+                { UsbAccessoryEcrChannel(context!!, log = { logger.debug(it) }) }
+            } else {
+                null
+            },
+            logger = logger,
+        )
+        return SdkOpenedSessionPort(session)
     }
 
     private fun linkFor(host: String, transport: String, config: EcrConfig): EcrLink? =
@@ -73,30 +71,30 @@ internal object EcrSessionPorts {
         }
 }
 
-internal class SdkLanTerminal(
-    serialNumber: String,
-    plan: EcrSessionPlan,
-    logger: EcrLogger,
+/** One [EcrOpenedSession] behind the Flutter terminal port contract. */
+internal class SdkOpenedSessionPort(
+    private val session: EcrOpenedSession,
 ) : EcrTerminalPort {
 
-    private val terminal = EcrSessions.lanTerminal(
-        terminalSerial = serialNumber,
-        plan = plan,
-        logger = logger,
-    )
+    override suspend fun isReachable(): Boolean =
+        session.probeReachability()?.reachable == true
 
-    override suspend fun isReachable(): Boolean = terminal.probeReachability().reachable
-
-    override suspend fun probeReachability(): EcrReachability = terminal.probeReachability()
+    override suspend fun probeReachability(): EcrReachability =
+        session.probeReachability() ?: EcrReachability(
+            reachable = false,
+            host = "",
+            port = 0,
+            endpoint = "webService",
+        )
 
     override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
-        terminal.sale(amount = amount, merchantReference = merchantReference)
+        session.sale(amount = amount, merchantReference = merchantReference)
 
     override suspend fun void(
         receiptNumber: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrResult = terminal.void(
+    ): EcrResult = session.void(
         receiptNumber = receiptNumber,
         originalTerminalId = originalTerminalId,
         merchantReference = merchantReference,
@@ -108,7 +106,7 @@ internal class SdkLanTerminal(
         transactionDate: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrResult = terminal.refund(
+    ): EcrResult = session.refund(
         amount = amount,
         receiptNumber = receiptNumber,
         transactionDate = transactionDate,
@@ -121,11 +119,10 @@ internal class SdkLanTerminal(
         transactionDate: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrInquiry = terminal.inquire(
+    ): EcrInquiry = session.inquire(
         receiptNumber = receiptNumber,
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
     )
 
     override suspend fun inquireByReference(
@@ -133,7 +130,7 @@ internal class SdkLanTerminal(
         transactionDate: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrInquiry = terminal.inquireByReference(
+    ): EcrInquiry = session.inquireByReference(
         originalReference = originalReference,
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
@@ -145,170 +142,11 @@ internal class SdkLanTerminal(
         transactionDate: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrReceipt = terminal.receipt(
+    ): EcrReceipt = session.receipt(
         receiptNumber = receiptNumber,
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
     )
-}
-
-internal class SdkUsbCableTerminal(
-    serialNumber: String,
-    plan: EcrSessionPlan,
-    channel: com.amwalpay.ecr.EcrChannel,
-    logger: EcrLogger,
-) : EcrTerminalPort {
-
-    private val terminal = EcrSessions.usbCableTerminal(
-        terminalSerial = serialNumber,
-        plan = plan,
-        channel = channel,
-        logger = logger,
-    )
-
-    override suspend fun isReachable(): Boolean = terminal.probeReachability().reachable
-
-    override suspend fun probeReachability(): EcrReachability = terminal.probeReachability()
-
-    override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
-        terminal.sale(amount = amount, merchantReference = merchantReference)
-
-    override suspend fun void(
-        receiptNumber: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrResult = terminal.void(
-        receiptNumber = receiptNumber,
-        originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun refund(
-        amount: BigDecimal,
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrResult = terminal.refund(
-        amount = amount,
-        receiptNumber = receiptNumber,
-        transactionDate = transactionDate,
-        originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun inquire(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrInquiry = terminal.inquire(
-        receiptNumber = receiptNumber,
-        transactionDate = transactionDate,
-        originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun inquireByReference(
-        originalReference: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrInquiry = terminal.inquireByReference(
-        originalReference = originalReference,
-        transactionDate = transactionDate,
-        originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun receipt(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrReceipt = terminal.receipt(
-        receiptNumber = receiptNumber,
-        transactionDate = transactionDate,
-        originalTerminalId = originalTerminalId,
-        merchantReference = merchantReference,
-    )
-}
-
-internal class SdkWebServiceTerminal(
-    serialNumber: String,
-    plan: EcrSessionPlan,
-    logger: EcrLogger,
-) : EcrTerminalPort {
-
-    private val terminal = EcrSessions.webServiceTerminal(
-        terminalSerial = serialNumber,
-        plan = plan,
-        logger = logger,
-    )
-
-    override suspend fun isReachable(): Boolean = false
-
-    override suspend fun probeReachability(): EcrReachability = EcrReachability(
-        reachable = false,
-        host = "",
-        port = 0,
-        endpoint = "webService",
-    )
-
-    override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
-        terminal.sale(amount = amount, merchantReference = merchantReference)
-
-    override suspend fun void(
-        receiptNumber: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrResult = terminal.void(
-        receiptNumber = receiptNumber,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun refund(
-        amount: BigDecimal,
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrResult = terminal.refund(
-        amount = amount,
-        receiptNumber = receiptNumber,
-        transactionDate = transactionDate,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun inquire(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrInquiry = terminal.inquire(
-        receiptNumber = receiptNumber,
-        transactionDate = transactionDate,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun inquireByReference(
-        originalReference: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrInquiry = terminal.inquireByReference(
-        originalReference = originalReference,
-        transactionDate = transactionDate,
-        merchantReference = merchantReference,
-    )
-
-    override suspend fun receipt(
-        receiptNumber: String,
-        transactionDate: String,
-        originalTerminalId: String,
-        merchantReference: String,
-    ): EcrReceipt = throw UnsupportedOperationException("Receipt is LAN-only")
 }
 
 internal class UnsupportedEcrTerminalPort(

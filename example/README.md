@@ -1,16 +1,22 @@
-# amwal_ecr_example
+# amwal_ecr example
 
-A new Flutter project.
+Sample till for the local `amwal_ecr` plugin — same flows as the Android ECR
+simulator app.
 
-## Getting Started
+## Secure hash keys
 
-This project is a starting point for a Flutter application.
+App-owned: secrets in **`flutter_secure_storage`**, environment in
+SharedPreferences. `EcrSimulatorSettings.secureHashKeyFor` picks the LAN or
+Web Service secret for `EcrConfig.secureHashKey`. The plugin never stores keys.
 
-A few resources to get you started if this is your first Flutter project:
+Use **`EcrSessions.open`** (or construct `EcrTerminal`) once per transaction
+path so sale / inquiry / receipt stay on the same transport.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Local iOS SDK
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`example/ios/ecr_sdk.properties` + `../ios/ecr_sdk.properties` select
+`project` | `cocoapods` | `spm`. Apply with:
+
+```bash
+./tool/prepare_ios_example.sh
+```
