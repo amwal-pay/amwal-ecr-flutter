@@ -317,16 +317,17 @@ workflows:
       app_store_connect: Amwal CodeMagic
     environment:
       <<: *env
+      # Signing is done in the scripts below with the App Store Connect
+      # integration's API key: `fetch-signing-files --create` registers the
+      # App ID and creates the App Store profile (and a distribution
+      # certificate, if none matches) on first run, so nothing is committed
+      # or uploaded by hand. The `ios_signing` group holds
+      # CERTIFICATE_PRIVATE_KEY — the RSA key that certificate is issued
+      # against — as a secure variable, and nothing else.
       groups:
-        - A
-      # Automatic signing: the App Store Connect integration's API key fetches
-      # — or registers, on the first run — the App ID and an App Store
-      # provisioning profile for this bundle id, and the distribution
-      # certificate Codemagic already holds ("Code Magic Apple Dis") signs it.
-      # No profile is committed anywhere.
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.amwalpay.amwalEcrExample
+        - ios_signing
+      vars:
+        BUNDLE_ID: com.amwalpay.amwalEcrExample
     triggering:
       events:
         - tag
@@ -350,7 +351,21 @@ workflows:
         script: |
           cd example/ios
           pod install --repo-update
-      - name: Apply the fetched profile to the Runner project
+      - name: Set up a keychain for signing
+        script: |
+          keychain initialize
+      - name: Fetch or create the App Store signing files
+        script: |
+          # The App Store Connect integration exports the API key as
+          # APP_STORE_CONNECT_* and CERTIFICATE_PRIVATE_KEY comes from the
+          # ios_signing group; --create registers what is missing.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Add the certificate to the keychain
+        script: |
+          keychain add-certificates
+      - name: Apply the profile to the Runner project
         script: |
           cd example
           xcode-project use-profiles
