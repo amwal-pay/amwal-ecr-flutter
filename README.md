@@ -489,6 +489,31 @@ already on pub.dev is skipped, not re-pushed. Credentials come from a Codemagic
 environment group, never from the repository — see
 [the release policy](doc/release-policy.md#first-time-setup).
 
+### Distributing the example
+
+Two more workflows in [`codemagic.yaml`](codemagic.yaml) put the example app in
+testers' hands. Neither runs on an ordinary push — every run is a build somebody
+is notified about — so they start from a tag, or a push to `release/example`:
+
+```bash
+git tag example-ios-1     && git push origin example-ios-1      # → TestFlight, group "Testers"
+git tag example-android-1 && git push origin example-android-1  # → Firebase App Distribution, group "tester"
+```
+
+- **`example-ios-testflight`** signs `example/` for App Store distribution
+  through the `Amwal CodeMagic` App Store Connect integration (Codemagic fetches
+  or creates the profile for `com.amwalpay.amwalEcrExample`; nothing is
+  committed) and submits the IPA to TestFlight. The app record must exist in
+  App Store Connect before the first upload.
+- **`example-android-firebase`** builds the release APK — signed with the debug
+  key, as the Flutter template does, which App Distribution accepts — and
+  uploads it to the Firebase app for `com.amwalpay.amwal_ecr_example`.
+
+Both read the shared Codemagic environment group `A`: `FIREBASE_SERVICE_ACCOUNT`
+and `FIREBASE_ANDROID_APP_ID` (the Firebase app id, project `amwal-8ad3e`). The
+build number is Codemagic's per-app counter; the build name is `version:` in
+`example/pubspec.yaml`.
+
 ---
 
 ## Troubleshooting

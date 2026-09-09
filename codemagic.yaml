@@ -1,6 +1,6 @@
 # Codemagic CI for package:amwal_ecr, the Flutter bridge over the native ECR SDKs.
 #
-# Four workflows:
+# Six workflows:
 #
 #   flutter-verify        every push and pull request — the Dart suite, the
 #                         Swift bridge suite (tool/run_swift_tests.sh, against
@@ -28,6 +28,20 @@
 #                         already on pub.dev is reported and skipped. Ends by
 #                         reading the version back from pub.dev.
 #
+#   example-ios-testflight  an `example-ios-*` tag (or a push to release/example)
+#                         — signs the example app for App Store distribution
+#                         through the `Amwal CodeMagic` App Store Connect
+#                         integration and submits it to TestFlight, for the
+#                         people who need to hold the till in their hand.
+#
+#   example-android-firebase  an `example-android-*` tag (or a push to
+#                         release/example) — builds the example release APK
+#                         and hands it to Firebase App Distribution, tester
+#                         group `tester`.
+#
+# The two example workflows never run on an ordinary push: every run of them
+# is a build somebody gets a notification about.
+#
 # Credentials (RELEASING.md, "First-time setup"): a Codemagic
 # environment group `pub_credentials` holding the secure variable
 # PUB_CREDENTIALS — the contents of pub-credentials.json from a workstation
@@ -35,6 +49,13 @@
 # either as raw JSON or base64 of it. It is written to the build machine's home
 # directory at publish time and nowhere else. The file never goes in this
 # repository.
+#
+# The example distribution workflows read the environment group `A`, which the
+# other Amwal apps share: FIREBASE_SERVICE_ACCOUNT (the Firebase project's
+# service-account JSON) and FIREBASE_ANDROID_APP_ID (the Firebase app id of
+# com.amwalpay.amwal_ecr_example in project amwal-8ad3e). TestFlight needs no
+# variable: the App Store Connect integration carries the API key, and
+# Codemagic fetches or creates the provisioning profile for the bundle id.
 #
 # Release order is documented in RELEASING.md: ecr-sdk (Maven), then
 # AmwalECR (SwiftPM tag, then trunk), then this package.
@@ -69,6 +90,16 @@ definitions:
       notify:
         success: true
         failure: true
+  example_version: &example_version
+    name: Example version from pubspec
+    script: |
+      set -euo pipefail
+      # 1.0.0+1 -> build name 1.0.0; the build number is Codemagic's own
+      # counter for this app, so every upload is newer than the last.
+      build_name="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(\+.*)?[[:space:]]*$/\1/p' example/pubspec.yaml)"
+      [[ -n "$build_name" ]] || { echo "Could not read version: from example/pubspec.yaml" >&2; exit 1; }
+      echo "build_name=$build_name build_number=${PROJECT_BUILD_NUMBER:-1}"
+      echo "$build_name" > "$CM_BUILD_DIR/.example-build-name"
 
 workflows:
   flutter-verify:
@@ -277,3 +308,129 @@ workflows:
           echo "amwal_ecr $version did not appear on pub.dev within 5 minutes." >&2
           exit 1
     publishing: *email
+
+  example-ios-testflight:
+    name: amwal_ecr — example app to TestFlight (example-ios-* tag)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Amwal CodeMagic
+    environment:
+      <<: *env
+      groups:
+        - A
+      # Automatic signing: the App Store Connect integration's API key fetches
+      # — or registers, on the first run — the App ID and an App Store
+      # provisioning profile for this bundle id, and the distribution
+      # certificate Codemagic already holds ("Code Magic Apple Dis") signs it.
+      # No profile is committed anywhere.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.amwalpay.amwalEcrExample
+    triggering:
+      events:
+        - tag
+        - push
+      tag_patterns:
+        - pattern: 'example-ios-*'
+          include: true
+      branch_patterns:
+        - pattern: 'release/example'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - *toolchain
+      - *example_version
+      - name: Use CocoaPods for plugins
+        script: |
+          flutter config --no-enable-swift-package-manager
+      - *pub_get
+      - name: Install pods
+        script: |
+          cd example/ios
+          pod install --repo-update
+      - name: Apply the fetched profile to the Runner project
+        script: |
+          cd example
+          xcode-project use-profiles
+      - name: Build the signed IPA
+        script: |
+          set -euo pipefail
+          cd example
+          flutter build ipa --release \
+            --build-name="$(cat "$CM_BUILD_DIR/.example-build-name")" \
+            --build-number="$PROJECT_BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+          ls -la build/ios/ipa/*.ipa
+    artifacts:
+      - example/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - example/build/ios/archive/*.xcarchive/dSYMs/**/*.dSYM
+    publishing:
+      <<: *email
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Testers
+        submit_to_app_store: false
+
+  example-android-firebase:
+    name: amwal_ecr — example app to Firebase App Distribution (example-android-* tag)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      <<: *env
+      groups:
+        - A
+    triggering:
+      events:
+        - tag
+        - push
+      tag_patterns:
+        - pattern: 'example-android-*'
+          include: true
+      branch_patterns:
+        - pattern: 'release/example'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - *toolchain
+      - *example_version
+      - name: The Firebase app id is configured
+        script: |
+          set -euo pipefail
+          if [[ -z "${FIREBASE_ANDROID_APP_ID:-}" ]]; then
+            echo "FIREBASE_ANDROID_APP_ID is not set: add the Firebase app id of" >&2
+            echo "com.amwalpay.amwal_ecr_example (project amwal-8ad3e) to group A." >&2
+            exit 1
+          fi
+          [[ -n "${FIREBASE_SERVICE_ACCOUNT:-}" ]] || { echo "FIREBASE_SERVICE_ACCOUNT is not set in group A." >&2; exit 1; }
+          echo "Publishing to Firebase app $FIREBASE_ANDROID_APP_ID"
+      - *pub_get
+      - name: Build the release APK
+        script: |
+          set -euo pipefail
+          cd example
+          # The example's release build type signs with the debug key
+          # (example/android/app/build.gradle.kts, the Flutter template's
+          # default). App Distribution accepts that; a Play Store upload would
+          # not, and the example is not going there.
+          flutter build apk --release \
+            --build-name="$(cat "$CM_BUILD_DIR/.example-build-name")" \
+            --build-number="$PROJECT_BUILD_NUMBER"
+          ls -la build/app/outputs/flutter-apk/app-release.apk
+    artifacts:
+      - example/build/app/outputs/flutter-apk/app-release.apk
+      - example/build/app/outputs/mapping/release/mapping.txt
+    publishing:
+      <<: *email
+      firebase:
+        firebase_service_account: $FIREBASE_SERVICE_ACCOUNT
+        android:
+          app_id: $FIREBASE_ANDROID_APP_ID
+          artifact_type: 'apk'
+          groups:
+            - tester
