@@ -21,6 +21,12 @@ abstract final class EcrMethods {
   /// `isReachable(args) -> bool`
   static const String isReachable = 'isReachable';
 
+  /// `probeReachability(args) -> reachability map`
+  ///
+  /// The detailed form of [isReachable]: same probe, plus host, port, endpoint
+  /// and the underlying error when the terminal is not there.
+  static const String probeReachability = 'probeReachability';
+
   /// `sale(args) -> result map`
   static const String sale = 'sale';
 
@@ -48,6 +54,7 @@ abstract final class EcrMethods {
   /// Every method the contract defines, in the order the API presents them.
   static const List<String> all = <String>[
     isReachable,
+    probeReachability,
     sale,
     voidTransaction,
     refund,
@@ -62,7 +69,7 @@ abstract final class EcrMethods {
 abstract final class EcrArgs {
   /// Client-generated handle for this call, so [EcrMethods.cancel] can name it.
   ///
-  /// Distinct from [merchantReferenceId], which travels on the wire and names
+  /// Distinct from [merchantReference], which travels on the wire and names
   /// the transaction to the terminal. This one never leaves the device.
   static const String operationId = 'operationId';
 
@@ -89,11 +96,11 @@ abstract final class EcrArgs {
 
   /// The till's own reference for this request. Empty to have the native SDK
   /// generate one, which it then reports back on the result.
-  static const String merchantReferenceId = 'merchantReferenceId';
+  static const String merchantReference = 'merchantReference';
 
   /// The reference an *earlier* transaction was sent with, for
   /// [EcrMethods.inquireByReference]. Never a reference for this call — that is
-  /// [merchantReferenceId].
+  /// [merchantReference].
   static const String originalMerchantReference = 'originalMerchantReference';
 
   static const List<String> all = <String>[
@@ -106,7 +113,7 @@ abstract final class EcrArgs {
     receiptNumber,
     transactionDate,
     originalTerminalId,
-    merchantReferenceId,
+    merchantReference,
     originalMerchantReference,
   ];
 }
@@ -132,6 +139,15 @@ abstract final class EcrConfigKeys {
 
   static const String autoInquireOnFailure = 'autoInquireOnFailure';
 
+  /// Backend merchant ID for Web Service ECR.
+  static const String merchantId = 'merchantId';
+
+  /// Backend terminal ID for Web Service ECR.
+  static const String terminalId = 'terminalId';
+
+  /// Hub deployment: `SIT`, `UAT`, or `PROD`.
+  static const String environment = 'environment';
+
   static const List<String> all = <String>[
     ecrId,
     currencyCode,
@@ -142,6 +158,9 @@ abstract final class EcrConfigKeys {
     probeTimeoutMs,
     secureHashKey,
     autoInquireOnFailure,
+    merchantId,
+    terminalId,
+    environment,
   ];
 }
 
@@ -152,7 +171,7 @@ abstract final class EcrResultKeys {
 
   /// The reference the transaction was sent with — the caller's own where one
   /// was given, otherwise the one the native SDK generated.
-  static const String merchantReferenceId = 'merchantReferenceId';
+  static const String merchantReference = 'merchantReference';
 
   static const String amount = 'amount';
   static const String responseCode = 'responseCode';
@@ -176,7 +195,7 @@ abstract final class EcrResultKeys {
 
   static const List<String> all = <String>[
     outcome,
-    merchantReferenceId,
+    merchantReference,
     amount,
     responseCode,
     responseMessage,
@@ -191,6 +210,23 @@ abstract final class EcrResultKeys {
     url,
     nextStep,
     recovered,
+  ];
+}
+
+/// Keys in the map returned by [EcrMethods.probeReachability].
+abstract final class EcrReachabilityKeys {
+  static const String reachable = 'reachable';
+  static const String host = 'host';
+  static const String port = 'port';
+  static const String error = 'error';
+  static const String endpoint = 'endpoint';
+
+  static const List<String> all = <String>[
+    reachable,
+    host,
+    port,
+    error,
+    endpoint,
   ];
 }
 
@@ -291,6 +327,8 @@ abstract final class EcrTransactionKeys {
   static const String isRefunded = 'isRefunded';
   static const String canVoid = 'canVoid';
   static const String canRefund = 'canRefund';
+  static const String partialApproval = 'partialApproval';
+  static const String authorizedAmount = 'authorizedAmount';
 
   static const List<String> all = <String>[
     transactionId,
@@ -310,6 +348,8 @@ abstract final class EcrTransactionKeys {
     isRefunded,
     canVoid,
     canRefund,
+    partialApproval,
+    authorizedAmount,
   ];
 }
 

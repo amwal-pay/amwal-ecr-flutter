@@ -6,6 +6,7 @@ import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 import '../components/amount_field.dart';
 import '../components/dropdown.dart';
+import 'terminal_config_card.dart';
 import 'transaction_controller.dart';
 import 'transaction_form.dart';
 import 'transaction_result_dialog.dart';
@@ -39,6 +40,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   // six-digit receipt number is the difference between usable and not.
   final TextEditingController _receiptNumber = TextEditingController();
   final TextEditingController _originalReference = TextEditingController();
+  final TextEditingController _merchantReference = TextEditingController();
   final TextEditingController _originalTerminalId = TextEditingController();
   final TextEditingController _originalDate = TextEditingController();
 
@@ -60,6 +62,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       ..dispose();
     _receiptNumber.dispose();
     _originalReference.dispose();
+    _merchantReference.dispose();
     _originalTerminalId.dispose();
     _originalDate.dispose();
     super.dispose();
@@ -69,6 +72,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final List<Terminal> terminals = await widget.repository.observeAll().first;
     if (!mounted) return;
     setState(() => _terminals = terminals);
+    final Terminal? selected = _terminal;
+    if (selected != null) {
+      await _controller.updateSelectedTerminal(selected);
+    } else {
+      await _controller.updateSelectedTerminal(null);
+    }
   }
 
   /// Keep the selection pinned to its serial number as the list reloads.
@@ -174,7 +183,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
   void _dismissResult() {
     Navigator.of(context).pop();
     _controller.resultAcknowledged();
-    setState(() => _form = _form.copyWith(amountDigits: ''));
+    _merchantReference.clear();
+    _originalReference.clear();
+    setState(() => _form = _form.copyWith(
+          amountDigits: '',
+          merchantReference: '',
+          originalReference: '',
+        ));
   }
 
   Future<void> _pickOriginalDate() async {
@@ -194,6 +209,15 @@ class _TransactionScreenState extends State<TransactionScreen> {
   void _start() {
     final String? serial = _terminal?.serialNumber;
     if (serial == null) return;
+
+    // Controllers can hold text the form has not seen yet if the operator
+    // pasted and tapped Start before onChanged fired.
+    _form = _form.copyWith(
+      merchantReference: _merchantReference.text,
+      originalReference: _originalReference.text,
+      receiptNumber: _receiptNumber.text,
+      originalTerminalId: _originalTerminalId.text,
+    );
 
     final (TransactionFormState validated, TransactionRequest? request) =
         _form.validated(serial);
@@ -243,11 +267,33 @@ class _TransactionScreenState extends State<TransactionScreen> {
               onSelected: (EcrTransactionType type) {
                 _receiptNumber.clear();
                 _originalReference.clear();
+                _merchantReference.clear();
                 _originalTerminalId.clear();
                 setState(() => _form = TransactionFormState(type: type));
               },
             ),
             const SizedBox(height: 16),
+
+            if (_form.showMerchantReference) ...<Widget>[
+              TextField(
+                key: const Key('saleMerchantReference'),
+                enabled: !busy,
+                controller: _merchantReference,
+                inputFormatters: <TextInputFormatter>[
+                  LengthLimitingTextInputFormatter(32),
+                ],
+                onChanged: (String value) =>
+                    _form = _form.copyWith(merchantReference: value),
+                decoration: InputDecoration(
+                  labelText: 'Merchant reference',
+                  helperText:
+                      'Optional. Your order or basket id; leave blank to auto-generate',
+                  border: const OutlineInputBorder(),
+                  errorText: _form.errors.merchantReference,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             AmountField(
               digits: _form.amountDigits,
@@ -393,16 +439,26 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 selected: _terminal,
                 enabled: !busy,
                 labelOf: (Terminal terminal) => terminal.toString(),
-                onSelected: (Terminal terminal) =>
-                    setState(() => _selectedSerial = terminal.serialNumber),
+                onSelected: (Terminal terminal) {
+                  setState(() => _selectedSerial = terminal.serialNumber);
+                  _controller.updateSelectedTerminal(terminal);
+                },
               ),
+            if (_controller.selectedConfig != null) ...<Widget>[
+              const SizedBox(height: 16),
+              TerminalConfigCard(config: _controller.selectedConfig!),
+            ],
             const SizedBox(height: 16),
 
             SizedBox(
               height: 52,
               child: FilledButton(
                 key: const Key('start'),
-                onPressed: (!busy && _terminal != null) ? _start : null,
+                onPressed: (!busy &&
+                        _terminal != null &&
+                        (_controller.selectedConfig?.isReady ?? false))
+                    ? _start
+                    : null,
                 child: Text(
                   _form.type == EcrTransactionType.inquiry
                       ? 'Look up transaction'

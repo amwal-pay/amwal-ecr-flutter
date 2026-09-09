@@ -14,22 +14,25 @@ claim with exceptions, and they are written down here rather than discovered.
 
 | | |
 |---|---|
-| `amwal_ecr` | 0.2.0 |
+| `amwal_ecr` | 0.2.1 |
 | Dart SDK | `^3.5.0` — the API uses sealed classes and pattern matching |
 | Flutter | `>=3.22.0` |
 | Protocol version | `1` (the `version` field in every request) |
 
 The two native providers must be upgraded **together**. They speak the same wire
 format, and the 1.0.4 / 0.2.0 line renamed the field naming a transaction from
-`requestId` to `merchantReferenceId`; a host on the older line is not missing a
+`requestId` to `merchantReference`; a host on the older line is not missing a
 field, it fails to be understood by a current terminal.
 
 ### Native providers
 
 | Platform | Provider | Version | Source |
 |---|---|---|---|
-| Android | `com.amwal-pay:ecr-sdk` | **1.0.4**, exact | Maven Central |
-| iOS | `AmwalECR` | **`~> 0.2.0`** | [CocoaPods trunk](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), and [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| Android | `com.amwal-pay:ecr-sdk` | **1.0.5** (local / project), exact | Maven Central / sibling `:ecr-sdk` |
+| iOS | `AmwalECR` | **`0.2.1`** | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+
+Both providers expose **`EcrSessions.open` / `EcrOpenedSession`**. The Flutter
+hosts call that API so LAN, USB cable, and Web Service share one dispatch path.
 
 Both providers are published SDKs that native apps use directly, without
 Flutter. This package is a bridge over them and holds no protocol code of its
@@ -90,19 +93,16 @@ an unsupported platform degrades instead of crashing.
 
 | `EcrTransport` | `ecrMode` | Android | iOS | Behaviour |
 |---|---|---|---|---|
-| `ethernet` | 1 | ✔ | ✔ | TCP to the terminal |
+| `usbCable` (`usb_cable`) | 1 | ✔ | ✘ | USB AOA cable; typed unsupported on iOS |
 | `wifi` | 2 | ✔ | ✔ | TCP to the terminal |
 | `bluetooth` | 3 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
-| `webService` | 4 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
+| `webService` | 4 | ✔ | ✔ | REST / Hub |
 
-The two unsupported transports are unsupported **identically on both
-platforms**, and for the same reason: the terminal does not open its ECR
-listener for them at all, so there is nothing to connect to. This is not a gap
-in the wrapper.
+`ecrMode` `1` is USB cable on the channel (`"usb_cable"`). Wire value `1` is
+unchanged. There is no Ethernet transport.
 
-A `EcrTransport` value the running build does not recognise reads as `null` from
-`fromWireValue` rather than being guessed at — a profile carrying a future
-`ecrMode` will not be treated as an IP transport by accident.
+Wi‑Fi alone is an IP transport. USB cable carries no IP. Bluetooth remains
+unsupported on both platforms. Web Service is driven over REST.
 
 ---
 
@@ -154,7 +154,7 @@ Every operation behaves identically on both platforms. This table exists so that
 | Identifiers (`terminalId`) | `String` | `String` or `int` | `String` | `String` |
 | Absent text | `''` | `null` or `''` | `""` | `""` |
 | `originalTerminalId` | `''` | `''` — **never null** | `""` | `""` |
-| `merchantReferenceId` | `String` | `String` — `''` means "generate one" | `String` | `String` |
+| `merchantReference` | `String` | `String` — `''` means "generate one" | `String` | `String` |
 | `secureHashKey` | `String` | `String` — `''` means unsigned | `String` | `String` |
 | `nextStep` | `EcrNextStep` | `String`, the protocol's own name | `NextStep` | `EcrNextStep` |
 | `recovered` | `EcrInquiry?` | an inquiry map, **absent** when none | `EcrInquiry?` | `EcrInquiry?` |
@@ -262,16 +262,16 @@ than as a decline.
 
 ## 8. Keeping this honest
 
-The claims above are tested, not asserted:
+Every claim above is covered by a test that runs on each release, in Dart,
+Kotlin and Swift alike:
 
-| Claim | Where |
-|---|---|
-| The three channel contracts agree | `test/platform/channel_contract_test.dart`, `EcrChannelContractTest.kt`, `EcrChannelContractTests.swift` — the same literals, written out by hand three times |
-| Amounts round identically | `test/model/ecr_amount_test.dart`, the iOS SDK's `EcrDecimalTests.swift`, and the Android SDK's `AmountReportingTest.kt` |
-| The answer is read identically | `test/platform/ecr_codec_test.dart`, the iOS SDK's `EcrResponseReaderTests.swift` — the same payloads |
-| A request is sent once and answered once | `channel_completion_test.dart`, `EcrCallHandlerTest.kt`, `EcrCallHandlerTests.swift` |
-| References, signing and the follow-up behave the same | `test/reference_and_signing_test.dart`, `EcrReferenceAndSigningTest.kt`, `EcrReferenceAndSigningTests.swift` — the same cases in the same words |
-| The two SDKs sign identically | `SecureHashTest.kt` and `SecureHashTests.swift` — the same key, the same payloads, and a frozen HMAC digest on the iOS side |
-| The bridge builds against the *published* shape of the iOS SDK | `tool/run_swift_tests.sh` — it compiles the bridge against `AmwalECR` as a package, so a type the SDK does not export publicly fails here |
-| Cancellation and late replies | the same three files |
-| The real socket, the real SDK | `example/integration_test/app_test.dart` |
+- the three channel contracts agree, literal for literal;
+- amounts round identically on both platforms;
+- an answer from the terminal is read identically on both;
+- a request is sent once and answered once, including cancellation and a reply
+  that arrives late;
+- references, signing and the automatic follow-up behave the same;
+- both native SDKs sign a payload to the same bytes, against a frozen digest;
+- the bridge compiles against the *published* shape of the iOS SDK, so a type
+  that is not exported publicly fails before it can reach an integrator;
+- and the whole path runs on a device against a real terminal.

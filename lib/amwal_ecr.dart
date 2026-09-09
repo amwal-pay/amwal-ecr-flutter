@@ -29,17 +29,21 @@
 /// `doc/compatibility-matrix.md` for where the two platforms differ.
 library amwal_ecr;
 
+export 'src/ecr_opened_session.dart';
 export 'src/ecr_operation.dart';
 export 'src/ecr_terminal.dart';
 export 'src/model/ecr_amount.dart';
 export 'src/model/ecr_config.dart';
+export 'src/model/ecr_environment.dart';
 export 'src/model/ecr_errors.dart';
 export 'src/model/ecr_failure.dart';
 export 'src/model/ecr_inquiry.dart';
 export 'src/model/ecr_next_step.dart';
+export 'src/model/ecr_reachability.dart';
 export 'src/model/ecr_receipt.dart';
 export 'src/model/ecr_response_code.dart';
 export 'src/model/ecr_result.dart';
 export 'src/model/ecr_transaction.dart';
 export 'src/model/ecr_transaction_type.dart';
 export 'src/model/ecr_transport.dart';
+export 'src/model/ecr_wire_response.dart';

@@ -8,6 +8,7 @@ import Foundation
 /// on each side asserting these values against frozen literals.
 enum EcrMethods {
     static let isReachable = "isReachable"
+    static let probeReachability = "probeReachability"
     static let sale = "sale"
     static let void_ = "void"
     static let refund = "refund"
@@ -27,7 +28,7 @@ enum EcrArgs {
     static let receiptNumber = "receiptNumber"
     static let transactionDate = "transactionDate"
     static let originalTerminalId = "originalTerminalId"
-    static let merchantReferenceId = "merchantReferenceId"
+    static let merchantReference = "merchantReference"
     static let originalMerchantReference = "originalMerchantReference"
 }
 
@@ -41,11 +42,14 @@ enum EcrConfigKeys {
     static let probeTimeoutMs = "probeTimeoutMs"
     static let secureHashKey = "secureHashKey"
     static let autoInquireOnFailure = "autoInquireOnFailure"
+    static let merchantId = "merchantId"
+    static let terminalId = "terminalId"
+    static let environment = "environment"
 }
 
 enum EcrResultKeys {
     static let outcome = "outcome"
-    static let merchantReferenceId = "merchantReferenceId"
+    static let merchantReference = "merchantReference"
     static let amount = "amount"
     static let responseCode = "responseCode"
     static let reason = "reason"
@@ -60,6 +64,14 @@ enum EcrResultKeys {
     static let url = "url"
     static let nextStep = "nextStep"
     static let recovered = "recovered"
+}
+
+enum EcrReachabilityKeys {
+    static let reachable = "reachable"
+    static let host = "host"
+    static let port = "port"
+    static let error = "error"
+    static let endpoint = "endpoint"
 }
 
 enum EcrOutcomes {
@@ -114,6 +126,8 @@ enum EcrTransactionKeys {
     static let isRefunded = "isRefunded"
     static let canVoid = "canVoid"
     static let canRefund = "canRefund"
+    static let partialApproval = "partialApproval"
+    static let authorizedAmount = "authorizedAmount"
 }
 
 enum EcrErrorCodes {
@@ -124,13 +138,32 @@ enum EcrErrorCodes {
 let kEcrMethodChannel = "com.amwalpay.ecr/methods"
 
 enum EcrTransports {
-    static let ethernet = "ethernet"
+    static let usbCable = "usb_cable"
     static let wifi = "wifi"
     static let bluetooth = "bluetooth"
     static let webService = "webService"
+    /// Snake_case alias; maps to [webService].
+    static let webServiceSnake = "web_service"
 
-    /// Whether the terminal opens a socket for this transport.
+    static func isUsbCable(_ name: String?) -> Bool {
+        name == usbCable
+    }
+
+    static func isWebService(_ name: String?) -> Bool {
+        name == webService || name == webServiceSnake
+    }
+
+    /// Whether the terminal opens a socket for this transport. Wi‑Fi only.
     static func isIpTransport(_ name: String?) -> Bool {
-        name == ethernet || name == wifi
+        name == wifi
+    }
+
+    /// Whether this transport is handled by the SDK bridge on iOS.
+    ///
+    /// USB cable is Android-only; listing it here would reach the terminal
+    /// factory, but the typed unsupported answer is produced by the call
+    /// handler when [isSupportedTransport] is false.
+    static func isSupportedTransport(_ name: String?) -> Bool {
+        isIpTransport(name) || isWebService(name)
     }
 }

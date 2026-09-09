@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../model/ecr_errors.dart';
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_result.dart';
 import 'amwal_ecr_platform.dart';
@@ -46,22 +47,39 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
 
   @override
   Future<bool> isReachable(EcrRequest request) async {
+    // Convenience over probeReachability — same native probe, bool only.
+    final EcrReachability probe = await probeReachability(request);
+    return probe.reachable;
+  }
+
+  @override
+  Future<EcrReachability> probeReachability(EcrRequest request) async {
     // A probe cannot leave anything half-done, so it needs none of the
     // one-shot machinery — and a host that breaks answers "not reachable",
     // which is true of a host that cannot be asked.
     try {
-      final bool? reachable = await channel.invokeMethod<bool>(
-        EcrMethods.isReachable,
+      final Object? payload = await channel.invokeMethod<Object?>(
+        EcrMethods.probeReachability,
         request.toArguments(),
       );
-      return reachable ?? false;
+      return EcrCodec.reachability(payload);
     } on PlatformException catch (error) {
       if (error.code == EcrErrorCodes.invalidArgument) {
         throw EcrArgumentError(error.message ?? 'Invalid arguments');
       }
-      return false;
+      return EcrReachability(
+        reachable: false,
+        host: request.host,
+        port: request.config.port,
+        error: error.message ?? error.code,
+      );
     } on MissingPluginException {
-      return false;
+      return EcrReachability(
+        reachable: false,
+        host: request.host,
+        port: request.config.port,
+        error: 'The Amwal ECR plugin is not registered on this platform',
+      );
     }
   }
 
@@ -92,7 +110,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.inquiry(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrInquiryFailed(merchantReferenceId: '', failure: failure),
+            EcrInquiryFailed(merchantReference: '', failure: failure),
       );
 
   @override
@@ -102,7 +120,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.receipt(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrReceiptFailed(merchantReferenceId: '', failure: failure),
+            EcrReceiptFailed(merchantReference: '', failure: failure),
       );
 
   Future<EcrResult> _invokeResult(String method, EcrRequest request) =>
@@ -112,7 +130,7 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
         decode: (Object? payload) =>
             EcrCodec.result(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
-            EcrFailed(merchantReferenceId: '', failure: failure),
+            EcrFailed(merchantReference: '', failure: failure),
       );
 
   @override

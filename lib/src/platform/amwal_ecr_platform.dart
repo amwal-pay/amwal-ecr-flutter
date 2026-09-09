@@ -1,6 +1,7 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_result.dart';
 import 'amwal_ecr_method_channel.dart';
@@ -41,6 +42,10 @@ abstract base class AmwalEcrPlatform extends PlatformInterface {
   /// Whether the terminal is listening. Never throws: an unreachable terminal
   /// is an answer, not an error.
   Future<bool> isReachable(EcrRequest request);
+
+  /// Asks whether the terminal is there, with the underlying error when it is
+  /// not. Never throws for an unreachable link — see [EcrReachability.error].
+  Future<EcrReachability> probeReachability(EcrRequest request);
 
   /// Takes a payment.
   Future<EcrResult> sale(EcrRequest request);

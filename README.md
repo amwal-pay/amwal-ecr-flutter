@@ -38,7 +38,7 @@ on a lost connection, not on a host error. Neither should you:
 ```dart
 final EcrResult result = await terminal.sale(
   amount,
-  merchantReferenceId: order.number,   // your own name for this sale
+  merchantReference: order.number,   // your own name for this sale
 );
 
 if (result.outcomeIsUnknown) {
@@ -115,7 +115,8 @@ other.
 
 A terminal does not listen on port 9100 by default. Its TMS profile decides:
 `terminalMode` `1` puts it in ECR mode, and `ecrMode` says how it is attached.
-**The listener opens only for `ecrMode` 1 (ethernet) and 2 (wi-fi).**
+**The terminal opens a listener for `ecrMode` 2 (wi‑fi). `ecrMode` 1 is USB
+cable (Android only, no IP). Web Service (`ecrMode` 4) uses REST.**
 
 ```dart
 EcrTerminal(
@@ -125,10 +126,11 @@ EcrTerminal(
 );
 ```
 
-On `bluetooth` or `webService` every operation answers with an
+On `bluetooth` every operation answers with an
 [`EcrUnsupported`] failure immediately, without opening a socket — so a till
 reading a profile it does not control handles it as one more outcome rather
-than as a hang.
+than as a hang. USB cable is supported on Android; on iOS it returns the same
+typed unsupported failure.
 
 The terminal shows its own IP and port under the card scheme logos when the link
 is wi-fi. That is what the operator reads off and registers.
@@ -170,11 +172,11 @@ the default read timeout is 120 seconds for that reason.
 | `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day |
 | `isReachable()` | Whether the port is open. | — |
 
-Every money-moving call also takes `merchantReferenceId`: your own name for the
+Every money-moving call also takes `merchantReference`: your own name for the
 transaction — an order number, a basket id. Pass it and the same string
 identifies the sale in your books, in the terminal's records and in any later
 lookup. Leave it out and one is generated; either way it comes back on
-`EcrResult.merchantReferenceId`, and it is the only handle you hold before the
+`EcrResult.merchantReference`, and it is the only handle you hold before the
 terminal answers.
 
 Every one of them has a `start…` twin — `startSale`, `startRefund`, … — that
@@ -288,15 +290,26 @@ inquiry rather than a retry.
 ## Signing the link
 
 A terminal refuses what it cannot verify, so in practice a till needs the secret
-Amwal issues for it:
+Amwal issues for it. **The app owns persistence** and passes **one** value on
+`EcrConfig.secureHashKey` for the selected mode — LAN (Wi‑Fi / USB cable) and
+Web Service use different secrets, but the plugin only consumes the field you
+assign (see the example app's `secureHashKeyFor`):
 
 ```dart
-final EcrTerminal terminal = EcrTerminal(
+// App-owned: pick the stored secret for this terminal mode
+final String secret = settings.secureHashKeyFor(terminal.mode);
+
+final EcrOpenedSession session = EcrSessions.open(
   host: '192.168.1.50',
   serialNumber: 'P653200085189',
-  config: EcrConfig(secureHashKey: secret),   // hex, from your key store
+  config: EcrConfig(secureHashKey: secret),
 );
+final EcrTerminal ecr = session.terminal;
 ```
+
+The example app keeps secrets in **`flutter_secure_storage`** (not plaintext
+SharedPreferences). Prefer **`EcrSessions.open`** so the same transport is used
+for sale, inquiry, and receipt.
 
 Every request is then signed and every answer checked — both that it is signed
 with this terminal's key, and that it answers *this* request. An answer that
@@ -328,9 +341,9 @@ shop floor.
 `example/` is a direct port of the Android example in `app/`: the same two
 screens, the same settings, the same order of checks, the same dialogs.
 
-- **Terminals** — register the terminals this till drives: name, serial number,
-  IP address, port. Exactly the four fields the Android app stores, validated
-  the same way, kept between launches.
+- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable, or Web
+  Service), with separate LAN and Web Service signing keys and environment
+  (SIT/UAT/PROD), matching the Android simulator app.
 - **Transaction** — type, amount, receipt number, the original's date, and which
   terminal. It probes the terminal before it sends anything, then shows the
   outcome in the same dialogs.
@@ -345,6 +358,61 @@ them, because the Android example does not — see
 cd example
 flutter run
 ```
+
+**Android build fails with `25.0.2`?** Flutter is using JDK 25 from Android Studio,
+which Android Gradle Plugin does not support yet. Use JDK 17:
+
+```bash
+flutter config --jdk-dir="$(/usr/libexec/java_home -v 17)"
+```
+
+Then run `flutter run` again. Alternatively, uncomment `org.gradle.java.home` in
+`example/android/gradle.properties` and point it at your JDK 17 install.
+
+### Local native SDKs (this monorepo)
+
+Android and iOS both select the native ECR SDK via properties files. The example
+app always loads the **local plugin** (`amwal_ecr: path: ../`); the properties
+only choose how that plugin resolves **AmwalECR / ecr-sdk**.
+
+| Platform | Plugin config | Example override |
+|---|---|---|
+| Android | `android/gradle.properties` | `example/android/gradle.properties` |
+| iOS | `ios/ecr_sdk.properties` | `example/ios/ecr_sdk.properties` |
+
+**Android** — Gradle includes `:ecr-sdk` automatically. Modes:
+
+| `ecrSdkDependency` | Use when |
+|---|---|
+| `project` (default here) | Live Gradle module from sibling `ecr_sdk` |
+| `jar` | Built JAR — `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
+| `maven` | Published `com.amwal-pay:ecr-sdk` from Maven Central |
+
+**iOS** — one setting syncs **both** faces of the plugin (`amwal_ecr.podspec` and
+`amwal_ecr/Package.swift`), then the example loads that plugin:
+
+```bash
+./tool/sync_ios_ecr_sdk.sh      # rewrite Package.swift + podspec version + SPM flag
+./tool/prepare_ios_example.sh   # sync + flutter pub get + pod install
+cd example && flutter run
+```
+
+| `ecrSdkDependency` | CocoaPods face (example) | SwiftPM face (`Package.swift`) |
+|---|---|---|
+| `project` (default here) | Sibling `AmwalECR-iOS-CocoaPods` | Sibling `AmwalECR-iOS-SPM` |
+| `cocoapods` | CocoaPods trunk | GitHub tags (published) |
+| `spm` | No path override; Flutter SPM on | GitHub tags (published) |
+
+One-off overrides:
+
+```bash
+ECR_SDK_DEPENDENCY=cocoapods ./tool/prepare_ios_example.sh
+ECR_SDK_ROOT=/path/to/AmwalECR-iOS-CocoaPods ./tool/prepare_ios_example.sh
+```
+
+Paths assume `amwal-ecr-flutter`, `ecr_sdk`, `AmwalECR-iOS-CocoaPods`, and
+`AmwalECR-iOS-SPM` sit under the same parent directory.
+
 
 Without hardware, run the stand-in listener that ships with the reference
 implementation and point the app at the machine running it:
@@ -368,6 +436,11 @@ cd example && flutter test      # the example app
 cd example/android && ./gradlew :amwal_ecr:testDebugUnitTest   # the Android host
 ```
 
+Unit tests share signing placeholders via `EcrTestConfigs` (aligned with
+`ecr_sdk`): `SECURE_HASH_KEY_ECR_WIFI`, `SECURE_HASH_KEY_ECR_WIFI_OTHER`, and
+`SECURE_HASH_KEY_WEBSERVICE`, exposed as `lan` / `lanOther` / `webService`
+configs. Never commit real Amwal keys.
+
 The wire protocol is not tested here: it lives in the native SDKs, each with its
 own suite — [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) on iOS, `ecr-sdk` in the
 [reference repository](https://github.com/amwal-pay/ECR-simulator) on Android.
@@ -379,11 +452,13 @@ checkout instead of at the published version:
 AMWAL_ECR_SDK_PATH=../AmwalECR-iOS-SPM ./tool/run_swift_tests.sh
 ```
 
-For the example app, uncomment the local `pod` line in `example/ios/Podfile`.
-**A file added to or removed from that checkout's `Sources/AmwalECR` then needs
-`pod install` in `example/ios`** before the app will build: until then Xcode
-reports the new type as missing while `swift build` is clean, because the pod's
-file list is a snapshot taken at install time, not a live glob.
+For the example app, local iOS SDK wiring is controlled by
+`ios/ecr_sdk.properties` (plugin) and `example/ios/ecr_sdk.properties` (override).
+Run `./tool/prepare_ios_example.sh` after changing the mode or after
+adding/removing files under the CocoaPods checkout's `Sources/AmwalECR` —
+CocoaPods snapshots the source glob into `Pods.xcodeproj`. Editing existing
+files needs nothing. `./tool/sync_ios_ecr_sdk.sh` alone rewrites
+`Package.swift` / podspec / the example SPM flag without installing pods.
 
 ```bash
 (cd example/ios && pod install)

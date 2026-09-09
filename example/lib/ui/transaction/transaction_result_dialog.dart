@@ -1,5 +1,6 @@
 import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../components/omr_symbol.dart';
@@ -95,16 +96,17 @@ class _DeclinedDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A decline describes a transaction that did not happen, so its fields and
-    // payload are left off — the reason is the whole story.
     return ResultDialog(
       headline: 'Declined',
       icon: Icons.cancel,
       tint: declinedRed,
       amount: '',
-      message: result.reason,
+      message: EcrWireResponse.displayMessageFromRaw(
+        result.raw,
+        fallback: result.reason,
+      ),
       fields: const <(String, String)>[],
-      rawPayload: null,
+      rawPayload: result.raw.isNotEmpty ? result.raw : null,
       onDismiss: onDismiss,
     );
   }
@@ -141,7 +143,10 @@ class InquiryResultDialog extends StatelessWidget {
           icon: Icons.cancel,
           tint: declinedRed,
           amount: '',
-          message: reason,
+          message: EcrWireResponse.displayMessageFromRaw(
+            raw,
+            fallback: reason,
+          ),
           fields: const <(String, String)>[],
           rawPayload: raw,
           onDismiss: onDismiss,
@@ -149,12 +154,30 @@ class InquiryResultDialog extends StatelessWidget {
 
       case EcrInquiryFound(:final EcrTransaction transaction, :final String raw):
         final bool settled = transaction.status.toLowerCase() == 'approved';
+        // A partial approval read back from an inquiry is the same fact the
+        // sale reported, and has to read the same. Showing `amount` alone said
+        // "Approved · 961.100" for a transaction where 50.000 was taken: the
+        // sale screen called that out and this one did not, so one payment
+        // looked like two different things depending on how it was reached.
+        final bool partial = settled && transaction.partialApproval;
         return ResultDialog(
-          headline: transaction.status.isEmpty ? 'Found' : transaction.status,
+          headline: partial
+              ? 'Partially approved'
+              : transaction.status.isEmpty
+              ? 'Found'
+              : transaction.status,
           icon: settled ? Icons.check_circle : Icons.cancel,
           tint: settled ? approvedGreen : declinedRed,
-          amount: transaction.amount,
-          message: null,
+          amount: partial ? transaction.authorizedAmount : transaction.amount,
+          message: partial
+              ? 'Only ${transaction.authorizedAmount} of ${transaction.amount} '
+                    'was approved. Collect the difference by another means.'
+              : settled
+              ? null
+              : EcrWireResponse.displayMessageFromRaw(
+                  raw,
+                  fallback: transaction.status,
+                ),
           // What a till needs to recognise the transaction. The rest of the
           // record is a tap away under the raw response.
           fields: <(String, String)>[
@@ -359,6 +382,17 @@ class ResultDialog extends StatefulWidget {
 class _ResultDialogState extends State<ResultDialog> {
   bool _showRaw = false;
 
+  Future<void> _copyRawPayload() async {
+    final String? payload = widget.rawPayload;
+    if (payload == null || payload.isEmpty) return;
+
+    await Clipboard.setData(ClipboardData(text: payload));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Raw response copied')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -415,12 +449,25 @@ class _ResultDialogState extends State<ResultDialog> {
               const SizedBox(height: 16),
               widget.extra!,
             ],
-            if (widget.rawPayload != null && widget.rawPayload!.isNotEmpty) ...<Widget>[
+            if (widget.rawPayload != null) ...<Widget>[
               const SizedBox(height: 8),
-              TextButton(
-                key: const Key('toggleRaw'),
-                onPressed: () => setState(() => _showRaw = !_showRaw),
-                child: Text(_showRaw ? 'Hide raw response' : 'Raw response'),
+              Row(
+                children: <Widget>[
+                  TextButton(
+                    key: const Key('toggleRaw'),
+                    onPressed: () => setState(() => _showRaw = !_showRaw),
+                    child: Text(_showRaw ? 'Hide raw response' : 'Raw response'),
+                  ),
+                  if (_showRaw) ...<Widget>[
+                    const Spacer(),
+                    IconButton(
+                      key: const Key('copyRaw'),
+                      tooltip: 'Copy raw response',
+                      icon: const Icon(Icons.copy),
+                      onPressed: _copyRawPayload,
+                    ),
+                  ],
+                ],
               ),
               if (_showRaw)
                 SelectableText(

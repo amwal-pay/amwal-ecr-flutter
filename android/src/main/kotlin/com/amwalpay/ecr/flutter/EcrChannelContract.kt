@@ -12,6 +12,7 @@ package com.amwalpay.ecr.flutter
  */
 internal object EcrMethods {
     const val IS_REACHABLE = "isReachable"
+    const val PROBE_REACHABILITY = "probeReachability"
     const val SALE = "sale"
     const val VOID = "void"
     const val REFUND = "refund"
@@ -31,7 +32,7 @@ internal object EcrArgs {
     const val RECEIPT_NUMBER = "receiptNumber"
     const val TRANSACTION_DATE = "transactionDate"
     const val ORIGINAL_TERMINAL_ID = "originalTerminalId"
-    const val MERCHANT_REFERENCE_ID = "merchantReferenceId"
+    const val MERCHANT_REFERENCE = "merchantReference"
     const val ORIGINAL_MERCHANT_REFERENCE = "originalMerchantReference"
 }
 
@@ -45,11 +46,14 @@ internal object EcrConfigKeys {
     const val PROBE_TIMEOUT_MS = "probeTimeoutMs"
     const val SECURE_HASH_KEY = "secureHashKey"
     const val AUTO_INQUIRE_ON_FAILURE = "autoInquireOnFailure"
+    const val MERCHANT_ID = "merchantId"
+    const val TERMINAL_ID = "terminalId"
+    const val ENVIRONMENT = "environment"
 }
 
 internal object EcrResultKeys {
     const val OUTCOME = "outcome"
-    const val MERCHANT_REFERENCE_ID = "merchantReferenceId"
+    const val MERCHANT_REFERENCE = "merchantReference"
     const val AMOUNT = "amount"
     const val RESPONSE_CODE = "responseCode"
     const val REASON = "reason"
@@ -64,6 +68,14 @@ internal object EcrResultKeys {
     const val URL = "url"
     const val NEXT_STEP = "nextStep"
     const val RECOVERED = "recovered"
+}
+
+internal object EcrReachabilityKeys {
+    const val REACHABLE = "reachable"
+    const val HOST = "host"
+    const val PORT = "port"
+    const val ERROR = "error"
+    const val ENDPOINT = "endpoint"
 }
 
 internal object EcrOutcomes {
@@ -120,6 +132,8 @@ internal object EcrTransactionKeys {
     const val IS_REFUNDED = "isRefunded"
     const val CAN_VOID = "canVoid"
     const val CAN_REFUND = "canRefund"
+    const val PARTIAL_APPROVAL = "partialApproval"
+    const val AUTHORIZED_AMOUNT = "authorizedAmount"
 }
 
 internal object EcrErrorCodes {
@@ -131,11 +145,26 @@ internal const val ECR_METHOD_CHANNEL = "com.amwalpay.ecr/methods"
 
 /** Transport names as the Dart side spells them. */
 internal object EcrTransports {
-    const val ETHERNET = "ethernet"
+    const val USB_CABLE = "usb_cable"
     const val WIFI = "wifi"
     const val BLUETOOTH = "bluetooth"
     const val WEB_SERVICE = "webService"
+    /** Snake_case alias; maps to [WEB_SERVICE]. */
+    const val WEB_SERVICE_SNAKE = "web_service"
 
-    /** Whether the terminal opens a socket for this transport. */
-    fun isIpTransport(name: String?): Boolean = name == ETHERNET || name == WIFI
+    fun isUsbCable(name: String?): Boolean = name == USB_CABLE
+
+    fun isWebService(name: String?): Boolean =
+        name == WEB_SERVICE || name == WEB_SERVICE_SNAKE
+
+    /** Whether the terminal opens a socket for this transport. Wi‑Fi only. */
+    fun isIpTransport(name: String?): Boolean = name == WIFI
+
+    /** Whether receipt fetch is available (Wi‑Fi or USB cable). */
+    fun supportsReceipt(name: String?): Boolean =
+        name == WIFI || isUsbCable(name)
+
+    /** Whether this Flutter plugin can drive transactions over this transport. */
+    fun isSupportedTransport(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name) || isWebService(name)
 }

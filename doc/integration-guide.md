@@ -14,10 +14,10 @@ to use this package.
 Three things have to be true, and two of them are not in your code.
 
 **1. The terminal is in ECR mode.** Its TMS profile carries `terminalMode` `1`
-and an `ecrMode` of `1` (ethernet) or `2` (wi-fi). A terminal in any other state
-does not listen on port 9100, and connections are refused. If `isReachable()`
-answers `false` on an address you are sure of, check the profile before
-debugging the network.
+and an `ecrMode` of `1` (USB cable, Android) or `2` (wi‑fi). A terminal in wi‑fi
+mode listens on port 9100; USB cable has no IP. If `isReachable()` answers
+`false` on an address you are sure of, check the profile before debugging the
+network.
 
 **2. The phone can route to the terminal.** Same subnet, or a network that
 routes between them. A guest wi-fi with client isolation will not.
@@ -33,7 +33,7 @@ link is wi-fi.
 ```dart
 import 'package:amwal_ecr/amwal_ecr.dart';
 
-final EcrTerminal terminal = EcrTerminal(
+final EcrOpenedSession session = EcrSessions.open(
   host: '192.168.1.50',
   serialNumber: 'P653200085189',
   transport: EcrTransport.wifi,
@@ -43,8 +43,10 @@ final EcrTerminal terminal = EcrTerminal(
     minorUnitDigits: 3,      // 3 for OMR, 2 for USD, 0 for JPY
   ),
 );
+final EcrTerminal terminal = session.terminal;
 ```
 
+Prefer `EcrSessions.open` so sale, inquiry, and receipt share one transport.
 An `EcrTerminal` holds no connection between calls, so it is cheap to build and
 safe to keep. Build a new one when the settings change rather than mutating one.
 
@@ -330,13 +332,16 @@ never as an exception.
 
 ## Testing without hardware
 
-The repository ships a stand-in listener that speaks the same protocol:
+A stand-in listener that speaks the same protocol is published alongside the
+native SDK:
 
 ```bash
-python3 tools/fake_pos_server.py --port 9100                # approves
-python3 tools/fake_pos_server.py --port 9100 --decline 51   # declines
-python3 tools/fake_pos_server.py --port 9100 --delay 130    # forces a timeout
-python3 tools/fake_pos_server.py --port 9100 --not-found    # inquiry misses
+curl -O https://raw.githubusercontent.com/amwal-pay/ECR-simulator/main/tools/fake_pos_server.py
+
+python3 fake_pos_server.py --port 9100                # approves
+python3 fake_pos_server.py --port 9100 --decline 51   # declines
+python3 fake_pos_server.py --port 9100 --delay 130    # forces a timeout
+python3 fake_pos_server.py --port 9100 --not-found    # inquiry misses
 ```
 
 Point the example app, or your own till, at the machine running it.
@@ -347,7 +352,7 @@ In unit tests, replace the platform rather than the network:
 final class FakeEcrPlatform extends AmwalEcrPlatform {
   @override
   Future<EcrResult> sale(EcrRequest request) async => const EcrFailed(
-        merchantReferenceId: '',
+        merchantReference: '',
         failure: EcrTimeout('no answer'),
       );
   // … the rest of the interface
@@ -356,9 +361,12 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
 AmwalEcrPlatform.instance = FakeEcrPlatform();
 ```
 
-`example/test/widget_test.dart` does exactly this, and the case it spends most
-of its effort on is the one you cannot arrange on real hardware on demand: a
-payment whose outcome nobody knows.
+The example app's tests do exactly this, and the case worth spending your own
+effort on is the one you cannot arrange on real hardware on demand: a payment
+whose outcome nobody knows.
+
+Use a placeholder signing key in tests, never a real Amwal one, and keep real
+keys out of the repository entirely.
 
 ---
 

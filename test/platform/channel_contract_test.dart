@@ -17,8 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// the reverse, stops working.
 void main() {
   group('method names', () {
-    test('are exactly these eight, spelled exactly this way', () {
+    test('are exactly these nine, spelled exactly this way', () {
       expect(EcrMethods.isReachable, 'isReachable');
+      expect(EcrMethods.probeReachability, 'probeReachability');
       expect(EcrMethods.sale, 'sale');
       expect(EcrMethods.voidTransaction, 'void');
       expect(EcrMethods.refund, 'refund');
@@ -31,6 +32,7 @@ void main() {
     test('the published list covers them and nothing else', () {
       expect(EcrMethods.all, <String>[
         'isReachable',
+        'probeReachability',
         'sale',
         'void',
         'refund',
@@ -57,7 +59,7 @@ void main() {
       expect(EcrArgs.receiptNumber, 'receiptNumber');
       expect(EcrArgs.transactionDate, 'transactionDate');
       expect(EcrArgs.originalTerminalId, 'originalTerminalId');
-      expect(EcrArgs.merchantReferenceId, 'merchantReferenceId');
+      expect(EcrArgs.merchantReference, 'merchantReference');
       expect(EcrArgs.originalMerchantReference, 'originalMerchantReference');
     });
 
@@ -72,7 +74,7 @@ void main() {
         'receiptNumber',
         'transactionDate',
         'originalTerminalId',
-        'merchantReferenceId',
+        'merchantReference',
         'originalMerchantReference',
       ]);
     });
@@ -92,6 +94,9 @@ void main() {
       expect(EcrConfigKeys.probeTimeoutMs, 'probeTimeoutMs');
       expect(EcrConfigKeys.secureHashKey, 'secureHashKey');
       expect(EcrConfigKeys.autoInquireOnFailure, 'autoInquireOnFailure');
+      expect(EcrConfigKeys.merchantId, 'merchantId');
+      expect(EcrConfigKeys.terminalId, 'terminalId');
+      expect(EcrConfigKeys.environment, 'environment');
     });
 
     test('the published list covers them and nothing else', () {
@@ -105,6 +110,9 @@ void main() {
         'probeTimeoutMs',
         'secureHashKey',
         'autoInquireOnFailure',
+        'merchantId',
+        'terminalId',
+        'environment',
       ]);
     });
   });
@@ -112,7 +120,7 @@ void main() {
   group('result keys', () {
     test('are spelled exactly this way', () {
       expect(EcrResultKeys.outcome, 'outcome');
-      expect(EcrResultKeys.merchantReferenceId, 'merchantReferenceId');
+      expect(EcrResultKeys.merchantReference, 'merchantReference');
       expect(EcrResultKeys.amount, 'amount');
       expect(EcrResultKeys.responseCode, 'responseCode');
       expect(EcrResultKeys.rrn, 'rrn');
@@ -133,6 +141,23 @@ void main() {
       // an inquiry and a receipt carry the same field for a different sort of
       // refusal. Both hosts must agree, hence the assertion.
       expect(EcrResultKeys.responseMessage, 'reason');
+    });
+  });
+
+  group('reachability keys', () {
+    test('are spelled exactly this way', () {
+      expect(EcrReachabilityKeys.reachable, 'reachable');
+      expect(EcrReachabilityKeys.host, 'host');
+      expect(EcrReachabilityKeys.port, 'port');
+      expect(EcrReachabilityKeys.error, 'error');
+      expect(EcrReachabilityKeys.endpoint, 'endpoint');
+      expect(EcrReachabilityKeys.all, <String>[
+        'reachable',
+        'host',
+        'port',
+        'error',
+        'endpoint',
+      ]);
     });
   });
 
@@ -203,10 +228,12 @@ void main() {
       expect(EcrTransactionKeys.isRefunded, 'isRefunded');
       expect(EcrTransactionKeys.canVoid, 'canVoid');
       expect(EcrTransactionKeys.canRefund, 'canRefund');
+      expect(EcrTransactionKeys.partialApproval, 'partialApproval');
+      expect(EcrTransactionKeys.authorizedAmount, 'authorizedAmount');
     });
 
-    test('all seventeen fields the backend records are carried', () {
-      expect(EcrTransactionKeys.all, hasLength(17));
+    test('all fields the backend records are carried', () {
+      expect(EcrTransactionKeys.all, hasLength(19));
     });
   });
 
@@ -253,28 +280,32 @@ void main() {
 
   group('transports', () {
     test('are named on the channel exactly as the TMS profile numbers them', () {
-      expect(EcrTransport.ethernet.channelName, 'ethernet');
+      expect(EcrTransport.usbCable.channelName, 'usb_cable');
       expect(EcrTransport.wifi.channelName, 'wifi');
       expect(EcrTransport.bluetooth.channelName, 'bluetooth');
       expect(EcrTransport.webService.channelName, 'webService');
 
-      expect(EcrTransport.ethernet.wireValue, 1);
+      expect(EcrTransport.usbCable.wireValue, 1);
       expect(EcrTransport.wifi.wireValue, 2);
       expect(EcrTransport.bluetooth.wireValue, 3);
       expect(EcrTransport.webService.wireValue, 4);
     });
 
-    test('only the IP transports have a listener to reach', () {
-      expect(EcrTransport.ethernet.isIpTransport, isTrue);
+    test('only Wi‑Fi is an IP transport; USB cable is not', () {
+      expect(EcrTransport.usbCable.isIpTransport, isFalse);
+      expect(EcrTransport.usbCable.isUsbCable, isTrue);
       expect(EcrTransport.wifi.isIpTransport, isTrue);
       expect(EcrTransport.bluetooth.isIpTransport, isFalse);
       expect(EcrTransport.webService.isIpTransport, isFalse);
     });
 
     test('an ecrMode this version has not heard of reads as null, not as a guess', () {
-      expect(EcrTransport.fromWireValue(1), EcrTransport.ethernet);
+      expect(EcrTransport.fromWireValue(1), EcrTransport.usbCable);
       expect(EcrTransport.fromWireValue(9), isNull);
       expect(EcrTransport.fromChannelName('wifi'), EcrTransport.wifi);
+      expect(EcrTransport.fromChannelName('usb_cable'), EcrTransport.usbCable);
+      expect(EcrTransport.fromChannelName('ethernet'), isNull);
+      expect(EcrTransport.fromChannelName('web_service'), EcrTransport.webService);
       expect(EcrTransport.fromChannelName('carrier-pigeon'), isNull);
     });
   });

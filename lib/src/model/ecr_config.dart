@@ -1,3 +1,4 @@
+import 'ecr_environment.dart';
 import 'ecr_errors.dart';
 
 /// How this till identifies itself and how it talks to a terminal.
@@ -17,8 +18,11 @@ final class EcrConfig {
     this.responseTimeout = const Duration(seconds: 120),
     this.probeTimeout = const Duration(seconds: 3),
     this.secureHashKey = '',
+    this.merchantId = '',
+    this.terminalId = '',
+    this.environment = EcrEnvironment.sit,
     this.autoInquireOnFailure = true,
-  }) {
+  }) {      
     if (minorUnitDigits < 0 || minorUnitDigits > 4) {
       throw EcrArgumentError(
         'minorUnitDigits must be between 0 and 4, got $minorUnitDigits',
@@ -87,11 +91,15 @@ final class EcrConfig {
 
   /// The secret this till shares with the terminal, as hex.
   ///
+  /// **The app owns persistence and chooses which secret to pass** for the
+  /// selected terminal mode (LAN vs Web Service use different secrets and
+  /// signing formats, but both are supplied through this single field).
+  /// LAN ECR signs sorted `key=value` pairs; Web Service ECR signs the JSON
+  /// request body with HMAC-SHA256 under the hex-decoded key.
+  ///
   /// Set it and every request is signed and every response is checked. Required
-  /// in practice: a terminal refuses everything it cannot verify, so a till
-  /// without the key is answered with a security violation and nothing else.
-  /// Amwal issues it per terminal — it is not a value to invent, and not one to
-  /// commit to a repository or to ship inside an app bundle.
+  /// in practice: a terminal refuses everything it cannot verify. Amwal issues
+  /// it per terminal — never invent it, and never commit it to source.
   ///
   /// An answer that cannot be shown to have come from the terminal is reported
   /// as [EcrUnauthenticated], which leaves the outcome unknown — never as a
@@ -114,8 +122,20 @@ final class EcrConfig {
   /// not have the extra round trip on a failure.
   final bool autoInquireOnFailure;
 
+  /// Backend merchant ID — Web Service / Hub ECR.
+  final String merchantId;
+
+  /// Backend terminal ID — Web Service / Hub ECR.
+  final String terminalId;
+
+  /// Hub deployment (SIT, UAT, PROD) for Web Service ECR.
+  final EcrEnvironment environment;
+
   /// Whether this till signs what it sends.
   bool get signsMessages => secureHashKey.isNotEmpty;
+
+  /// Whether [key] is a valid signing secret (even-length hex, ≥16 chars).
+  static bool isValidSecureHashKey(String key) => _isValidSecret(key.trim());
 
   /// A copy with the named fields replaced.
   EcrConfig copyWith({
@@ -127,6 +147,9 @@ final class EcrConfig {
     Duration? responseTimeout,
     Duration? probeTimeout,
     String? secureHashKey,
+    String? merchantId,
+    String? terminalId,
+    EcrEnvironment? environment,
     bool? autoInquireOnFailure,
   }) {
     return EcrConfig(
@@ -138,6 +161,9 @@ final class EcrConfig {
       responseTimeout: responseTimeout ?? this.responseTimeout,
       probeTimeout: probeTimeout ?? this.probeTimeout,
       secureHashKey: secureHashKey ?? this.secureHashKey,
+      merchantId: merchantId ?? this.merchantId,
+      terminalId: terminalId ?? this.terminalId,
+      environment: environment ?? this.environment,
       autoInquireOnFailure: autoInquireOnFailure ?? this.autoInquireOnFailure,
     );
   }
@@ -158,6 +184,9 @@ final class EcrConfig {
       other.responseTimeout == responseTimeout &&
       other.probeTimeout == probeTimeout &&
       other.secureHashKey == secureHashKey &&
+      other.merchantId == merchantId &&
+      other.terminalId == terminalId &&
+      other.environment == environment &&
       other.autoInquireOnFailure == autoInquireOnFailure;
 
   @override
@@ -170,6 +199,9 @@ final class EcrConfig {
         responseTimeout,
         probeTimeout,
         secureHashKey,
+        merchantId,
+        terminalId,
+        environment,
         autoInquireOnFailure,
       );
 

@@ -96,6 +96,7 @@ class TransactionRequest {
     this.originalTerminalId = '',
     this.transactionDate = '',
     this.originalReference = '',
+    this.merchantReference = '',
   });
 
   final EcrTransactionType type;
@@ -118,12 +119,16 @@ class TransactionRequest {
   /// quote, while the reference it chose is still its own.
   final String originalReference;
 
+  /// Optional reference for a new sale; blank lets the SDK generate one.
+  final String merchantReference;
+
   /// Whether this names its original by reference rather than receipt number.
   bool get looksUpByReference => originalReference.trim().isNotEmpty;
 
   TransactionRequest copyWith({
     EcrTransactionType? type,
     String? originalReference,
+    String? merchantReference,
   }) =>
       TransactionRequest(
         type: type ?? this.type,
@@ -133,5 +138,6 @@ class TransactionRequest {
         originalTerminalId: originalTerminalId,
         transactionDate: transactionDate,
         originalReference: originalReference ?? this.originalReference,
+        merchantReference: merchantReference ?? this.merchantReference,
       );
 }

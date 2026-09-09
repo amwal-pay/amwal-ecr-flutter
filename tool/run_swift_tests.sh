@@ -18,9 +18,8 @@
 #
 #   ./tool/run_swift_tests.sh
 #
-# By default the SDK is resolved from its published tags. To test the bridge
-# against an unreleased SDK, point at a checkout instead — a change to both in
-# one go is then tested as one thing:
+# Honours ios/ecr_sdk.properties (and example overrides) when mode=project:
+# uses the sibling AmwalECR-iOS-SPM checkout. Override explicitly with:
 #
 #   AMWAL_ECR_SDK_PATH=../AmwalECR-iOS-SPM ./tool/run_swift_tests.sh
 set -euo pipefail
@@ -36,6 +35,36 @@ find "$root/ios/amwal_ecr/Sources/amwal_ecr" -name '*.swift' ! -name 'AmwalEcrPl
   -exec cp {} "$work/Sources/AmwalEcrBridge/" \;
 cp "$root"/ios/Tests/*.swift "$work/Tests/AmwalEcrBridgeTests/"
 
+load_prop() {
+  local file="$1" key="$2"
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    local k="${line%%=*}"
+    local v="${line#*=}"
+    k="$(echo "$k" | xargs)"
+    v="$(echo "$v" | xargs)"
+    if [[ "$k" == "$key" ]]; then
+      echo "$v"
+      return 0
+    fi
+  done < "$file"
+}
+
+mode="$(load_prop "$root/example/ios/ecr_sdk.properties" ecrSdkDependency)"
+mode="${mode:-$(load_prop "$root/ios/ecr_sdk.properties" ecrSdkDependency)}"
+mode="${mode:-cocoapods}"
+version="$(load_prop "$root/example/ios/ecr_sdk.properties" ecrSdkVersion)"
+version="${version:-$(load_prop "$root/ios/ecr_sdk.properties" ecrSdkVersion)}"
+version="${version:-0.2.1}"
+spm_rel="$(load_prop "$root/example/ios/ecr_sdk.properties" ecrSdkSpmRoot)"
+spm_base="$root/example/ios"
+if [[ -z "$spm_rel" ]]; then
+  spm_rel="$(load_prop "$root/ios/ecr_sdk.properties" ecrSdkSpmRoot)"
+  spm_base="$root/ios"
+fi
+spm_rel="${spm_rel:-../../AmwalECR-iOS-SPM}"
+
 # The version range here is the one ios/amwal_ecr/Package.swift and
 # ios/amwal_ecr.podspec declare. Keep the three in step.
 # SwiftPM identifies a package by the last component of its location, not by the
@@ -46,9 +75,14 @@ if [[ -n "${AMWAL_ECR_SDK_PATH:-}" ]]; then
   echo "Testing against the SDK checkout at $sdk_path"
   dependency=".package(path: \"$sdk_path\"),"
   package_id="$(basename "$sdk_path")"
+elif [[ "$mode" == "project" ]]; then
+  sdk_path="$(cd "$spm_base/$spm_rel" && pwd)"
+  echo "Testing against local AmwalECR (ecrSdkDependency=project) at $sdk_path"
+  dependency=".package(path: \"$sdk_path\"),"
+  package_id="$(basename "$sdk_path")"
 else
-  echo "Testing against the published AmwalECR SDK (set AMWAL_ECR_SDK_PATH for a checkout)"
-  dependency=".package(url: \"https://github.com/amwal-pay/AmwalECR-iOS-SPM.git\", .upToNextMinor(from: \"0.2.0\")),"
+  echo "Testing against the published AmwalECR SDK ($mode, $version)"
+  dependency=".package(url: \"https://github.com/amwal-pay/AmwalECR-iOS-SPM.git\", .upToNextMinor(from: \"$version\")),"
   package_id="AmwalECR-iOS-SPM"
 fi
 

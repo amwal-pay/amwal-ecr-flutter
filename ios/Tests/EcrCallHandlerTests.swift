@@ -17,7 +17,7 @@ final class EcrCallHandlerTests: XCTestCase {
         var reachable = true
         var result: EcrResult = .approved(
             EcrApproved(
-                merchantReferenceId: "A1B2C3D4E5F6",
+                merchantReference: "A1B2C3D4E5F6",
                 amount: "1.234",
                 responseCode: "00",
                 rrn: "622113155340",
@@ -28,8 +28,8 @@ final class EcrCallHandlerTests: XCTestCase {
                 raw: "{}"
             )
         )
-        var inquiry: EcrInquiry = .notFound(merchantReferenceId: "REQ", reason: "nothing", raw: "{}")
-        var receiptValue: EcrReceipt = .unavailable(merchantReferenceId: "REQ", reason: "nothing", raw: "{}")
+        var inquiry: EcrInquiry = .notFound(merchantReference: "REQ", reason: "nothing", raw: "{}")
+        var receiptValue: EcrReceipt = .unavailable(merchantReference: "REQ", reason: "nothing", raw: "{}")
 
         private let lock = NSLock()
         private var _calls: [String] = []
@@ -42,7 +42,7 @@ final class EcrCallHandlerTests: XCTestCase {
         var lastReceiptNumber: String?
         var lastTransactionDate: String?
         var lastOriginalTerminalId: String?
-        var lastMerchantReferenceId: String?
+        var lastMerchantReference: String?
         var lastOriginalReference: String?
 
         /// Held open so a test can cancel while the terminal has the request.
@@ -59,9 +59,19 @@ final class EcrCallHandlerTests: XCTestCase {
             return reachable
         }
 
-        func sale(amount: Decimal, merchantReferenceId: String) throws -> EcrResult {
+        func probeReachability() -> EcrReachability {
+            record("probeReachability")
+            return EcrReachability(
+                reachable: reachable,
+                host: "192.168.1.50",
+                port: 9100,
+                error: reachable ? nil : "Connection refused"
+            )
+        }
+
+        func sale(amount: Decimal, merchantReference: String) throws -> EcrResult {
             lastAmount = amount
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("sale")
             return result
         }
@@ -69,11 +79,11 @@ final class EcrCallHandlerTests: XCTestCase {
         func void(
             receiptNumber: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrResult {
             lastReceiptNumber = receiptNumber
             lastOriginalTerminalId = originalTerminalId
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("void")
             return result
         }
@@ -83,13 +93,13 @@ final class EcrCallHandlerTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrResult {
             lastAmount = amount
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
             lastOriginalTerminalId = originalTerminalId
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("refund")
             return result
         }
@@ -98,11 +108,11 @@ final class EcrCallHandlerTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrInquiry {
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("inquire")
             return inquiry
         }
@@ -111,11 +121,11 @@ final class EcrCallHandlerTests: XCTestCase {
             _ originalReference: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrInquiry {
             lastOriginalReference = originalReference
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("inquireByReference")
             return inquiry
         }
@@ -124,11 +134,11 @@ final class EcrCallHandlerTests: XCTestCase {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String
+            merchantReference: String
         ) throws -> EcrReceipt {
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastMerchantReference = merchantReference
             record("receipt")
             return receiptValue
         }
@@ -217,7 +227,7 @@ final class EcrCallHandlerTests: XCTestCase {
     }
 
     private func handler(for terminal: EcrTerminalPort) -> EcrCallHandler {
-        EcrCallHandler { _, _, _ in terminal }
+        EcrCallHandler { _, _, _, _ in terminal }
     }
 
     // MARK: - Tests
@@ -324,7 +334,7 @@ final class EcrCallHandlerTests: XCTestCase {
     }
 
     func testATransportWithNoListenerIsRefusedWithoutTouchingTheTerminal() {
-        for transport in ["bluetooth", "webService"] {
+        for transport in ["bluetooth"] {
             let terminal = FakeTerminal()
             let reply = RecordingReply()
 
@@ -353,6 +363,44 @@ final class EcrCallHandlerTests: XCTestCase {
 
         XCTAssertTrue(terminal.calls.isEmpty)
         XCTAssertEqual(false, reply.successes.first as? Bool)
+    }
+
+    func testProbeReachabilityOverATransportWithNoListenerSkipsTheTerminal() {
+        let terminal = FakeTerminal()
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.probeReachability,
+            arguments: args(transport: "bluetooth"),
+            reply: reply
+        )
+
+        XCTAssertTrue(terminal.calls.isEmpty)
+        let map = reply.successes.first as? [String: Any]
+        XCTAssertEqual(false, map?[EcrReachabilityKeys.reachable] as? Bool)
+        XCTAssertEqual("192.168.1.50", map?[EcrReachabilityKeys.endpoint] as? String)
+        XCTAssertEqual(0, map?[EcrReachabilityKeys.port] as? Int)
+    }
+
+    func testProbeReachabilityReturnsTheSdkMapWhenTheTerminalAnswers() {
+        let terminal = FakeTerminal()
+        terminal.reachable = false
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.probeReachability,
+            arguments: args(transport: "wifi"),
+            reply: reply
+        )
+
+        wait(for: [reply.answered], timeout: 1)
+        XCTAssertEqual(["probeReachability"], terminal.calls)
+        let map = reply.successes.first as? [String: Any]
+        XCTAssertEqual(false, map?[EcrReachabilityKeys.reachable] as? Bool)
+        XCTAssertEqual("192.168.1.50", map?[EcrReachabilityKeys.host] as? String)
+        XCTAssertEqual(9100, map?[EcrReachabilityKeys.port] as? Int)
+        XCTAssertEqual("Connection refused", map?[EcrReachabilityKeys.error] as? String)
+        XCTAssertEqual("192.168.1.50:9100", map?[EcrReachabilityKeys.endpoint] as? String)
     }
 
     func testAnUnknownMethodIsReportedAsNotImplementedOnce() {
@@ -453,7 +501,7 @@ final class EcrCallHandlerTests: XCTestCase {
     func testADeclinedSaleIsReportedAsDeclinedWithTheTerminalsWords() {
         let terminal = FakeTerminal()
         terminal.result = .declined(
-            EcrDeclined(merchantReferenceId: "REQ", responseCode: "51", reason: "Insufficient funds", raw: "{}")
+            EcrDeclined(merchantReference: "REQ", responseCode: "51", reason: "Insufficient funds", raw: "{}")
         )
         let reply = RecordingReply()
 
@@ -468,7 +516,7 @@ final class EcrCallHandlerTests: XCTestCase {
 
     func testATimeoutIsReportedAsAFailureNeverAsADecline() {
         let terminal = FakeTerminal()
-        terminal.result = .failed(merchantReferenceId: "REQ", failure: .timeout("no answer in 120s"), recovered: nil)
+        terminal.result = .failed(merchantReference: "REQ", failure: .timeout("no answer in 120s"), recovered: nil)
         let reply = RecordingReply()
 
         handler(for: terminal).handle(method: EcrMethods.sale, arguments: args(), reply: reply)
@@ -483,7 +531,7 @@ final class EcrCallHandlerTests: XCTestCase {
     func testAnInquiryAnswersWithItsOwnShapeNotASales() {
         let terminal = FakeTerminal()
         terminal.inquiry = .found(
-            merchantReferenceId: "REQ",
+            merchantReference: "REQ",
             transaction: EcrTransaction(
                 transactionId: "e970c800",
                 stan: "000208",
@@ -525,7 +573,7 @@ final class EcrCallHandlerTests: XCTestCase {
     func testAReceiptAnswersWithItsOwnShapeToo() {
         let terminal = FakeTerminal()
         terminal.receiptValue = .ready(
-            merchantReferenceId: "REQ",
+            merchantReference: "REQ",
             url: "https://example.test/r/1",
             raw: "{}"
         )
@@ -545,11 +593,11 @@ final class EcrCallHandlerTests: XCTestCase {
 
     func testNothingIsEverSentTwiceWhateverTheOutcome() {
         let outcomes: [EcrResult] = [
-            .declined(EcrDeclined(merchantReferenceId: "REQ", responseCode: "51", reason: "no", raw: "{}")),
-            .failed(merchantReferenceId: "REQ", failure: .timeout("no answer"), recovered: nil),
-            .failed(merchantReferenceId: "REQ", failure: .unreachable("no route"), recovered: nil),
-            .failed(merchantReferenceId: "REQ", failure: .connectionLost("closed"), recovered: nil),
-            .failed(merchantReferenceId: "REQ", failure: .malformed("not JSON"), recovered: nil),
+            .declined(EcrDeclined(merchantReference: "REQ", responseCode: "51", reason: "no", raw: "{}")),
+            .failed(merchantReference: "REQ", failure: .timeout("no answer"), recovered: nil),
+            .failed(merchantReference: "REQ", failure: .unreachable("no route"), recovered: nil),
+            .failed(merchantReference: "REQ", failure: .connectionLost("closed"), recovered: nil),
+            .failed(merchantReference: "REQ", failure: .malformed("not JSON"), recovered: nil),
         ]
 
         for outcome in outcomes {

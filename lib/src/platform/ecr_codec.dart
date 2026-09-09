@@ -1,6 +1,7 @@
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_next_step.dart';
+import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
@@ -19,17 +20,47 @@ import 'ecr_channel_contract.dart';
 /// unknown, rather than a decline — because a till that reads an unreadable
 /// answer as a refusal will retry, and the customer pays twice.
 abstract final class EcrCodec {
+  /// Reads the answer to [EcrMethods.probeReachability].
+  ///
+  /// A payload that cannot be read becomes "not reachable" rather than a
+  /// throw — the same rule [MethodChannelAmwalEcr.probeReachability] applies
+  /// when the host itself breaks. A till that cannot ask has no terminal.
+  static EcrReachability reachability(Object? payload) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return const EcrReachability(
+        reachable: false,
+        host: '',
+        port: 0,
+        error: 'The host answered a reachability probe with nothing usable',
+      );
+    }
+
+    final String host = _string(map, EcrReachabilityKeys.host);
+    final int port = _int(map, EcrReachabilityKeys.port);
+    final String? errorText = map[EcrReachabilityKeys.error]?.toString();
+    final String endpoint = _string(map, EcrReachabilityKeys.endpoint);
+
+    return EcrReachability(
+      reachable: _bool(map, EcrReachabilityKeys.reachable),
+      host: host,
+      port: port,
+      error: (errorText == null || errorText.isEmpty) ? null : errorText,
+      endpoint: endpoint.isEmpty ? null : endpoint,
+    );
+  }
+
   /// Reads the answer to a sale, void or refund.
   static EcrResult result(Object? payload, {required String operationId}) {
     final Map<Object?, Object?>? map = _asMap(payload);
     if (map == null) return _unreadable(payload, 'a transaction result');
 
-    final String reference = _string(map, EcrResultKeys.merchantReferenceId);
+    final String reference = _string(map, EcrResultKeys.merchantReference);
 
     switch (_string(map, EcrResultKeys.outcome)) {
       case EcrOutcomes.approved:
         return EcrApproved(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           amount: _string(map, EcrResultKeys.amount),
           responseCode: _string(map, EcrResultKeys.responseCode),
           rrn: _string(map, EcrResultKeys.rrn),
@@ -41,7 +72,7 @@ abstract final class EcrCodec {
         );
       case EcrOutcomes.declined:
         return EcrDeclined(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           responseCode: _string(map, EcrResultKeys.responseCode),
           reason: _string(map, EcrResultKeys.responseMessage),
           nextStep: EcrNextStep.parse(map[EcrResultKeys.nextStep] as String?),
@@ -49,13 +80,13 @@ abstract final class EcrCodec {
         );
       case EcrOutcomes.failed:
         return EcrFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: failure(map[EcrResultKeys.failure]),
           recovered: _recovered(map[EcrResultKeys.recovered], operationId),
         );
       case final String unknown:
         return EcrFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: EcrMalformed(_unknownOutcome(unknown, 'a transaction')),
         );
     }
@@ -66,12 +97,12 @@ abstract final class EcrCodec {
     final Map<Object?, Object?>? map = _asMap(payload);
     if (map == null) {
       return EcrInquiryFailed(
-        merchantReferenceId: '',
+        merchantReference: '',
         failure: EcrMalformed(_notAMap(payload, 'an inquiry')),
       );
     }
 
-    final String reference = _string(map, EcrResultKeys.merchantReferenceId);
+    final String reference = _string(map, EcrResultKeys.merchantReference);
 
     switch (_string(map, EcrResultKeys.outcome)) {
       case EcrOutcomes.found:
@@ -81,31 +112,31 @@ abstract final class EcrCodec {
           // The host said "found" and sent nothing to show for it. Reporting a
           // transaction of empty strings would be worse than saying so.
           return EcrInquiryFailed(
-            merchantReferenceId: reference,
+            merchantReference: reference,
             failure: const EcrMalformed(
               'The host reported a found transaction with no transaction data',
             ),
           );
         }
         return EcrInquiryFound(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           transaction: transaction(data),
           raw: _string(map, EcrResultKeys.raw),
         );
       case EcrOutcomes.notFound:
         return EcrInquiryNotFound(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           reason: _string(map, EcrResultKeys.responseMessage),
           raw: _string(map, EcrResultKeys.raw),
         );
       case EcrOutcomes.failed:
         return EcrInquiryFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: failure(map[EcrResultKeys.failure]),
         );
       case final String unknown:
         return EcrInquiryFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: EcrMalformed(_unknownOutcome(unknown, 'an inquiry')),
         );
     }
@@ -116,12 +147,12 @@ abstract final class EcrCodec {
     final Map<Object?, Object?>? map = _asMap(payload);
     if (map == null) {
       return EcrReceiptFailed(
-        merchantReferenceId: '',
+        merchantReference: '',
         failure: EcrMalformed(_notAMap(payload, 'a receipt')),
       );
     }
 
-    final String reference = _string(map, EcrResultKeys.merchantReferenceId);
+    final String reference = _string(map, EcrResultKeys.merchantReference);
 
     switch (_string(map, EcrResultKeys.outcome)) {
       case EcrOutcomes.ready:
@@ -130,30 +161,30 @@ abstract final class EcrCodec {
           // A receipt with no URL is not a receipt, whatever the host called
           // it. The native SDKs apply the same rule.
           return EcrReceiptUnavailable(
-            merchantReferenceId: reference,
+            merchantReference: reference,
             reason: _string(map, EcrResultKeys.responseMessage),
             raw: _string(map, EcrResultKeys.raw),
           );
         }
         return EcrReceiptReady(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           url: url,
           raw: _string(map, EcrResultKeys.raw),
         );
       case EcrOutcomes.unavailable:
         return EcrReceiptUnavailable(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           reason: _string(map, EcrResultKeys.responseMessage),
           raw: _string(map, EcrResultKeys.raw),
         );
       case EcrOutcomes.failed:
         return EcrReceiptFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: failure(map[EcrResultKeys.failure]),
         );
       case final String unknown:
         return EcrReceiptFailed(
-          merchantReferenceId: reference,
+          merchantReference: reference,
           failure: EcrMalformed(_unknownOutcome(unknown, 'a receipt')),
         );
     }
@@ -221,6 +252,8 @@ abstract final class EcrCodec {
       isRefunded: _bool(map, EcrTransactionKeys.isRefunded),
       canVoid: _bool(map, EcrTransactionKeys.canVoid),
       canRefund: _bool(map, EcrTransactionKeys.canRefund),
+      partialApproval: _bool(map, EcrTransactionKeys.partialApproval),
+      authorizedAmount: _string(map, EcrTransactionKeys.authorizedAmount),
     );
   }
 
@@ -255,8 +288,19 @@ abstract final class EcrCodec {
     };
   }
 
+  /// Reads an integer field, accepting a num that crossed the channel as such.
+  static int _int(Map<Object?, Object?> map, String key) {
+    final Object? value = map[key];
+    return switch (value) {
+      final int n => n,
+      final num n => n.toInt(),
+      final String text => int.tryParse(text) ?? 0,
+      _ => 0,
+    };
+  }
+
   static EcrFailed _unreadable(Object? payload, String what) => EcrFailed(
-        merchantReferenceId: '',
+        merchantReference: '',
         failure: EcrMalformed(_notAMap(payload, what)),
       );
 

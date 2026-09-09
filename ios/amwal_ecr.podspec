@@ -5,9 +5,13 @@
 # native iOS apps. Both faces are supported — amwal_ecr/Package.swift is the
 # Swift Package Manager one — and the two must name the same dependency and the
 # same version range.
+#
+# Dependency mode (project | cocoapods | spm) is owned by ios/ecr_sdk.properties
+# and applied with ./tool/sync_ios_ecr_sdk.sh — do not diverge the version here
+# by hand.
 Pod::Spec.new do |s|
   s.name             = 'amwal_ecr'
-  s.version          = '0.2.0'
+  s.version          = '0.2.1'
   s.summary          = 'Drive an Amwal POS terminal from Flutter on iOS.'
   s.description      = <<-DESC
 The iOS host for package:amwal_ecr. Adapts the platform channel onto the
@@ -26,7 +30,7 @@ AmwalECR SDK: sale, void, refund, inquiry and e-receipt.
   # both. The range is safe by the release policy: anything that changes what an
   # outcome means takes a major version, so 0.2.x cannot report differently from
   # what this bridge is contract-tested against.
-  s.dependency 'AmwalECR', '~> 0.2.0'
+  s.dependency 'AmwalECR', '~> 0.2.1'
 
   # The wrapper's floor, not the SDK's. Raise it here, in the two iOS SDK
   # repositories' manifests, in amwal_ecr/Package.swift and in the compatibility

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// it, because the cost of disagreeing is a customer charged twice.
 void main() {
   EcrDeclined declined(String code) => EcrDeclined(
-        merchantReferenceId: 'ORD-1',
+        merchantReference: 'ORD-1',
         responseCode: code,
         reason: '',
         raw: '{}',

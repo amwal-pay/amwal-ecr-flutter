@@ -1,5 +1,10 @@
 group 'com.amwalpay.ecr.flutter'
-version '0.2.0'
+version '0.2.1'
+
+def ecrSdkDependency = (findProperty("ecrSdkDependency") ?: "maven").toString().trim()
+def ecrSdkVersion = (findProperty("ecrSdkVersion") ?: "1.0.5").toString().trim()
+def ecrSdkJarPath = (findProperty("ecrSdkJarPath")
+        ?: "../../ECR-simulator/ecr-sdk/build/libs/ecr-sdk-${ecrSdkVersion}.jar").toString().trim()
 
 buildscript {
     ext.kotlin_version = '1.9.24'
@@ -58,11 +63,32 @@ android {
 }
 
 dependencies {
-    // The exact version this wrapper is contract-tested against. Pinned rather
-    // than ranged: an ECR SDK that changes how an outcome is reported changes
-    // what a till books, and that is not something to pick up by surprise on a
-    // dependency refresh. See doc/compatibility-matrix.md.
-    implementation 'com.amwal-pay:ecr-sdk:1.0.4'
+    // Switch via android/gradle.properties → ecrSdkDependency=project|jar|maven
+    switch (ecrSdkDependency) {
+        case "maven":
+            println "[amwal_ecr] Using ECR SDK from Maven: com.amwal-pay:ecr-sdk:${ecrSdkVersion}"
+            implementation "com.amwal-pay:ecr-sdk:${ecrSdkVersion}"
+            break
+        case "jar":
+            def jarFile = file(ecrSdkJarPath)
+            if (!jarFile.exists()) {
+                throw new GradleException(
+                        "ecr-sdk JAR not found at ${jarFile.absolutePath}. " +
+                                "Run './gradlew :ecr-sdk:jar' in the ecr_sdk checkout first.")
+            }
+            println "[amwal_ecr] Using ECR SDK from JAR: ${jarFile.absolutePath}"
+            implementation files(jarFile)
+            implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
+            implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3'
+            break
+        case "project":
+            println "[amwal_ecr] Using ECR SDK from project module :ecr-sdk"
+            implementation project(':ecr-sdk')
+            break
+        default:
+            throw new GradleException(
+                    "Unknown ecrSdkDependency='${ecrSdkDependency}'. Use: project | jar | maven")
+    }
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'

@@ -128,7 +128,7 @@ void main() {
     test('an outcome this version has never heard of is likewise unknown', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: 'partially-settled',
-        EcrResultKeys.merchantReferenceId: 'A1B2C3D4E5F6',
+        EcrResultKeys.merchantReference: 'A1B2C3D4E5F6',
       });
 
       final EcrResult result = await sale();
@@ -187,7 +187,7 @@ void main() {
     });
 
     test('isReachable answers false rather than throwing on a host error', () async {
-      host.fail(EcrMethods.isReachable, PlatformException(code: 'whatever'));
+      host.fail(EcrMethods.probeReachability, PlatformException(code: 'whatever'));
 
       // An unreachable terminal is an answer. A probe that throws would make
       // every caller wrap it, and one of them would forget.
@@ -196,7 +196,7 @@ void main() {
 
     test('isReachable still throws on a bad argument', () async {
       host.fail(
-        EcrMethods.isReachable,
+        EcrMethods.probeReachability,
         PlatformException(
           code: EcrErrorCodes.invalidArgument,
           message: '"host" is required',
@@ -207,6 +207,18 @@ void main() {
         terminal.isReachable(),
         throwsA(isA<EcrArgumentError>()),
       );
+    });
+
+    test('probeReachability carries the host error on the result', () async {
+      host.fail(
+        EcrMethods.probeReachability,
+        PlatformException(code: 'whatever', message: 'socket closed'),
+      );
+
+      final EcrReachability probe = await terminal.probeReachability();
+
+      expect(probe.reachable, isFalse);
+      expect(probe.error, 'socket closed');
     });
   });
 
@@ -223,7 +235,7 @@ void main() {
     test('a missing failure sub-map is an unknown outcome', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.failed,
-        EcrResultKeys.merchantReferenceId: 'A1',
+        EcrResultKeys.merchantReference: 'A1',
       });
 
       final EcrResult result = await sale();
@@ -235,7 +247,7 @@ void main() {
     test('nulls where strings were promised read as empty, not as "null"', () async {
       host.answer(EcrMethods.sale, <String, Object?>{
         EcrResultKeys.outcome: EcrOutcomes.approved,
-        EcrResultKeys.merchantReferenceId: 'A1B2C3D4E5F6',
+        EcrResultKeys.merchantReference: 'A1B2C3D4E5F6',
         EcrResultKeys.amount: '1.234',
         EcrResultKeys.responseCode: '00',
         EcrResultKeys.rrn: null,
@@ -265,7 +277,7 @@ void main() {
       final EcrResult result = await sale();
 
       expect(result, isA<EcrApproved>());
-      expect(result.merchantReferenceId, '');
+      expect(result.merchantReference, '');
       expect((result as EcrApproved).amount, '');
     });
   });

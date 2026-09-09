@@ -13,7 +13,7 @@ void main() {
     /// The real answer from the protocol document, as the host maps it.
     Map<String, Object?> foundPayload() => <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.found,
-          EcrResultKeys.merchantReferenceId: 'D4E5F6A1B2C3',
+          EcrResultKeys.merchantReference: 'D4E5F6A1B2C3',
           EcrResultKeys.raw: '{"approved":true}',
           EcrResultKeys.transaction: <String, Object?>{
             EcrTransactionKeys.transactionId:
@@ -44,7 +44,7 @@ void main() {
       final EcrTransaction transaction =
           (inquiry as EcrInquiryFound).transaction;
 
-      expect(inquiry.merchantReferenceId, 'D4E5F6A1B2C3');
+      expect(inquiry.merchantReference, 'D4E5F6A1B2C3');
       expect(transaction.transactionId, 'e970c800-93f1-11f1-9485-e7dd858253ff');
       expect(transaction.stan, '000208');
       expect(transaction.type, 'Purchase');
@@ -138,7 +138,7 @@ void main() {
       final EcrInquiry inquiry = EcrCodec.inquiry(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.notFound,
-          EcrResultKeys.merchantReferenceId: 'D4E5F6A1B2C3',
+          EcrResultKeys.merchantReference: 'D4E5F6A1B2C3',
           EcrResultKeys.responseMessage:
               'No transactions found for the provided STAN and Terminal',
           EcrResultKeys.raw: '{"approved":false}',
@@ -160,7 +160,7 @@ void main() {
       final EcrInquiry inquiry = EcrCodec.inquiry(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.failed,
-          EcrResultKeys.merchantReferenceId: '',
+          EcrResultKeys.merchantReference: '',
           EcrResultKeys.failure: <String, Object?>{
             EcrFailureKeys.kind: EcrFailureKinds.unreachable,
             EcrFailureKeys.message: 'no route to 192.168.1.50:9100',
@@ -189,7 +189,7 @@ void main() {
       final EcrReceipt receipt = EcrCodec.receipt(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.ready,
-          EcrResultKeys.merchantReferenceId: 'E5F6A1B2C3D4',
+          EcrResultKeys.merchantReference: 'E5F6A1B2C3D4',
           EcrResultKeys.url:
               'https://test.amwalpg.com:25446/Transaction/DownloadReceipt?transactionId=318873a0',
           EcrResultKeys.raw: '{}',
@@ -209,7 +209,7 @@ void main() {
       final EcrReceipt receipt = EcrCodec.receipt(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.ready,
-          EcrResultKeys.merchantReferenceId: 'E5F6A1B2C3D4',
+          EcrResultKeys.merchantReference: 'E5F6A1B2C3D4',
           EcrResultKeys.url: '',
           EcrResultKeys.responseMessage: 'Receipt ready',
           EcrResultKeys.raw: '{}',
@@ -224,7 +224,7 @@ void main() {
       final EcrReceipt receipt = EcrCodec.receipt(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.unavailable,
-          EcrResultKeys.merchantReferenceId: 'E5F6A1B2C3D4',
+          EcrResultKeys.merchantReference: 'E5F6A1B2C3D4',
           EcrResultKeys.responseMessage: 'Transaction not found',
           EcrResultKeys.raw: '{}',
         },
@@ -241,7 +241,7 @@ void main() {
       final EcrReceipt receipt = EcrCodec.receipt(
         <String, Object?>{
           EcrResultKeys.outcome: EcrOutcomes.failed,
-          EcrResultKeys.merchantReferenceId: '',
+          EcrResultKeys.merchantReference: '',
           EcrResultKeys.failure: <String, Object?>{
             EcrFailureKeys.kind: EcrFailureKinds.timeout,
             EcrFailureKeys.message: 'no answer',
@@ -283,12 +283,47 @@ void main() {
         });
         // A kind that fell through would come back as EcrMalformed carrying the
         // "this version does not know" wording.
-        expect(
-          failure.message,
-          isNot(contains('does not know')),
+        expect(failure.message, isNot(contains('does not know')),
           reason: '"$kind" is in the contract but is not mapped',
         );
       }
+    });
+  });
+
+  group('a reachability probe map', () {
+    test('carries every field the native SDKs report', () {
+      final EcrReachability probe = EcrCodec.reachability(<String, Object?>{
+        EcrReachabilityKeys.reachable: false,
+        EcrReachabilityKeys.host: '192.168.1.50',
+        EcrReachabilityKeys.port: 9100,
+        EcrReachabilityKeys.error: 'Connection refused',
+        EcrReachabilityKeys.endpoint: '192.168.1.50:9100',
+      });
+
+      expect(probe.reachable, isFalse);
+      expect(probe.host, '192.168.1.50');
+      expect(probe.port, 9100);
+      expect(probe.error, 'Connection refused');
+      expect(probe.endpoint, '192.168.1.50:9100');
+    });
+
+    test('derives endpoint when the host omits it', () {
+      final EcrReachability probe = EcrCodec.reachability(<String, Object?>{
+        EcrReachabilityKeys.reachable: true,
+        EcrReachabilityKeys.host: '10.0.0.2',
+        EcrReachabilityKeys.port: 9100,
+      });
+
+      expect(probe.reachable, isTrue);
+      expect(probe.endpoint, '10.0.0.2:9100');
+      expect(probe.error, isNull);
+    });
+
+    test('an unreadable payload is not reachable, not a throw', () {
+      final EcrReachability probe = EcrCodec.reachability('nope');
+
+      expect(probe.reachable, isFalse);
+      expect(probe.error, isNotNull);
     });
   });
 }

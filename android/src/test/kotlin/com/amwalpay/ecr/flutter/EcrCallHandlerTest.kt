@@ -45,7 +45,7 @@ class EcrCallHandlerTest {
         var lastReceiptNumber: String? = null
         var lastTransactionDate: String? = null
         var lastOriginalTerminalId: String? = null
-        var lastMerchantReferenceId: String? = null
+        var lastmerchantReference: String? = null
         var lastOriginalReference: String? = null
 
         private suspend fun waitIfHeld() {
@@ -58,10 +58,21 @@ class EcrCallHandlerTest {
             return reachable
         }
 
-        override suspend fun sale(amount: BigDecimal, merchantReferenceId: String): EcrResult {
+        override suspend fun probeReachability(): com.amwalpay.ecr.EcrReachability {
+            calls += "probeReachability"
+            waitIfHeld()
+            return com.amwalpay.ecr.EcrReachability(
+                reachable = reachable,
+                host = "192.168.1.50",
+                port = 9100,
+                error = if (reachable) null else "Connection refused",
+            )
+        }
+
+        override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult {
             calls += "sale"
             lastAmount = amount
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return result
         }
@@ -69,12 +80,12 @@ class EcrCallHandlerTest {
         override suspend fun void(
             receiptNumber: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrResult {
             calls += "void"
             lastReceiptNumber = receiptNumber
             lastOriginalTerminalId = originalTerminalId
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return result
         }
@@ -84,14 +95,14 @@ class EcrCallHandlerTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrResult {
             calls += "refund"
             lastAmount = amount
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
             lastOriginalTerminalId = originalTerminalId
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return result
         }
@@ -100,12 +111,12 @@ class EcrCallHandlerTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrInquiry {
             calls += "inquire"
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return inquiry
         }
@@ -114,12 +125,12 @@ class EcrCallHandlerTest {
             originalReference: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrInquiry {
             calls += "inquireByReference"
             lastOriginalReference = originalReference
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return inquiry
         }
@@ -128,19 +139,19 @@ class EcrCallHandlerTest {
             receiptNumber: String,
             transactionDate: String,
             originalTerminalId: String,
-            merchantReferenceId: String,
+            merchantReference: String,
         ): EcrReceipt {
             calls += "receipt"
             lastReceiptNumber = receiptNumber
             lastTransactionDate = transactionDate
-            lastMerchantReferenceId = merchantReferenceId
+            lastmerchantReference = merchantReference
             waitIfHeld()
             return receipt
         }
 
         companion object {
             fun approved(): EcrResult = EcrResult.Approved(
-                merchantReferenceId = "A1B2C3D4E5F6",
+                merchantReference = "A1B2C3D4E5F6",
                 amount = "1.234",
                 responseCode = "00",
                 rrn = "622113155340",
@@ -178,12 +189,13 @@ class EcrCallHandlerTest {
         receiptNumber: String = "",
         transactionDate: String = "",
         originalTerminalId: String = "",
+        config: Map<String, Any?>? = null,
     ): Map<String, Any?> = mapOf(
         EcrArgs.OPERATION_ID to operationId,
         EcrArgs.HOST to host,
         EcrArgs.SERIAL_NUMBER to "P653200085189",
         EcrArgs.TRANSPORT to transport,
-        EcrArgs.CONFIG to mapOf(
+        EcrArgs.CONFIG to (config ?: mapOf(
             EcrConfigKeys.ECR_ID to "TILL7",
             EcrConfigKeys.CURRENCY_CODE to "512",
             EcrConfigKeys.MINOR_UNIT_DIGITS to 3,
@@ -191,7 +203,7 @@ class EcrCallHandlerTest {
             EcrConfigKeys.CONNECT_TIMEOUT_MS to 10_000,
             EcrConfigKeys.RESPONSE_TIMEOUT_MS to 120_000,
             EcrConfigKeys.PROBE_TIMEOUT_MS to 3_000,
-        ),
+        )),
         EcrArgs.AMOUNT to amount,
         EcrArgs.RECEIPT_NUMBER to receiptNumber,
         EcrArgs.TRANSACTION_DATE to transactionDate,
@@ -199,7 +211,7 @@ class EcrCallHandlerTest {
     )
 
     private fun handlerFor(terminal: EcrTerminalPort, scope: TestScope): EcrCallHandler =
-        EcrCallHandler(scope) { _, _, _ -> terminal }
+        EcrCallHandler(scope) { _, _, _, _ -> terminal }
 
     @Test
     fun `a sale is sent once and answered once`() = runTest(UnconfinedTestDispatcher()) {
@@ -300,21 +312,50 @@ class EcrCallHandlerTest {
     @Test
     fun `a transport with no listener is refused without touching the terminal`() =
         runTest(UnconfinedTestDispatcher()) {
-            for (transport in listOf("bluetooth", "webService")) {
-                val terminal = FakeTerminal()
-                val reply = RecordingReply()
+            val terminal = FakeTerminal()
+            val reply = RecordingReply()
 
-                handlerFor(terminal, this).handle(
-                    EcrMethods.SALE,
-                    args(transport = transport),
-                    reply,
-                )
+            handlerFor(terminal, this).handle(
+                EcrMethods.SALE,
+                args(transport = "bluetooth"),
+                reply,
+            )
 
-                assertTrue(terminal.calls.isEmpty(), transport)
-                assertEquals(1, reply.answerCount)
-                val failure = reply.result()[EcrResultKeys.FAILURE] as Map<*, *>
-                assertEquals(EcrFailureKinds.UNSUPPORTED, failure[EcrFailureKeys.KIND])
-            }
+            assertTrue(terminal.calls.isEmpty())
+            assertEquals(1, reply.answerCount)
+            val failure = reply.result()[EcrResultKeys.FAILURE] as Map<*, *>
+            assertEquals(EcrFailureKinds.UNSUPPORTED, failure[EcrFailureKeys.KIND])
+        }
+
+    @Test
+    fun `webService sale reaches the terminal port`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = FakeTerminal()
+            val reply = RecordingReply()
+
+            handlerFor(terminal, this).handle(
+                EcrMethods.SALE,
+                args(
+                    transport = "webService",
+                    host = "",
+                    config = mapOf(
+                        EcrConfigKeys.ECR_ID to "TILL7",
+                        EcrConfigKeys.CURRENCY_CODE to "512",
+                        EcrConfigKeys.MINOR_UNIT_DIGITS to 3,
+                        EcrConfigKeys.PORT to 9100,
+                        EcrConfigKeys.CONNECT_TIMEOUT_MS to 10_000,
+                        EcrConfigKeys.RESPONSE_TIMEOUT_MS to 120_000,
+                        EcrConfigKeys.PROBE_TIMEOUT_MS to 3_000,
+                        EcrConfigKeys.MERCHANT_ID to "13593",
+                        EcrConfigKeys.TERMINAL_ID to "1",
+                        EcrConfigKeys.SECURE_HASH_KEY to
+                            EcrTestConfigs.lan.secureHashKey,
+                    ),
+                ),
+                reply,
+            )
+
+            assertEquals(listOf("sale"), terminal.calls)
         }
 
     @Test
@@ -331,6 +372,48 @@ class EcrCallHandlerTest {
 
             assertTrue(terminal.calls.isEmpty())
             assertEquals(false, reply.successes.single())
+        }
+
+    @Test
+    fun `probeReachability over a transport with no listener skips the terminal`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = FakeTerminal()
+            val reply = RecordingReply()
+
+            handlerFor(terminal, this).handle(
+                EcrMethods.PROBE_REACHABILITY,
+                args(transport = "bluetooth"),
+                reply,
+            )
+
+            assertTrue(terminal.calls.isEmpty())
+            @Suppress("UNCHECKED_CAST")
+            val map = reply.successes.single() as Map<String, Any?>
+            assertEquals(false, map[EcrReachabilityKeys.REACHABLE])
+            assertEquals("192.168.1.50", map[EcrReachabilityKeys.ENDPOINT])
+            assertEquals(0, map[EcrReachabilityKeys.PORT])
+        }
+
+    @Test
+    fun `probeReachability returns the SDK map when the terminal answers`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val terminal = FakeTerminal(reachable = false)
+            val reply = RecordingReply()
+
+            handlerFor(terminal, this).handle(
+                EcrMethods.PROBE_REACHABILITY,
+                args(transport = "wifi"),
+                reply,
+            )
+
+            assertEquals(listOf("probeReachability"), terminal.calls)
+            @Suppress("UNCHECKED_CAST")
+            val map = reply.successes.single() as Map<String, Any?>
+            assertEquals(false, map[EcrReachabilityKeys.REACHABLE])
+            assertEquals("192.168.1.50", map[EcrReachabilityKeys.HOST])
+            assertEquals(9100, map[EcrReachabilityKeys.PORT])
+            assertEquals("Connection refused", map[EcrReachabilityKeys.ERROR])
+            assertEquals("192.168.1.50:9100", map[EcrReachabilityKeys.ENDPOINT])
         }
 
     @Test
@@ -360,7 +443,7 @@ class EcrCallHandlerTest {
             val terminal = object : EcrTerminalPort by FakeTerminal() {
                 override suspend fun sale(
                     amount: BigDecimal,
-                    merchantReferenceId: String,
+                    merchantReference: String,
                 ): EcrResult =
                     throw IllegalStateException("the SDK fell over")
             }
@@ -484,7 +567,7 @@ class EcrCallHandlerTest {
         runTest(UnconfinedTestDispatcher()) {
             val terminal = FakeTerminal(
                 inquiry = EcrInquiry.Found(
-                    merchantReferenceId = "REQ",
+                    merchantReference = "REQ",
                     transaction = EcrTransaction(
                         transactionId = "e970c800",
                         stan = "000208",
