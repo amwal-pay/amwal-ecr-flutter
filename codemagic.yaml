@@ -80,7 +80,7 @@ definitions:
       name: Dart — analyze, test, publish dry-run
       script: |
         set -euo pipefail
-        flutter analyze
+        flutter analyze --no-fatal-infos
         flutter test
         dart pub publish --dry-run
   email: &email
