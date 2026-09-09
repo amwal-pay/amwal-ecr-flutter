@@ -13,7 +13,10 @@ let package = Package(
         .library(name: "amwal-ecr", targets: ["amwal_ecr"]),
     ],
     dependencies: [
-        .package(path: "../../../AmwalECR-iOS-SPM"),
+        .package(
+            url: "https://github.com/amwal-pay/AmwalECR-iOS-SPM.git",
+            .upToNextMinor(from: "0.2.1")
+        ),
     ],
     targets: [
         .target(
