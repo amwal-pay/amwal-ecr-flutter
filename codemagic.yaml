@@ -437,15 +437,33 @@ workflows:
             --build-name="$(cat "$CM_BUILD_DIR/.example-build-name")" \
             --build-number="$PROJECT_BUILD_NUMBER"
           ls -la build/app/outputs/flutter-apk/app-release.apk
+      - name: Upload to Firebase App Distribution
+        script: |
+          # A script rather than a `publishing: firebase:` block on purpose:
+          # Codemagic validates the variables a publishing block names when it
+          # loads this file, and an undefined FIREBASE_SERVICE_ACCOUNT then
+          # blocks every webhook-started build of every workflow in the file.
+          # A script only needs the variables when this workflow actually runs.
+          set -euo pipefail
+          [[ -n "${FIREBASE_SERVICE_ACCOUNT:-}" ]] || { echo "FIREBASE_SERVICE_ACCOUNT is not set in group A." >&2; exit 1; }
+          [[ -n "${FIREBASE_ANDROID_APP_ID:-}" ]] || { echo "FIREBASE_ANDROID_APP_ID is not set in group A." >&2; exit 1; }
+          sa="$CM_BUILD_DIR/.firebase-sa.json"
+          # Raw JSON or base64 of it — take whichever parses.
+          if printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$sa"
+          else
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | base64 --decode > "$sa"
+            python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$sa"
+          fi
+          chmod 600 "$sa"
+          export GOOGLE_APPLICATION_CREDENTIALS="$sa"
+          command -v firebase >/dev/null || npm install -g firebase-tools
+          firebase appdistribution:distribute example/build/app/outputs/flutter-apk/app-release.apk \
+            --app "$FIREBASE_ANDROID_APP_ID" \
+            --groups tester \
+            --release-notes "Build $PROJECT_BUILD_NUMBER (${CM_COMMIT:0:8})"
+          rm -f "$sa"
     artifacts:
       - example/build/app/outputs/flutter-apk/app-release.apk
       - example/build/app/outputs/mapping/release/mapping.txt
-    publishing:
-      <<: *email
-      firebase:
-        firebase_service_account: $FIREBASE_SERVICE_ACCOUNT
-        android:
-          app_id: $FIREBASE_ANDROID_APP_ID
-          artifact_type: 'apk'
-          groups:
-            - tester
+    publishing: *email
