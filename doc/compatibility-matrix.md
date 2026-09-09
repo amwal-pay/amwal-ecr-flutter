@@ -14,7 +14,7 @@ claim with exceptions, and they are written down here rather than discovered.
 
 | | |
 |---|---|
-| `amwal_ecr` | 0.2.0 |
+| `amwal_ecr` | 0.2.1 |
 | Dart SDK | `^3.5.0` — the API uses sealed classes and pattern matching |
 | Flutter | `>=3.22.0` |
 | Protocol version | `1` (the `version` field in every request) |

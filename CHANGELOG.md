@@ -5,7 +5,12 @@ with the addition described in [the release policy](doc/release-policy.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
-## Unreleased
+## 0.2.1
+
+Brings the package level with `com.amwal-pay:ecr-sdk` 1.0.5 and `AmwalECR`
+0.2.1 — the ECR modes release: Wi‑Fi as before, USB cable on Android, and the
+Web Service (REST) transport on both platforms, all opened through one native
+session path.
 
 ### Added
 
