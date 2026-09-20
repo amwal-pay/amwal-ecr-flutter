@@ -5,6 +5,42 @@ with the addition described in [the release policy](doc/release-policy.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## 0.3.0
+
+Adds a fourth transport: a till running **on the terminal itself** hands the
+transaction to the Amwal payment app installed beside it and waits for the
+result.
+
+**Breaking, in the way an enum is breaking.** `EcrTransport` gains a value, so
+an exhaustive `switch` over it in your code stops compiling until it has a
+branch. Nothing else changes: the same operations, the same envelope, the same
+answers, the same response codes.
+
+### Added
+
+- **`EcrTransport.appToApp`** (`ecrMode` 5, channel name `app_to_app`) and
+  **`EcrTerminal.appToApp`**, which takes the payment app's application id
+  instead of an address. An address passed there is refused at construction.
+- **`EcrPaymentApp.defaultPackage`** — the application id of the terminal
+  build, overridable for a test build.
+- `EcrOpenedSession.usesPaymentApp`, and `EcrTransport.hasReachabilityProbe` /
+  `.supportsReceipt`, which replace two open-coded predicate pairs that were
+  one answer for three transports and are not for the fourth.
+- The Android host is now `ActivityAware`, and the plugin's manifest declares
+  the payment app in `<queries>`.
+
+### Worth knowing before you ship it
+
+- Android only. On iOS and the web an operation is refused before anything is
+  sent, with a message about the platform rather than about a port.
+- A receipt cannot be fetched over it, and is refused rather than attempted.
+- An interrupted round trip — the payment app destroyed before it answered — is
+  an unknown outcome pointing at `inquireByMerchantReference`, never a decline.
+  Send a `merchantReference` on every request: it is the only handle that
+  survives.
+- `autoInquireOnFailure` is forced off for this transport, because the inquiry
+  is itself another trip through the payment app.
+
 ## 0.2.1
 
 Brings the package level with `com.amwal-pay:ecr-sdk` 1.0.5 and `AmwalECR`

@@ -14,13 +14,15 @@ to use this package.
 Three things have to be true, and two of them are not in your code.
 
 **1. The terminal is in ECR mode.** Its TMS profile carries `terminalMode` `1`
-and an `ecrMode` of `1` (USB cable, Android) or `2` (wi‑fi). A terminal in wi‑fi
-mode listens on port 9100; USB cable has no IP. If `isReachable()` answers
-`false` on an address you are sure of, check the profile before debugging the
-network.
+and an `ecrMode` of `1` (USB cable, Android), `2` (wi‑fi) or `5` (app to app,
+Android). A terminal in wi‑fi mode listens on port 9100; USB cable has no IP;
+app to app has no address at all, because the terminal is the device your till
+is running on. If `isReachable()` answers `false` on an address you are sure of,
+check the profile before debugging the network.
 
 **2. The phone can route to the terminal.** Same subnet, or a network that
-routes between them. A guest wi-fi with client isolation will not.
+routes between them. A guest wi-fi with client isolation will not. Nothing to
+check for app to app: there is no network in it.
 
 **3. You have the terminal's serial number.** The operator registered it; the
 terminal shows its own address and port under the card scheme logos when the
@@ -49,6 +51,55 @@ final EcrTerminal terminal = session.terminal;
 Prefer `EcrSessions.open` so sale, inquiry, and receipt share one transport.
 An `EcrTerminal` holds no connection between calls, so it is cheap to build and
 safe to keep. Build a new one when the settings change rather than mutating one.
+
+### Driving the payment app on this same device
+
+When your till runs on the terminal itself, there is no address to give: the
+transaction is handed to the Amwal payment app installed beside you, and it
+answers when the cardholder is done.
+
+```dart
+final EcrTerminal terminal = EcrTerminal.appToApp(
+  serialNumber: 'P653200085189',
+  config: EcrConfig(ecrId: 'TILL7', currencyCode: '512', minorUnitDigits: 3),
+);
+
+final EcrResult result = await terminal.sale(
+  EcrAmount.parse('10.500'),
+  merchantReference: 'ORDER-91',   // not optional here — see below
+);
+```
+
+Everything above that line is unchanged: the same operations, the same signed
+envelope, the same answers and the same response codes. Three things are worth
+knowing before you ship it.
+
+**Always send a `merchantReference`.** Your till and the payment app are two
+apps, and Android can destroy either at any moment. If that happens mid-payment
+you get no answer at all, and the reference is the only handle left to ask what
+became of the transaction:
+
+```dart
+if (result.outcomeIsUnknown) {
+  final EcrInquiry settled = await terminal.inquireByReference('ORDER-91');
+  // EcrInquiryFound → the transaction happened; read transaction.status.
+  // EcrInquiryNotFound → no record of it. Do not treat this as "it failed".
+}
+```
+
+**Android only.** On iOS and on the web the operation is refused before
+anything is sent, as an `EcrUnsupported` failure whose outcome is *not*
+unknown — nothing was attempted.
+
+**The merchant has to be signed in on the payment app.** If nobody is, the
+request is refused immediately with a reason saying so, and no payment screen
+is put in front of the operator. Show that reason: opening the Amwal app once
+and signing in is the whole fix.
+
+The payment app must also be visible to yours. The plugin declares it in
+`<queries>`, so you get that from the manifest merge — but if you see "not
+installed" on a device where it plainly is, that declaration is the first thing
+to check.
 
 ### `minorUnitDigits` is the setting to get right
 
@@ -289,6 +340,10 @@ A cancelled money-moving request has an unknown outcome. Reconcile it exactly
 like a timeout.
 
 Cancelling an inquiry or a receipt is harmless: nothing changes either way.
+
+Over app to app it means less still: the payment app is on screen in front of
+the cardholder, and one app cannot dismiss another's screen. The till stops
+waiting; the payment continues.
 
 ---
 

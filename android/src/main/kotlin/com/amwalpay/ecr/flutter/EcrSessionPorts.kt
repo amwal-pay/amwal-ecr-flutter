@@ -45,7 +45,12 @@ internal object EcrSessionPorts {
                         log = { logger.debug(it) },
                     ),
                     serialNumber = serialNumber,
-                    config = config,
+                    // Auto-inquiry off, whatever the caller asked for. It is
+                    // another round trip through the payment app, so on this
+                    // transport alone it would put that app back on screen
+                    // moments after the operator dismissed it. Recovery here is
+                    // the till's, when its operator is ready.
+                    config = config.copy(autoInquireOnFailure = false),
                     logger = logger,
                 ),
             )

@@ -97,12 +97,25 @@ an unsupported platform degrades instead of crashing.
 | `wifi` | 2 | ✔ | ✔ | TCP to the terminal |
 | `bluetooth` | 3 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
 | `webService` | 4 | ✔ | ✔ | REST / Hub |
+| `appToApp` (`app_to_app`) | 5 | ✔ | ✘ | The Amwal payment app on this device; typed unsupported on iOS |
 
 `ecrMode` `1` is USB cable on the channel (`"usb_cable"`). Wire value `1` is
 unchanged. There is no Ethernet transport.
 
 Wi‑Fi alone is an IP transport. USB cable carries no IP. Bluetooth remains
 unsupported on both platforms. Web Service is driven over REST.
+
+`appToApp` is the only transport whose `host` is **not an address**: it is the
+payment app's application id, and `EcrTerminal.appToApp` is the readable way to
+say so. An address passed there is refused at construction. It is also the only
+one where "reachable" means *installed and willing to accept a request* rather
+than *something answered on a socket* — whether a merchant is signed in, and
+what the TMS profile permits, are answered by the payment app itself, in a
+refusal or a sign-on.
+
+TMS does not send `ecrMode` `5` yet. A terminal whose profile has not been
+given it refuses an app-to-app request with the transport check it already has,
+and the refusal carries the current profile.
 
 ---
 
@@ -121,6 +134,17 @@ Every operation behaves identically on both platforms. This table exists so that
 | `inquireByReference` | ✔ | ✔ | The lookup after an answer goes missing |
 | `receipt` | ✔ | ✔ | |
 | `cancel` | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
+
+Over `appToApp` (Android only), with the differences spelled out rather than
+implied:
+
+| Operation | `appToApp` | Notes |
+|---|---|---|
+| `isReachable` | ✔ | Resolves the payment app. Launches nothing |
+| `sale` / `voidTransaction` / `refund` | ✔ | The payment app comes to the front and answers |
+| `inquire` / `inquireByReference` | ✔ | Never refused locally: the only way out of an unknown outcome |
+| `receipt` | ✘ | `EcrReceiptFailed`, nothing sent — there is no link held open to fetch one over |
+| `cancel` | ✔ | Stops waiting. It cannot dismiss the payment app's screen — see §6.4 |
 
 | Outcome | Android | iOS |
 |---|---|---|
@@ -231,6 +255,44 @@ a terminal is not answering. A signed message's `secureHash` appears in them too
 the key never does.
 
 Nothing in the API depends on either.
+
+---
+
+### 6.4 What an interrupted app-to-app round trip means
+
+Two answers look alike from the till's side and mean opposite things:
+
+- **Response code `17`** — the cardholder pressed Cancel *inside* the payment
+  app. The answer arrived and is signed. The outcome is known: nothing was
+  taken. This is an `EcrDeclined`.
+- **No answer at all** — the payment app was destroyed before it could answer
+  (force-stopped, the device restarted, Android reclaimed it). This is an
+  `EcrFailed` whose `outcomeIsUnknown` is set and whose `nextStep` is
+  `inquireByMerchantReference`. **The money may have moved.** Inquire; never
+  retry the sale.
+
+This is why a `merchantReference` is not optional on this transport in
+practice: it is the only handle that survives the round trip being cut, and
+without one there is nothing to inquire by.
+
+`cancel(operationId)` stops the till waiting and reports `EcrCancelled`, which
+is also an unknown outcome. It cannot dismiss the payment app's screen — there
+is no "never mind" intent, the cardholder may be mid-PIN, and one app cannot
+finish another's Activity.
+
+### 6.5 `autoInquireOnFailure` and the payment app
+
+`EcrConfig.autoInquireOnFailure` defaults to on: a money-moving request that
+fails is followed by an inquiry, so an unknown outcome is settled without the
+caller doing anything. Over `appToApp` that inquiry is itself a round trip
+through the payment app, which would put it back on screen moments after the
+operator dismissed it.
+
+So it is forced off for this transport, whatever the caller asked for, and the
+recovery is the till's: read `outcomeIsUnknown`, and inquire by merchant
+reference when the operator is ready. This is the one place where the setting
+a caller passes is not the setting that is used, which is why it is written
+down here rather than left in a comment.
 
 ---
 
