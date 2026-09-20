@@ -145,8 +145,20 @@ enum EcrTransports {
     /// Snake_case alias; maps to [webService].
     static let webServiceSnake = "web_service"
 
+    /// The Amwal payment app on the same device. Android only.
+    ///
+    /// Named here although nothing on iOS can drive it, because the three
+    /// contracts are asserted to match character for character — a constant
+    /// missing on one side makes that claim false, and the next rename would
+    /// go unnoticed here.
+    static let paymentApp = "app_to_app"
+
     static func isUsbCable(_ name: String?) -> Bool {
         name == usbCable
+    }
+
+    static func isPaymentApp(_ name: String?) -> Bool {
+        name == paymentApp
     }
 
     static func isWebService(_ name: String?) -> Bool {

@@ -5,6 +5,8 @@ import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.amwalpay.ecr.EcrLogger
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
@@ -20,9 +22,25 @@ import kotlinx.coroutines.cancel
  * [EcrMapping], both of which are plain JVM classes with unit tests, because a
  * bug in how a decline is reported is not something to find on a terminal.
  */
-class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
+class AmwalEcrPlugin :
+    FlutterPlugin,
+    ActivityAware,
+    MethodChannel.MethodCallHandler {
 
     private lateinit var channel: MethodChannel
+
+    /**
+     * The Activity a payment-app request is started from, when there is one.
+     *
+     * Held only so an Intent can be launched and its result heard. Nothing in
+     * flight belongs to it: an operation lives in [scope], which is the
+     * engine's, so a rotation can take the Activity away and give another back
+     * without the request noticing.
+     */
+    private var activityBinding: ActivityPluginBinding? = null
+
+    /** Where an Activity result is handed to the exchange waiting on it. */
+    private val paymentAppResults = PaymentAppResults()
 
     /**
      * SupervisorJob so one failed operation cannot take down the others: a
@@ -70,9 +88,37 @@ class AmwalEcrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 config = config,
                 logger = logger,
                 context = appContext,
+                activities = { activityBinding?.activity },
+                paymentAppResults = paymentAppResults,
             )
         },
     )
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activityBinding = binding
+        binding.addActivityResultListener(paymentAppResults)
+    }
+
+    /**
+     * A rotation, and nothing more.
+     *
+     * Nothing in flight is touched: the request is with the payment app, which
+     * does not care that this till's Activity is being rebuilt, and the
+     * operation waiting for it lives in the engine's scope.
+     */
+    override fun onDetachedFromActivityForConfigChanges() {
+        activityBinding?.removeActivityResultListener(paymentAppResults)
+        activityBinding = null
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        onAttachedToActivity(binding)
+    }
+
+    override fun onDetachedFromActivity() {
+        activityBinding?.removeActivityResultListener(paymentAppResults)
+        activityBinding = null
+    }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         appContext = binding.applicationContext

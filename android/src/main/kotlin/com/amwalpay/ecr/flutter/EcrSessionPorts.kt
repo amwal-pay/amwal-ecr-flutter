@@ -10,6 +10,7 @@ import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSessions
+import com.amwalpay.ecr.EcrTerminal
 import com.amwalpay.ecr.Failure
 import java.math.BigDecimal
 
@@ -22,11 +23,34 @@ internal object EcrSessionPorts {
     fun create(
         host: String,
         serialNumber: String,
+        activities: () -> android.app.Activity? = { null },
+        paymentAppResults: PaymentAppResults? = null,
         transport: String,
         config: EcrConfig,
         logger: EcrLogger,
         context: Context? = null,
     ): EcrTerminalPort {
+        // The payment app on this device is not an EcrLink: there is nothing
+        // to plan, because there is no address to validate and no port to
+        // check. It is an EcrTerminal over a different channel, which is all
+        // the SDK ever asked a transport to be.
+        if (EcrTransports.isPaymentApp(transport)) {
+            if (paymentAppResults == null) return UnsupportedEcrTerminalPort(transport)
+            return PaymentAppTerminalPort(
+                EcrTerminal(
+                    channel = PaymentAppEcrChannel(
+                        packageName = host,
+                        activities = activities,
+                        results = paymentAppResults,
+                        log = { logger.debug(it) },
+                    ),
+                    serialNumber = serialNumber,
+                    config = config,
+                    logger = logger,
+                ),
+            )
+        }
+
         val link = linkFor(host, transport, config) ?: return UnsupportedEcrTerminalPort(transport)
         val plan = EcrSessions.plan(
             link = link,
@@ -146,6 +170,94 @@ internal class SdkOpenedSessionPort(
         receiptNumber = receiptNumber,
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
+    )
+}
+
+/**
+ * One [EcrTerminal] driving the payment app on this device.
+ *
+ * Its own port rather than an [EcrOpenedSession] because that class plans a
+ * link, and there is nothing here to plan: no address to validate and no port
+ * to open. Everything above the channel — signing, the nonce, verifying the
+ * answer, what a response code means — is the terminal's, exactly as it is for
+ * a socket.
+ */
+internal class PaymentAppTerminalPort(
+    private val terminal: EcrTerminal,
+) : EcrTerminalPort {
+
+    override suspend fun isReachable(): Boolean = terminal.isReachable()
+
+    override suspend fun probeReachability(): EcrReachability =
+        terminal.probeReachability()
+
+    override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
+        terminal.sale(amount = amount, merchantReference = merchantReference)
+
+    override suspend fun void(
+        receiptNumber: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.void(
+        receiptNumber = receiptNumber,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun refund(
+        amount: BigDecimal,
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.refund(
+        amount = amount,
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun inquire(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquire(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+    )
+
+    override suspend fun inquireByReference(
+        originalReference: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquireByReference(
+        originalReference = originalReference,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    /**
+     * Refused here rather than attempted and failed.
+     *
+     * An e-receipt is fetched from the terminal's own record over a link the
+     * till holds open. App to app has no such link: every exchange puts the
+     * payment app on screen, and doing that to fetch a receipt is not
+     * something a till should be able to do by accident.
+     */
+    override suspend fun receipt(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrReceipt = EcrReceipt.Unavailable(
+        merchantReference,
+        "A receipt cannot be fetched from the payment app on this device",
+        "",
     )
 }
 

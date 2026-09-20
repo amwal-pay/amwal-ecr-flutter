@@ -161,15 +161,33 @@ class EcrChannelContractTest {
     }
 
     @Test
-    fun `Wi-Fi, USB cable and Web Service can be driven from the plugin`() {
+    fun `Wi-Fi, USB cable, Web Service and the payment app can be driven from the plugin`() {
         assertEquals(true, EcrTransports.isSupportedTransport("usb_cable"))
         assertEquals(true, EcrTransports.isSupportedTransport("wifi"))
         assertEquals(true, EcrTransports.isSupportedTransport("webService"))
         assertEquals(true, EcrTransports.isSupportedTransport("web_service"))
+        assertEquals(true, EcrTransports.isSupportedTransport("app_to_app"))
         assertEquals(false, EcrTransports.isSupportedTransport("bluetooth"))
         assertEquals(true, EcrTransports.supportsReceipt("wifi"))
         assertEquals(true, EcrTransports.supportsReceipt("usb_cable"))
         assertEquals(false, EcrTransports.supportsReceipt("webService"))
+        // Local, and still no receipt: there is no link held open to fetch one
+        // over, only an Activity the operator watches.
+        assertEquals(false, EcrTransports.supportsReceipt("app_to_app"))
+    }
+
+    @Test
+    fun `the payment app is its own transport and nothing else claims it`() {
+        assertEquals("app_to_app", EcrTransports.PAYMENT_APP)
+        assertEquals(true, EcrTransports.isPaymentApp("app_to_app"))
+        assertEquals(false, EcrTransports.isPaymentApp("usb_cable"))
+        assertEquals(false, EcrTransports.isPaymentApp("wifi"))
+        assertEquals(false, EcrTransports.isPaymentApp("webService"))
+        assertEquals(false, EcrTransports.isPaymentApp("carrier-pigeon"))
+        assertEquals(false, EcrTransports.isPaymentApp(null))
+        // It opens no socket, whatever else it is.
+        assertEquals(false, EcrTransports.isIpTransport("app_to_app"))
+        assertEquals(false, EcrTransports.isUsbCable("app_to_app"))
     }
 
     @Test

@@ -152,7 +152,12 @@ internal object EcrTransports {
     /** Snake_case alias; maps to [WEB_SERVICE]. */
     const val WEB_SERVICE_SNAKE = "web_service"
 
+    /** The Amwal payment app on this same device. */
+    const val PAYMENT_APP = "app_to_app"
+
     fun isUsbCable(name: String?): Boolean = name == USB_CABLE
+
+    fun isPaymentApp(name: String?): Boolean = name == PAYMENT_APP
 
     fun isWebService(name: String?): Boolean =
         name == WEB_SERVICE || name == WEB_SERVICE_SNAKE
@@ -166,5 +171,6 @@ internal object EcrTransports {
 
     /** Whether this Flutter plugin can drive transactions over this transport. */
     fun isSupportedTransport(name: String?): Boolean =
-        isIpTransport(name) || isUsbCable(name) || isWebService(name)
+        isIpTransport(name) || isUsbCable(name) || isWebService(name) ||
+            isPaymentApp(name)
 }

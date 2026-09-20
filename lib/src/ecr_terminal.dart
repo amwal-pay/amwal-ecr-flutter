@@ -6,6 +6,7 @@ import 'model/ecr_config.dart';
 import 'model/ecr_errors.dart';
 import 'model/ecr_failure.dart';
 import 'model/ecr_inquiry.dart';
+import 'model/ecr_payment_app.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
 import 'model/ecr_result.dart';
@@ -46,14 +47,17 @@ final class EcrTerminal {
   /// [host] is the terminal's address on the local network for IP transports.
   /// For [EcrTransport.webService] and [EcrTransport.usbCable], leave empty —
   /// Web Service addressing comes from [config.merchantId] and
-  /// [config.terminalId]; USB finds the cable on the bus.
+  /// [config.terminalId]; USB finds the cable on the bus. For
+  /// [EcrTransport.appToApp] it is the payment app's application id, and
+  /// [EcrTerminal.appToApp] is the readable way to say so.
   ///
   /// [serialNumber] is what the operator registered — the terminal shows its
   /// own address on screen under the card scheme logos when the link is Wi-Fi.
   ///
   /// [transport] declares how the terminal is attached, from its TMS profile.
-  /// Wi‑Fi, USB cable (Android), and Web Service can be driven from here;
-  /// Bluetooth becomes an [EcrUnsupported] failure at the first operation.
+  /// Wi‑Fi, USB cable (Android), Web Service and app to app (Android) can be
+  /// driven from here; Bluetooth becomes an [EcrUnsupported] failure at the
+  /// first operation.
   EcrTerminal({
     required this.host,
     this.serialNumber = '',
@@ -67,7 +71,45 @@ final class EcrTerminal {
     if (transport.isIpTransport && host.trim().isEmpty) {
       throw const EcrArgumentError('A LAN terminal needs a host address');
     }
+    if (transport.isAppToApp && !_looksLikeApplicationId(host)) {
+      throw EcrArgumentError(
+        'An app-to-app terminal needs the payment app\'s application id, '
+        'not "$host"',
+      );
+    }
   }
+
+  /// The Amwal payment app installed on this same device.
+  ///
+  /// Named rather than reached through [EcrTerminal.new] because `host` means
+  /// something else here — an application id, not an address — and a till
+  /// passing one where the other belongs would otherwise only find out at the
+  /// first transaction.
+  ///
+  /// There is nothing to reach and nothing to configure: the terminal is this
+  /// device, so what decides whether a payment happens is the TMS profile on
+  /// it and whether a merchant is signed in, both of which the payment app
+  /// answers for itself.
+  factory EcrTerminal.appToApp({
+    String serialNumber = '',
+    EcrConfig? config,
+    String packageName = EcrPaymentApp.defaultPackage,
+    AmwalEcrPlatform? platform,
+    Random? random,
+  }) =>
+      EcrTerminal(
+        host: packageName.trim().isEmpty
+            ? EcrPaymentApp.defaultPackage
+            : packageName.trim(),
+        serialNumber: serialNumber,
+        config: config,
+        transport: EcrTransport.appToApp,
+        platform: platform,
+        random: random,
+      );
+
+  static bool _looksLikeApplicationId(String value) =>
+      RegExp(r'^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$').hasMatch(value.trim());
 
   /// The terminal's address on the local network.
   final String host;
@@ -108,7 +150,9 @@ final class EcrTerminal {
   /// transport that has no listener / cable probe, rather than spending
   /// [EcrConfig.probeTimeout] finding out.
   Future<EcrReachability> probeReachability() {
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    // Refused here for a transport this platform cannot drive, rather than
+    // asked of a host that would only answer that it has never heard of it.
+    if (!transport.hasReachabilityProbe || !transport.isSupportedByPlugin) {
       return Future<EcrReachability>.value(
         EcrReachability(
           reachable: false,
@@ -454,7 +498,10 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    // Never refused for app to app: this is how a till settles a transaction
+    // whose answer went missing, and refusing it here would close the only
+    // route out of an unknown outcome.
+    if (!transport.hasReachabilityProbe) {
       return _refusedInquiry(id, 'Inquiry by reference');
     }
 
@@ -508,7 +555,7 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    if (!transport.supportsReceipt) {
       return _refusedWith<EcrReceipt>(
         id,
         (EcrFailure failure) =>
@@ -597,12 +644,24 @@ final class EcrTerminal {
         onCancel: (String _) async => false,
       );
 
-  EcrUnsupported _unsupportedTransport(String operation) => EcrUnsupported(
-        '$operation is not available over ${transport.name}. '
-        'A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), '
-        'or Web Service REST; on ${transport.name} the port stays closed and '
-        'the terminal is driven by other machinery entirely.',
+  EcrUnsupported _unsupportedTransport(String operation) {
+    // App to app fails for a different reason than the other unsupported
+    // transports, and saying "the port stays closed" would send an integrator
+    // looking for a network problem that does not exist.
+    if (transport.isAppToApp) {
+      return EcrUnsupported(
+        '$operation could not be started. The Amwal payment app is driven by '
+        'an Android intent, so this platform cannot start it and nothing was '
+        'sent.',
       );
+    }
+    return EcrUnsupported(
+      '$operation is not available over ${transport.name}. '
+      'A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), '
+      'or Web Service REST; on ${transport.name} the port stays closed and '
+      'the terminal is driven by other machinery entirely.',
+    );
+  }
 
   /// A date the protocol can carry, or nothing at all.
   ///

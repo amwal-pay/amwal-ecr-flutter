@@ -22,7 +22,16 @@ enum EcrTransport {
   bluetooth(wireValue: 3, isIpTransport: false),
 
   /// `ecrMode` 4. The terminal is driven from the payment host over REST.
-  webService(wireValue: 4, isIpTransport: false);
+  webService(wireValue: 4, isIpTransport: false),
+
+  /// `ecrMode` 5. The terminal **is** this device: the till hands the request
+  /// to the Amwal payment app installed beside it and waits for the result.
+  ///
+  /// The only transport with no address. [EcrTerminal.host] carries the
+  /// payment app's application id instead, and reachability is whether that
+  /// app is installed and will accept a request — not whether anything
+  /// answers on a socket.
+  appToApp(wireValue: 5, isIpTransport: false);
 
   const EcrTransport({required this.wireValue, required this.isIpTransport});
 
@@ -37,6 +46,22 @@ enum EcrTransport {
   /// Whether the till reaches the terminal down a USB cable.
   bool get isUsbCable => this == EcrTransport.usbCable;
 
+  /// Whether the terminal is the device this till is running on.
+  bool get isAppToApp => this == EcrTransport.appToApp;
+
+  /// Whether a till can ask, before sending anything, if the terminal is
+  /// there.
+  ///
+  /// Named rather than written as "not web service" at each call site, because
+  /// the two things that were the same answer for three transports are not the
+  /// same for a fourth: app-to-app can be checked without sending anything,
+  /// and cannot fetch a receipt.
+  bool get hasReachabilityProbe =>
+      isIpTransport || isUsbCable || isAppToApp;
+
+  /// Whether an e-receipt can be fetched over this transport.
+  bool get supportsReceipt => isIpTransport || isUsbCable;
+
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
   /// [usbCable] is implemented on Android only; on iOS the native host returns
@@ -47,6 +72,7 @@ enum EcrTransport {
       case EcrTransport.webService:
         return true;
       case EcrTransport.usbCable:
+      case EcrTransport.appToApp:
         return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       case EcrTransport.bluetooth:
         return false;
@@ -67,6 +93,7 @@ enum EcrTransport {
   /// [usbCable] is `"usb_cable"` — not [Enum.name] (`usbCable`).
   String get channelName => switch (this) {
         EcrTransport.usbCable => 'usb_cable',
+        EcrTransport.appToApp => 'app_to_app',
         _ => name,
       };
 
