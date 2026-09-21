@@ -1,6 +1,11 @@
+import 'package:amwal_ecr/amwal_ecr.dart';
+
 import 'ecr_mode.dart';
 
 /// A registered POS terminal.
+///
+/// The serial number is the unique identifier: the transaction screen stores
+/// only the serial and looks connection details up from here.
 class Terminal {
   Terminal({
     this.serialNumber = '',
@@ -54,6 +59,7 @@ class Terminal {
           }(),
         EcrMode.bluetooth => 'Bluetooth',
         EcrMode.usbCable => 'USB cable',
+        EcrMode.appToApp => 'On this device · ${EcrPaymentApp.packageName}',
         EcrMode.wifi => switch ((ipAddress, port)) {
             (final String ip, final int p) when ip.isNotEmpty && p > 0 =>
               '$ip:$p',
@@ -62,6 +68,7 @@ class Terminal {
           },
       };
 
+  /// Label used in the terminal dropdown on the transaction screen.
   @override
   String toString() => '$name ($serialNumber)';
 

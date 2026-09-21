@@ -58,21 +58,112 @@ When your till runs on the terminal itself, there is no address to give: the
 transaction is handed to the Amwal payment app installed beside you, and it
 answers when the cardholder is done.
 
-```dart
-final EcrTerminal terminal = EcrTerminal.appToApp(
-  serialNumber: 'P653200085189',
-  config: EcrConfig(ecrId: 'TILL7', currencyCode: '512', minorUnitDigits: 3),
-);
+Every snippet below is from the example app, which is a working till you can
+install on a terminal and read alongside this.
 
+**1. Nothing to add to your manifest.** The package declares the payment app in
+`<queries>`, and that reaches your app through the manifest merge. Without it,
+from Android 11, resolving the payment app returns null and starting it throws
+— which reads as "not installed" on a device where it plainly is.
+
+**2. Offer the mode where you register a terminal.** Its `ecrMode` is 5, and it
+is the one mode with no address to collect:
+
+```dart
+// lib/data/ecr_mode.dart
+enum EcrMode {
+  usbCable(1, 'USB Cable'),
+  wifi(2, 'Wi‑Fi'),
+  bluetooth(3, 'Bluetooth'),
+  webService(4, 'Web Service'),
+  appToApp(5, 'App to app');
+  // …
+  bool get isAppToApp => this == EcrMode.appToApp;
+}
+```
+
+The registration screen hides the IP and port fields for it, and asks for
+nothing in their place — which application takes the payment is not a setting:
+
+```dart
+// lib/ui/terminals/terminal_edit_screen.dart
+if (_mode.isAppToApp) ...<Widget>[
+  Text(
+    'The terminal is this device. There is nothing to address: the '
+    'transaction is handed to the Amwal payment app '
+    '(${EcrPaymentApp.packageName}), and the serial number still has to be '
+    'the one that app drives.',
+  ),
+],
+```
+
+The serial number still matters. It travels in the envelope exactly as it does
+over a socket, and it has to be the terminal the payment app is provisioned as.
+
+**3. Open the terminal.** One line differs from Wi‑Fi — and on the mode where
+`host` would be an address, it is the payment app's application id:
+
+```dart
+// lib/ui/transaction/transaction_controller.dart
+EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) {
+  final EcrTransport transport = switch (terminal.mode) {
+    EcrMode.usbCable => EcrTransport.usbCable,
+    EcrMode.wifi => EcrTransport.wifi,
+    EcrMode.bluetooth => EcrTransport.bluetooth,
+    EcrMode.webService => EcrTransport.webService,
+    EcrMode.appToApp => EcrTransport.appToApp,
+  };
+
+  return EcrSessions.open(
+    host: switch (terminal.mode) {
+      EcrMode.wifi => terminal.ipAddress,
+      EcrMode.appToApp => EcrPaymentApp.packageName,
+      _ => '',
+    },
+    serialNumber: terminal.serialNumber,
+    transport: transport,
+    config: active.ecrConfig,
+  ).terminal;
+}
+```
+
+`EcrTerminal.appToApp(serialNumber: …)` is the shorter way to say the same
+thing when your till drives only this mode.
+
+**4. Check it before you take an amount, if you like.** The probe launches
+nothing — it asks whether the payment app is installed and will accept a
+request:
+
+```dart
+if (active.usesLocalTerminal) {
+  final EcrReachability probe = await terminal.probeReachability();
+  if (!probe.reachable) {
+    // Show why. Over app to app the example lists: the app is installed, it
+    // is a build that accepts app-to-app requests, the merchant is signed in,
+    // and the serial matches the terminal it drives.
+    return;
+  }
+}
+```
+
+It cannot tell you whether a merchant is signed in. That answer only comes
+back from a real request, which is the next step.
+
+**5. Run the transaction.** Identical to every other transport:
+
+```dart
 final EcrResult result = await terminal.sale(
   EcrAmount.parse('10.500'),
-  merchantReference: 'ORDER-91',   // not optional here — see below
+  merchantReference: 'ORDER-91',
 );
 ```
 
-Everything above that line is unchanged: the same operations, the same signed
-envelope, the same answers and the same response codes. Three things are worth
-knowing before you ship it.
+The payment app comes to the front, takes the card, and steps back when the
+operator is done with the receipt. Your till returns to the foreground with
+the answer already in hand.
+
+**6. Read the answer.** Also identical — `EcrApproved`, `EcrDeclined`,
+`EcrFailed` — with three things worth knowing before you ship it.
 
 **Always send a `merchantReference`.** Your till and the payment app are two
 apps, and Android can destroy either at any moment. If that happens mid-payment

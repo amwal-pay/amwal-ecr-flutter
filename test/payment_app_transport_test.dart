@@ -14,9 +14,8 @@ import 'platform/fake_host.dart';
 void main() {
   late FakeEcrHost host;
 
-  EcrTerminal paymentApp({String? packageName}) => EcrTerminal.appToApp(
+  EcrTerminal paymentApp() => EcrTerminal.appToApp(
         serialNumber: 'P653200085189',
-        packageName: packageName ?? EcrPaymentApp.defaultPackage,
         platform: MethodChannelAmwalEcr(channel: FakeEcrHost.channel),
       );
 
@@ -26,32 +25,30 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  group('naming the payment app', () {
-    test('the default is the terminal build', () {
-      expect(paymentApp().host, 'com.amwalpay.pos');
+  group('which app takes the payment', () {
+    test('is fixed, and is the Amwal payment app', () {
+      expect(paymentApp().host, EcrPaymentApp.packageName);
+      expect(EcrPaymentApp.packageName, 'com.amwalpay.pos');
       expect(paymentApp().transport, EcrTransport.appToApp);
     });
 
-    test('another application id can be driven, for a test build', () {
-      expect(paymentApp(packageName: 'com.amwalpay.pos.uat').host,
-          'com.amwalpay.pos.uat');
-    });
-
-    test('an address where an application id belongs is refused at once', () {
-      // A till that passed an IP here would otherwise only find out at the
-      // first sale, with a cardholder waiting.
+    test('cannot be pointed at another application', () {
+      // There is no network in this transport, so nothing downstream would
+      // notice a payment handed to the wrong app. It is refused here.
       expect(
-        () => EcrTerminal.appToApp(packageName: '192.168.1.50'),
+        () => EcrTerminal(
+          host: 'com.example.wallet',
+          transport: EcrTransport.appToApp,
+        ),
         throwsA(isA<EcrArgumentError>()),
       );
       expect(
-        () => EcrTerminal(host: 'not-a-package', transport: EcrTransport.appToApp),
+        () => EcrTerminal(
+          host: '192.168.1.50',
+          transport: EcrTransport.appToApp,
+        ),
         throwsA(isA<EcrArgumentError>()),
       );
-    });
-
-    test('an empty name falls back rather than failing', () {
-      expect(paymentApp(packageName: '   ').host, 'com.amwalpay.pos');
     });
   });
 
@@ -130,14 +127,26 @@ void main() {
       expect(host.countOf('inquireByReference'), 1);
     });
 
-    test('a receipt is refused, and not attempted', () async {
+    test('a receipt is fetched, as it is on every other local transport',
+        () async {
+      // The terminal keeps the same record and answers the same request. The
+      // Kotlin SDK has always allowed this, and a terminal that behaved
+      // differently depending on which SDK asked would be the one thing this
+      // package exists to prevent.
+      host.answers['receipt'] = (_) async => <String, Object?>{
+            'outcome': 'ready',
+            'merchantReference': 'ORDER-91',
+            'url': 'https://receipts.amwalpay.om/r/abc',
+            'raw': '',
+          };
+
       final EcrReceipt receipt = await paymentApp().receipt(
         receiptNumber: '000123',
         transactionDate: '20260920',
       );
 
-      expect(receipt, isA<EcrReceiptFailed>());
-      expect(host.calls, isEmpty);
+      expect(receipt, isA<EcrReceiptReady>());
+      expect(host.countOf('receipt'), 1);
     });
 
     test('a sale is sent once', () async {
@@ -166,16 +175,16 @@ void main() {
   });
 
   group('the session names what it is', () {
-    test('local, but not a receipt fetcher', () {
+    test('local, and able to fetch a receipt like the others', () {
       final EcrOpenedSession session = EcrSessions.open(
-        host: EcrPaymentApp.defaultPackage,
+        host: EcrPaymentApp.packageName,
         transport: EcrTransport.appToApp,
       );
 
       expect(session.usesLocalTerminal, isTrue);
       expect(session.usesPaymentApp, isTrue);
       expect(session.usesWebService, isFalse);
-      expect(session.supportsReceipt, isFalse);
+      expect(session.supportsReceipt, isTrue);
     });
   });
 }

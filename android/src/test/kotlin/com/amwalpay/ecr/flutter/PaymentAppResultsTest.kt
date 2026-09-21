@@ -62,6 +62,15 @@ class PaymentAppResultsTest {
     }
 
     @Test
+    fun `an interrupted handover reads as a lost link, not as unreachable`() {
+        // The SDK this package builds against classifies a lost link by the
+        // wording of the failure. "Unreachable" means nothing happened, and
+        // that is the one thing an interrupted handover must never say.
+        val interrupted = PaymentAppInterrupted("The payment app closed without answering")
+        assertTrue(interrupted.message!!.contains(PaymentAppInterrupted.LOST_LINK))
+    }
+
+    @Test
     fun `nothing at all is a timeout, and the slot is released`() {
         val results = PaymentAppResults()
         val waiting = assertNotNull(results.claim())

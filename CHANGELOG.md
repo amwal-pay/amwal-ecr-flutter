@@ -33,7 +33,8 @@ answers, the same response codes.
 
 - Android only. On iOS and the web an operation is refused before anything is
   sent, with a message about the platform rather than about a port.
-- A receipt cannot be fetched over it, and is refused rather than attempted.
+- An e-receipt can be fetched over it, as on the other local transports, at the
+  cost of another handover the operator watches.
 - An interrupted round trip — the payment app destroyed before it answered — is
   an unknown outcome pointing at `inquireByMerchantReference`, never a decline.
   Send a `merchantReference` on every request: it is the only handle that

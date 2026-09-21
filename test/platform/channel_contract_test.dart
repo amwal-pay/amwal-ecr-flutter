@@ -310,7 +310,7 @@ void main() {
       // fourth: app to app can be checked before anything is sent, and cannot
       // fetch a receipt.
       expect(EcrTransport.appToApp.hasReachabilityProbe, isTrue);
-      expect(EcrTransport.appToApp.supportsReceipt, isFalse);
+      expect(EcrTransport.appToApp.supportsReceipt, isTrue);
 
       expect(EcrTransport.wifi.hasReachabilityProbe, isTrue);
       expect(EcrTransport.wifi.supportsReceipt, isTrue);

@@ -171,9 +171,9 @@ class EcrChannelContractTest {
         assertEquals(true, EcrTransports.supportsReceipt("wifi"))
         assertEquals(true, EcrTransports.supportsReceipt("usb_cable"))
         assertEquals(false, EcrTransports.supportsReceipt("webService"))
-        // Local, and still no receipt: there is no link held open to fetch one
-        // over, only an Activity the operator watches.
-        assertEquals(false, EcrTransports.supportsReceipt("app_to_app"))
+        // Local, and a receipt like the others: the terminal keeps the same
+        // record and answers the same request over it.
+        assertEquals(true, EcrTransports.supportsReceipt("app_to_app"))
     }
 
     @Test
@@ -188,6 +188,23 @@ class EcrChannelContractTest {
         // It opens no socket, whatever else it is.
         assertEquals(false, EcrTransports.isIpTransport("app_to_app"))
         assertEquals(false, EcrTransports.isUsbCable("app_to_app"))
+    }
+
+    @Test
+    fun `what can be probed is not the same question as what can fetch a receipt`() {
+        // They were one answer for three transports and are not for the
+        // fourth. Asked as "not Wi-Fi and not cable", a probe over app to app
+        // answered "unreachable" without ever looking — which read, on a
+        // device where the payment app was plainly installed, as "not
+        // installed".
+        assertEquals(true, EcrTransports.hasReachabilityProbe("app_to_app"))
+        assertEquals(true, EcrTransports.supportsReceipt("app_to_app"))
+
+        assertEquals(true, EcrTransports.hasReachabilityProbe("wifi"))
+        assertEquals(true, EcrTransports.hasReachabilityProbe("usb_cable"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe("webService"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe("bluetooth"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe(null))
     }
 
     @Test

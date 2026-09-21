@@ -1,12 +1,11 @@
 /// The Amwal payment app a till hands a transaction to on the same device.
 ///
-/// A constant rather than a string each till types out, because it is the
-/// address of the only transport that has no address: get it wrong and the
-/// request goes nowhere, with nothing on the network to check it against.
+/// Fixed, and deliberately not a setting. Which app takes a payment is not a
+/// preference: it is Amwal's app or it is not a payment. An application id a
+/// till could pass — or worse, one an operator could type on a registration
+/// screen — is an invitation to point a payment at something else, and nothing
+/// on a network would catch it, because there is no network in this.
 abstract final class EcrPaymentApp {
-  /// The application id of the terminal build.
-  ///
-  /// Overridable on [EcrTerminal.appToApp] so a test build with another id can
-  /// be driven, which is the only reason to pass anything else.
-  static const String defaultPackage = 'com.amwalpay.pos';
+  /// The application id of the Amwal payment app.
+  static const String packageName = 'com.amwalpay.pos';
 }

@@ -53,14 +53,18 @@ enum EcrTransport {
   /// there.
   ///
   /// Named rather than written as "not web service" at each call site, because
-  /// the two things that were the same answer for three transports are not the
-  /// same for a fourth: app-to-app can be checked without sending anything,
-  /// and cannot fetch a receipt.
+  /// the answer is not simply "is it a socket": app to app can be checked
+  /// without sending anything, and Web Service cannot be checked at all.
   bool get hasReachabilityProbe =>
       isIpTransport || isUsbCable || isAppToApp;
 
   /// Whether an e-receipt can be fetched over this transport.
-  bool get supportsReceipt => isIpTransport || isUsbCable;
+  ///
+  /// App to app included. The terminal keeps the same record and answers the
+  /// same request over it — the Kotlin SDK has always allowed this, and a
+  /// terminal that behaved differently depending on which SDK asked is the one
+  /// thing this package exists to prevent.
+  bool get supportsReceipt => isIpTransport || isUsbCable || isAppToApp;
 
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///

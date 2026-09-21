@@ -71,10 +71,10 @@ final class EcrTerminal {
     if (transport.isIpTransport && host.trim().isEmpty) {
       throw const EcrArgumentError('A LAN terminal needs a host address');
     }
-    if (transport.isAppToApp && !_looksLikeApplicationId(host)) {
+    if (transport.isAppToApp && host != EcrPaymentApp.packageName) {
       throw EcrArgumentError(
-        'An app-to-app terminal needs the payment app\'s application id, '
-        'not "$host"',
+        'An app-to-app terminal is always ${EcrPaymentApp.packageName}. Use '
+        'EcrTerminal.appToApp rather than naming an application to pay into.',
       );
     }
   }
@@ -82,34 +82,27 @@ final class EcrTerminal {
   /// The Amwal payment app installed on this same device.
   ///
   /// Named rather than reached through [EcrTerminal.new] because `host` means
-  /// something else here — an application id, not an address — and a till
-  /// passing one where the other belongs would otherwise only find out at the
-  /// first transaction.
+  /// something else here: not an address, and not a choice. The application
+  /// that takes a payment is fixed — a till that could name one could name
+  /// another, and there is no network in this for anything to notice.
   ///
-  /// There is nothing to reach and nothing to configure: the terminal is this
-  /// device, so what decides whether a payment happens is the TMS profile on
-  /// it and whether a merchant is signed in, both of which the payment app
-  /// answers for itself.
+  /// There is nothing to configure at all. Whether a payment happens is
+  /// decided by the TMS profile on this device and by whether a merchant is
+  /// signed in, both of which the payment app answers for itself.
   factory EcrTerminal.appToApp({
     String serialNumber = '',
     EcrConfig? config,
-    String packageName = EcrPaymentApp.defaultPackage,
     AmwalEcrPlatform? platform,
     Random? random,
   }) =>
       EcrTerminal(
-        host: packageName.trim().isEmpty
-            ? EcrPaymentApp.defaultPackage
-            : packageName.trim(),
+        host: EcrPaymentApp.packageName,
         serialNumber: serialNumber,
         config: config,
         transport: EcrTransport.appToApp,
         platform: platform,
         random: random,
       );
-
-  static bool _looksLikeApplicationId(String value) =>
-      RegExp(r'^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$').hasMatch(value.trim());
 
   /// The terminal's address on the local network.
   final String host;

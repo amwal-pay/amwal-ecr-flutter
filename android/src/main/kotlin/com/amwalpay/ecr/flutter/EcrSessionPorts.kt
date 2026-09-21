@@ -39,7 +39,10 @@ internal object EcrSessionPorts {
             return PaymentAppTerminalPort(
                 EcrTerminal(
                     channel = PaymentAppEcrChannel(
-                        packageName = host,
+                        // The constant, not whatever arrived on the channel.
+                        // Dart refuses any other application id already; this
+                        // is the same rule where it cannot be talked around.
+                        packageName = PaymentAppEcrChannel.PACKAGE_NAME,
                         activities = activities,
                         results = paymentAppResults,
                         log = { logger.debug(it) },
@@ -246,23 +249,15 @@ internal class PaymentAppTerminalPort(
         merchantReference = merchantReference,
     )
 
-    /**
-     * Refused here rather than attempted and failed.
-     *
-     * An e-receipt is fetched from the terminal's own record over a link the
-     * till holds open. App to app has no such link: every exchange puts the
-     * payment app on screen, and doing that to fetch a receipt is not
-     * something a till should be able to do by accident.
-     */
     override suspend fun receipt(
         receiptNumber: String,
         transactionDate: String,
         originalTerminalId: String,
         merchantReference: String,
-    ): EcrReceipt = EcrReceipt.Unavailable(
-        merchantReference,
-        "A receipt cannot be fetched from the payment app on this device",
-        "",
+    ): EcrReceipt = terminal.receipt(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
     )
 }
 

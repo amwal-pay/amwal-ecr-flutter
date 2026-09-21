@@ -84,7 +84,7 @@ internal class EcrCallHandler(
         // A probe is not registered as cancellable: it is bounded by
         // probeTimeout, which is three seconds, and a cancel that arrives
         // inside that window has nothing useful to do.
-        if (!call.isIpTransport && !call.isUsbCable) {
+        if (!call.hasReachabilityProbe) {
             reply.success(false)
             return
         }
@@ -94,7 +94,7 @@ internal class EcrCallHandler(
     }
 
     private fun probe(call: Call, reply: EcrReply) {
-        if (!call.isIpTransport && !call.isUsbCable) {
+        if (!call.hasReachabilityProbe) {
             reply.success(
                 EcrMapping.reachability(
                     com.amwalpay.ecr.EcrReachability(
@@ -296,6 +296,9 @@ internal class EcrCallHandler(
         val isUsbCable: Boolean get() = EcrTransports.isUsbCable(transport)
 
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
+
+        val hasReachabilityProbe: Boolean
+            get() = EcrTransports.hasReachabilityProbe(transport)
 
         val isSupportedTransport: Boolean get() = EcrTransports.isSupportedTransport(transport)
 

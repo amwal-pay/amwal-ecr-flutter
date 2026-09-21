@@ -101,12 +101,45 @@ internal class PaymentAppEcrChannel(
         }
 
         return when (val answer = waiting.await(timeout)) {
-            is PaymentAppAnswer.Body -> answer.bytes
+            is PaymentAppAnswer.Body -> unsignedAdvisory(answer.bytes) ?: answer.bytes
             is PaymentAppAnswer.Interrupted -> throw PaymentAppInterrupted(answer.reason)
             is PaymentAppAnswer.Broken -> throw IOException(answer.reason)
             null -> throw EcrChannelTimeout(
                 "The payment app did not answer within $timeout",
             )
+        }
+    }
+
+    /**
+     * Turns the terminal's unsigned answers into failures, or returns null to
+     * let a real answer through.
+     *
+     * The terminal signs everything it decides. It cannot sign the two things
+     * its own watchdog says — that nothing picked the request up, or that
+     * something did and never finished — because the key lives in the part
+     * that did not answer. Passed up as they are, verification rejects them as
+     * untrustworthy and the till is told its key is wrong, which is false and
+     * is the wrong thing to act on.
+     *
+     * Read here instead, and only ever downwards: an unsigned answer can say
+     * that nothing happened or that the outcome is unknown. It can never say
+     * that money moved.
+     */
+    private fun unsignedAdvisory(body: ByteArray): Nothing? {
+        val text = String(body, Charsets.UTF_8)
+        if (text.contains("\"secureHash\"")) return null
+
+        val code = Regex("\"responseCode\"\\s*:\\s*\"([^\"]*)\"")
+            .find(text)?.groupValues?.get(1)
+        val message = Regex("\"message\"\\s*:\\s*\"([^\"]*)\"")
+            .find(text)?.groupValues?.get(1)
+            ?: "The payment app answered without signing it"
+
+        when (code) {
+            // Nothing was attempted. Safe to try again.
+            CODE_TERMINAL_BUSY, CODE_INVALID_TRANSACTION -> throw IOException(message)
+            // Something may have been. Inquire by merchant reference.
+            else -> throw PaymentAppInterrupted(message)
         }
     }
 
@@ -122,6 +155,9 @@ internal class PaymentAppEcrChannel(
     }
 
     internal companion object {
+        /** The Amwal payment app. Fixed: paying into another app is not a setting. */
+        const val PACKAGE_NAME = "com.amwalpay.pos"
+
         /** Mirrored in the payment app's `EcrAppToAppActivity`. */
         const val ACTION = "com.amwalpay.pos.ecr.TRANSACTION"
         const val EXTRA_REQUEST = "amwal.ecr.request"
@@ -132,6 +168,10 @@ internal class PaymentAppEcrChannel(
 
         /** Arbitrary, and unlikely to collide with a host app's own codes. */
         const val REQUEST_CODE = 0x4543
+
+        /** The two codes an unsigned answer may carry and still mean "nothing happened". */
+        private const val CODE_TERMINAL_BUSY = "96"
+        private const val CODE_INVALID_TRANSACTION = "12"
     }
 }
 
@@ -139,11 +179,24 @@ internal class PaymentAppEcrChannel(
  * The payment app was started and did not answer this request.
  *
  * Its own type because it means something no other channel failure does: the
- * transaction may have happened. It is mapped to a failure whose outcome is
- * unknown, which sends the till to inquire by its merchant reference rather
+ * transaction may have happened. It must be mapped to a failure whose outcome
+ * is unknown, which sends the till to inquire by its merchant reference rather
  * than retry.
+ *
+ * The published SDK classifies a lost link by the *wording* of the failure, so
+ * the message has to carry [LOST_LINK] for that to happen — without it this
+ * reads as "unreachable", which says nothing happened, which is the one thing
+ * it must never say. A later SDK reports it by type instead
+ * (`EcrChannelInterrupted`); when this package moves to it, the phrase stops
+ * being load-bearing and the tests below are what prove it.
  */
-internal class PaymentAppInterrupted(message: String) : IOException(message)
+internal class PaymentAppInterrupted(message: String) : IOException(
+    if (message.contains(LOST_LINK)) message else "$message ($LOST_LINK)",
+) {
+    internal companion object {
+        const val LOST_LINK = "closed the connection"
+    }
+}
 
 /** What came back from the payment app, or why nothing did. */
 internal sealed interface PaymentAppAnswer {

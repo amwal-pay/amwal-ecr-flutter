@@ -165,9 +165,26 @@ internal object EcrTransports {
     /** Whether the terminal opens a socket for this transport. Wi‑Fi only. */
     fun isIpTransport(name: String?): Boolean = name == WIFI
 
-    /** Whether receipt fetch is available (Wi‑Fi or USB cable). */
+    /**
+     * Whether receipt fetch is available.
+     *
+     * Everything but Web Service. The payment app on this device keeps the
+     * same record and answers the same request, and the Kotlin SDK allows it.
+     */
     fun supportsReceipt(name: String?): Boolean =
-        name == WIFI || isUsbCable(name)
+        name == WIFI || isUsbCable(name) || isPaymentApp(name)
+
+    /**
+     * Whether the terminal can be asked if it is there without sending a
+     * transaction.
+     *
+     * Named rather than written as "not web service" at each call site: it was
+     * the same answer as [supportsReceipt] for three transports and is not for
+     * the fourth. The payment app can be checked — is it installed, will it
+     * accept a request — and cannot hand over a receipt.
+     */
+    fun hasReachabilityProbe(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
 
     /** Whether this Flutter plugin can drive transactions over this transport. */
     fun isSupportedTransport(name: String?): Boolean =

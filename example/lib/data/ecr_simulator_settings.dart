@@ -97,9 +97,12 @@ class EcrSimulatorSettings {
   /// Secret to put on [EcrConfig] for the selected terminal [mode].
   String secureHashKeyFor(EcrMode mode) => switch (mode) {
         EcrMode.webService => webServiceSecureHashKey,
+        // App to app carries the same envelope the local links carry, signed
+        // with the same key the terminal's own profile holds.
         EcrMode.usbCable ||
         EcrMode.wifi ||
-        EcrMode.bluetooth =>
+        EcrMode.bluetooth ||
+        EcrMode.appToApp =>
           wifiSecureHashKey,
       };
 }
