@@ -2,12 +2,16 @@
 #
 # Seven workflows:
 #
-#   flutter-verify        every push and pull request — the Dart suite, the
-#                         Swift bridge suite (tool/run_swift_tests.sh, against
-#                         the published AmwalECR SwiftPM tag), the Kotlin
-#                         bridge suite (through the example's Gradle, against
+#   flutter-verify        every push and pull request — the Dart suite (including
+#                         dart_io / Windows host tests), the Swift bridge suite
+#                         (tool/run_swift_tests.sh, against the published
+#                         AmwalECR SwiftPM tag), the Kotlin bridge suite
+#                         (through the example's Gradle, against
 #                         com.amwal-pay:ecr-sdk from Maven Central), the
-#                         example APK, and a `dart pub publish --dry-run`.
+#                         example APK, a Windows package-shape check (pubspec
+#                         declares windows + dry-run archive includes
+#                         lib/src/windows and lib/src/dart_io), and a
+#                         `dart pub publish --dry-run`.
 #
 #   example-ios-cocoapods every push and pull request — builds the example
 #                         app for iOS with CocoaPods, so the plugin's podspec
@@ -20,13 +24,16 @@
 #                         from the SwiftPM repository's tag. Both faces of the
 #                         plugin are supported; both are built on every change.
 #
-#   flutter-publish       a `vX.Y.Z` tag — publishes to pub.dev. Refuses if the
-#                         tag and pubspec disagree, or if the AmwalECR version
-#                         the iOS host asks for is not on CocoaPods trunk yet
-#                         (the release policy's "never publish against a
-#                         provider that is not live"). Idempotent: a version
-#                         already on pub.dev is reported and skipped. Ends by
-#                         reading the version back from pub.dev.
+#   flutter-publish       a `vX.Y.Z` tag — publishes to pub.dev (Android + iOS
+#                         + Windows in one package). Refuses if the tag /
+#                         pubspec / CHANGELOG disagree, if Windows is missing
+#                         from the pubspec or publish archive, or if the
+#                         AmwalECR version the iOS host asks for is not on
+#                         CocoaPods trunk yet (the release policy's "never
+#                         publish against a provider that is not live").
+#                         Idempotent: a version already on pub.dev is reported
+#                         and skipped. Ends by reading the version back from
+#                         pub.dev.
 #
 #   example-ios-testflight  an `example-ios-*` tag (or a push to release/example)
 #                         — signs the example app for App Store distribution
@@ -88,6 +95,40 @@ definitions:
         flutter analyze --no-fatal-infos
         flutter test
         dart pub publish --dry-run
+    - &windows_package_shape
+      name: Windows package shape (pubspec + publish archive)
+      script: |
+        set -euo pipefail
+        # Pure-Dart Windows host must ship in the pub.dev archive. Fail the
+        # release if someone drops the platform stanza or excludes dart_io.
+        grep -qE '^[[:space:]]*windows:' pubspec.yaml \
+          || { echo "pubspec.yaml missing flutter.plugin.platforms.windows" >&2; exit 1; }
+        grep -q 'dartPluginClass: AmwalEcrWindows' pubspec.yaml \
+          || { echo "pubspec.yaml missing dartPluginClass: AmwalEcrWindows" >&2; exit 1; }
+        grep -q 'dartFileName: src/windows/amwal_ecr_windows.dart' pubspec.yaml \
+          || { echo "pubspec.yaml missing windows dartFileName" >&2; exit 1; }
+        test -f lib/src/windows/amwal_ecr_windows.dart \
+          || { echo "missing lib/src/windows/amwal_ecr_windows.dart" >&2; exit 1; }
+        test -f lib/src/dart_io/dart_io_amwal_ecr_platform.dart \
+          || { echo "missing lib/src/dart_io/dart_io_amwal_ecr_platform.dart" >&2; exit 1; }
+        # dry-run lists the archive tree on stdout — assert the Windows files
+        # are included (not .pubignored / not left out of the package).
+        set +e
+        listing="$(dart pub publish --dry-run 2>&1)"
+        dry_rc=$?
+        set -e
+        printf '%s\n' "$listing"
+        printf '%s\n' "$listing" | grep -q 'amwal_ecr_windows.dart' \
+          || { echo "publish archive does not include amwal_ecr_windows.dart" >&2; exit 1; }
+        printf '%s\n' "$listing" | grep -q 'dart_io_amwal_ecr_platform.dart' \
+          || { echo "publish archive does not include dart_io_amwal_ecr_platform.dart" >&2; exit 1; }
+        # Exit 0 = clean; non-zero with "Package has" warnings is still OK for
+        # shape checks. A hard validation failure has no archive tree.
+        if [[ "$dry_rc" -ne 0 ]] && ! printf '%s\n' "$listing" | grep -q 'Total compressed archive size'; then
+          echo "dart pub publish --dry-run failed (rc=$dry_rc)" >&2
+          exit "$dry_rc"
+        fi
+        echo "Windows package shape OK (pubspec + dry-run archive)"
   email: &email
     email:
       recipients:
@@ -125,6 +166,7 @@ workflows:
       - *toolchain
       - *pub_get
       - *dart_checks
+      - *windows_package_shape
       - name: Swift bridge suite (against the published AmwalECR SwiftPM tag)
         script: |
           # Assembles the bridge sources (everything but AmwalEcrPlugin.swift)
@@ -261,8 +303,15 @@ workflows:
             echo "No AmwalECR version satisfying ~> $wanted is on CocoaPods trunk; release the pod first." >&2
             exit 1
           fi
+      - name: Windows has no separate native provider (pure Dart)
+        script: |
+          set -euo pipefail
+          # Windows ships inside this package — nothing to wait for on Maven /
+          # CocoaPods / SwiftPM. Still refuse to publish if the host is missing.
+          echo "Windows provider is DartIoAmwalEcrPlatform in this package (no external registry)."
       - *pub_get
       - *dart_checks
+      - *windows_package_shape
       - name: Skip if this version is already on pub.dev
         script: |
           set -euo pipefail

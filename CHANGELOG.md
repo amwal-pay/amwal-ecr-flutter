@@ -1,11 +1,15 @@
 # Changelog
 
 All notable changes to `amwal_ecr`. This project follows semantic versioning,
-with the addition described in [the release policy](doc/release-policy.md): any
+with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
-## Unreleased
+## 0.3.0
+
+Adds **Windows** as a first-class host. The Dart API is unchanged: the same
+`EcrSessions.open` / `EcrTerminal` path works on Android, iOS, and Windows.
+USB cable remains Android-only.
 
 ### Added
 
@@ -17,6 +21,9 @@ outcome *means* is breaking, however small the diff.
   by closing the socket / aborting HTTP.
 - Example app **Windows** runner + Codemagic `example-windows` workflow; optional
   `--dart-define` live config seeds (`ECR_*`) documented in `example/README.md`.
+- Windows docs: Install / troubleshooting in the package README, full platform
+  matrix in `doc/compatibility-matrix.md`, and Visual Studio ATL notes in both
+  example READMEs (for `flutter_secure_storage`).
 
 ## 0.2.1
 

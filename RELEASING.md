@@ -39,6 +39,7 @@ a call that stops being answered at a till.
 | Renaming **anything** in the channel contract | **major** |
 | Removing a field the Dart side reads | **major** |
 | Raising the pinned `ecr-sdk` version, or the `AmwalECR` range | minor, and named in the changelog |
+| Adding a new Flutter host platform (e.g. Windows) without changing outcomes | **minor** |
 | Raising the Dart, Flutter, Android or iOS floor | **major** |
 | Changing what an outcome *means* — a decline becoming a failure, `outcomeIsUnknown` changing for a case | **major**, however small the diff |
 
@@ -141,9 +142,13 @@ The wrapper depends on the providers. Publish upwards, never downwards.
 ```
 1. ecr-sdk (Maven Central)     the Android provider
 2. AmwalECR (SPM, then trunk)  the iOS provider, both faces, one version
-3. amwal_ecr (pub.dev)         the Flutter bridge over both
+3. amwal_ecr (pub.dev)         the Flutter package (Android + iOS + Windows)
 4. the example app             smoke-tested against the published artifacts
 ```
+
+Windows has **no separate registry artifact** — the pure-Dart host ships inside
+`amwal_ecr`. Publishing `0.3.0+` with Windows does not wait on Maven or CocoaPods
+beyond the mobile providers this version still pins.
 
 Concretely, for a release that includes a native change:
 
@@ -226,7 +231,7 @@ only resolved because of a local path, a Gradle dependency that only existed in
 working tree:
 
 ```bash
-flutter create --platforms=android,ios /tmp/ecr_smoke
+flutter create --platforms=android,ios,windows /tmp/ecr_smoke
 cd /tmp/ecr_smoke
 flutter pub add amwal_ecr          # the published version, no path override
 ```
@@ -248,12 +253,14 @@ print(result);
 ```bash
 flutter build apk --debug
 flutter build ios --no-codesign
-flutter run          # on one Android and one iOS device
+# On a Windows machine (or Codemagic example-windows after the package is live):
+flutter build windows --debug
+flutter run          # on Android, iOS, and Windows — each must answer EcrUnreachable
 ```
 
-Both builds passing and the call answering `EcrUnreachable` is the bar. Do it in
-a fresh project rather than in `example/`: the example's Podfile can be pointed
-at a local SDK checkout, and would not catch a pod that never landed.
+All three hosts answering `EcrUnreachable` is the bar (USB is not required). Do
+it in a fresh project rather than in `example/`: the example's Podfile can be
+pointed at a local SDK checkout, and would not catch a pod that never landed.
 
 ### And the iOS SDK on its own
 
@@ -290,6 +297,8 @@ integrators while remaining perfectly visible to the SDK's own tests.
 
 | Release | `amwal_ecr` | `ecr-sdk` | `AmwalECR` | Notes |
 |---|---|---|---|---|
+| 0.3.0 | 0.3.0 | 1.0.5 | 0.2.1 | Windows pure-Dart host (LAN + Web Service) |
+| 0.2.1 | 0.2.1 | 1.0.5 | 0.2.1 | ECR modes: USB Android, Web Service |
 | 0.1.0 | 0.1.0 | 1.0.3 | 0.1.0 | first release |
 
 Keep this table current. It is the only place that records which pair was ever
