@@ -1,6 +1,6 @@
 # Codemagic CI for package:amwal_ecr, the Flutter bridge over the native ECR SDKs.
 #
-# Six workflows:
+# Seven workflows:
 #
 #   flutter-verify        every push and pull request — the Dart suite, the
 #                         Swift bridge suite (tool/run_swift_tests.sh, against
@@ -38,6 +38,11 @@
 #                         release/example) — builds the example release APK
 #                         and hands it to Firebase App Distribution, tester
 #                         group `tester`.
+#
+#   example-windows       an `example-windows-*` tag (or a push to
+#                         release/example) — builds the nested example for
+#                         Windows (LAN + Web Service) and zips the Release
+#                         folder. Uses instance_type windows_x2.
 #
 # The two example workflows never run on an ordinary push: every run of them
 # is a build somebody gets a notification about.
@@ -466,4 +471,67 @@ workflows:
     artifacts:
       - example/build/app/outputs/flutter-apk/app-release.apk
       - example/build/app/outputs/mapping/release/mapping.txt
+    publishing: *email
+
+  example-windows:
+    name: amwal_ecr — example Windows release (example-windows-* tag)
+    instance_type: windows_x2
+    max_build_duration: 60
+    environment:
+      flutter: 3.38.5
+    triggering:
+      events:
+        - tag
+        - push
+      tag_patterns:
+        - pattern: 'example-windows-*'
+          include: true
+      branch_patterns:
+        - pattern: 'release/example'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Toolchain
+        script: |
+          flutter --version
+      - *example_version
+      - name: flutter pub get
+        script: |
+          flutter pub get
+          (cd example && flutter pub get)
+      - name: Enable Windows desktop
+        script: |
+          flutter config --enable-windows-desktop
+      - name: Build Windows release
+        script: |
+          set -euo pipefail
+          cd example
+          flutter build windows --release \
+            --build-name="$(cat "$CM_BUILD_DIR/.example-build-name")" \
+            --build-number="$PROJECT_BUILD_NUMBER"
+      - name: Zip release folder
+        script: |
+          set -euo pipefail
+          cd example
+          release_dir=""
+          for candidate in \
+            build/windows/x64/runner/Release \
+            build/windows/runner/Release
+          do
+            if [[ -d "$candidate" ]]; then
+              release_dir="$candidate"
+              break
+            fi
+          done
+          [[ -n "$release_dir" ]] || { echo "Windows Release folder not found" >&2; find build/windows -maxdepth 4 -type d; exit 1; }
+          echo "Zipping $release_dir"
+          (
+            cd "$release_dir"
+            7z a -r ../release.zip ./*
+          )
+          ls -la "$(dirname "$release_dir")/release.zip"
+    artifacts:
+      - example/build/windows/**/runner/release.zip
+      - example/build/windows/**/runner/Release/*.exe
     publishing: *email

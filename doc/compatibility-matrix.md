@@ -35,8 +35,9 @@ Both providers expose **`EcrSessions.open` / `EcrOpenedSession`**. The Flutter
 hosts call that API so LAN, USB cable, and Web Service share one dispatch path.
 
 Both providers are published SDKs that native apps use directly, without
-Flutter. This package is a bridge over them and holds no protocol code of its
-own.
+Flutter. On Android and iOS this package is a bridge over them. On Windows the
+same Dart API is backed by a pure-Dart protocol engine (`lib/src/dart_io/`)
+that mirrors those SDKs' LAN and Web Service behaviour.
 
 **The Android version is pinned, not ranged.** An ECR SDK that changes how an
 outcome is reported changes what a till books, and that is not something to pick
@@ -74,12 +75,14 @@ change, and the Dart tests will not notice it happened.
 | Android/Kotlin JVM target | 17 | The ECR SDK is a Java 17 library |
 | iOS | 12.0 | The floor of `AmwalECR`, both podspecs and both `Package.swift` files — raise them together |
 | Swift | 5.5 | |
+| Windows | Windows 10 | Pure-Dart `dart:io` TCP + HTTPS; no native plugin binary |
 
 | Platform | Supported |
 |---|---|
 | Android | ✔ |
 | iOS | ✔ |
-| macOS, Windows, Linux, Web | ✘ — no host is registered, so every call answers `EcrUnsupported` |
+| Windows | ✔ — pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`): Wi‑Fi TCP + Web Service. USB cable ✘ |
+| macOS, Linux, Web | ✘ — no host is registered, so every call answers `EcrUnsupported` |
 
 A missing host is reported as `EcrUnsupported` with the message naming a
 rebuild, rather than as a thrown `MissingPluginException`, so an app running on
@@ -91,18 +94,19 @@ an unsupported platform degrades instead of crashing.
 
 `EcrTransport` mirrors the `ecrMode` a terminal's TMS profile carries.
 
-| `EcrTransport` | `ecrMode` | Android | iOS | Behaviour |
-|---|---|---|---|---|
-| `usbCable` (`usb_cable`) | 1 | ✔ | ✘ | USB AOA cable; typed unsupported on iOS |
-| `wifi` | 2 | ✔ | ✔ | TCP to the terminal |
-| `bluetooth` | 3 | ✘ | ✘ | `EcrUnsupported`, nothing sent |
-| `webService` | 4 | ✔ | ✔ | REST / Hub |
+| `EcrTransport` | `ecrMode` | Android | iOS | Windows | Behaviour |
+|---|---|---|---|---|---|
+| `usbCable` (`usb_cable`) | 1 | ✔ | ✘ | ✘ | USB AOA cable; typed unsupported on iOS / Windows |
+| `wifi` | 2 | ✔ | ✔ | ✔ | TCP to the terminal |
+| `bluetooth` | 3 | ✘ | ✘ | ✘ | `EcrUnsupported`, nothing sent |
+| `webService` | 4 | ✔ | ✔ | ✔ | REST / Hub |
 
 `ecrMode` `1` is USB cable on the channel (`"usb_cable"`). Wire value `1` is
 unchanged. There is no Ethernet transport.
 
 Wi‑Fi alone is an IP transport. USB cable carries no IP. Bluetooth remains
-unsupported on both platforms. Web Service is driven over REST.
+unsupported on all platforms. Web Service is driven over REST (native hosts on
+mobile; pure Dart `dart:io` HTTP on Windows).
 
 ---
 

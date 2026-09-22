@@ -5,6 +5,7 @@ import '../../data/ecr_mode.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 
+/// Adds a terminal, or edits the one whose serial number was passed in.
 class TerminalEditScreen extends StatefulWidget {
   const TerminalEditScreen({
     super.key,
@@ -13,6 +14,8 @@ class TerminalEditScreen extends StatefulWidget {
   });
 
   final TerminalRepository repository;
+
+  /// The terminal being edited, or null when adding one.
   final Terminal? original;
 
   @override
@@ -108,29 +111,49 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
               error: _errors.serial ?? _saveError,
               capitalization: TextCapitalization.characters,
             ),
-            Text('ECR mode', style: Theme.of(context).textTheme.titleSmall),
-            ...EcrMode.values.map(
-              (EcrMode option) => RadioListTile<EcrMode>(
-                key: Key('mode-${option.name}'),
-                value: option,
-                groupValue: _mode,
-                onChanged: (EcrMode? value) {
-                  if (value != null) setState(() => _mode = value);
-                },
-                title: Text(option.label),
-                subtitle: option == EcrMode.bluetooth
-                    ? const Text('Not supported in this simulator')
-                    : null,
-                contentPadding: EdgeInsets.zero,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'ECR mode',
+                  border: OutlineInputBorder(),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<EcrMode>(
+                    key: const Key('ecrMode'),
+                    value: _mode,
+                    isExpanded: true,
+                    isDense: true,
+                    items: EcrMode.values
+                        .map(
+                          (EcrMode option) => DropdownMenuItem<EcrMode>(
+                            key: Key('mode-${option.name}'),
+                            value: option,
+                            child: Text(
+                              option.unsupportedReason != null
+                                  ? '${option.label} (not supported)'
+                                  : option.label,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (EcrMode? value) {
+                      if (value != null) setState(() => _mode = value);
+                    },
+                  ),
+                ),
               ),
             ),
             if (_mode.isUsbCable)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Connect the till to the terminal with a USB cable. '
-                  'There is no address to enter — the cable is found when it '
-                  'is plugged in.',
+                  _mode.isSupportedInSimulator
+                      ? 'Connect the till to the terminal with a USB cable. '
+                          'There is no address to enter — the cable is found when it '
+                          'is plugged in.'
+                      : (_mode.unsupportedReason ??
+                          'USB cable is not supported on this platform.'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

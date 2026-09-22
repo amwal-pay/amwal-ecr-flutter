@@ -1,7 +1,7 @@
 # amwal_ecr
 
-Drive an Amwal POS terminal from Flutter, on Android and iOS, through one Dart
-API.
+Drive an Amwal POS terminal from Flutter, on Android, iOS and Windows, through
+one Dart API.
 
 ```dart
 final EcrTerminal terminal = EcrTerminal(
@@ -341,9 +341,12 @@ shop floor.
 `example/` is a direct port of the Android example in `app/`: the same two
 screens, the same settings, the same order of checks, the same dialogs.
 
-- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable, or Web
-  Service), with separate LAN and Web Service signing keys and environment
-  (SIT/UAT/PROD), matching the Android simulator app.
+- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable on
+  Android, or Web Service), with separate LAN and Web Service signing keys and
+  environment (SIT/UAT/PROD), matching the Android simulator app. On **Windows**
+  the same UI runs over the pure-Dart host (Wi‑Fi + Web Service; USB is marked
+  unsupported). Optional `--dart-define` live seeds are documented in
+  [`example/README.md`](example/README.md).
 - **Transaction** — type, amount, receipt number, the original's date, and which
   terminal. It probes the terminal before it sends anything, then shows the
   outcome in the same dialogs.
@@ -356,7 +359,8 @@ them, because the Android example does not — see
 
 ```bash
 cd example
-flutter run
+flutter run                 # default device
+flutter run -d windows      # desktop till (LAN / Web Service)
 ```
 
 **Android build fails with `25.0.2`?** Flutter is using JDK 25 from Android Studio,
@@ -491,13 +495,15 @@ environment group, never from the repository — see
 
 ### Distributing the example
 
-Two more workflows in [`codemagic.yaml`](codemagic.yaml) put the example app in
-testers' hands. Neither runs on an ordinary push — every run is a build somebody
-is notified about — so they start from a tag, or a push to `release/example`:
+Three more workflows in [`codemagic.yaml`](codemagic.yaml) put the example app in
+testers' hands. None of them run on an ordinary push — every run is a build
+somebody is notified about — so they start from a tag, or a push to
+`release/example`:
 
 ```bash
 git tag example-ios-1     && git push origin example-ios-1      # → TestFlight, group "Testers"
 git tag example-android-1 && git push origin example-android-1  # → Firebase App Distribution, group "tester"
+git tag example-windows-1 && git push origin example-windows-1  # → Windows Release zip artifact
 ```
 
 - **`example-ios-testflight`** signs `example/` for App Store distribution
@@ -508,11 +514,14 @@ git tag example-android-1 && git push origin example-android-1  # → Firebase A
 - **`example-android-firebase`** builds the release APK — signed with the debug
   key, as the Flutter template does, which App Distribution accepts — and
   uploads it to the Firebase app for `com.amwalpay.amwal_ecr_example`.
+- **`example-windows`** builds `example/` with `flutter build windows --release`
+  on a `windows_x2` instance and zips the runner `Release` folder (downloadable
+  artifact).
 
-Both read the shared Codemagic environment group `A`: `FIREBASE_SERVICE_ACCOUNT`
-and `FIREBASE_ANDROID_APP_ID` (the Firebase app id, project `amwal-8ad3e`). The
-build number is Codemagic's per-app counter; the build name is `version:` in
-`example/pubspec.yaml`.
+Firebase workflows read the shared Codemagic environment group `A`:
+`FIREBASE_SERVICE_ACCOUNT` and `FIREBASE_ANDROID_APP_ID` (the Firebase app id,
+project `amwal-8ad3e`). The build number is Codemagic's per-app counter; the
+build name is `version:` in `example/pubspec.yaml`.
 
 ---
 

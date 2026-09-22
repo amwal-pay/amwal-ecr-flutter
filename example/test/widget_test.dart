@@ -89,7 +89,7 @@ void main() {
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      // probeReachability first, exactly as TransactionViewModel does it.
+      // isReachable first, exactly as TransactionViewModel does it.
       expect(platform.calls, <String>['probeReachability', 'sale']);
     });
 
@@ -107,8 +107,13 @@ void main() {
         find.textContaining('192.168.1.50:9100 is not reachable'),
         findsOneWidget,
       );
+      expect(find.textContaining('Check:'), findsOneWidget);
       expect(
         find.textContaining('same Wi‑Fi network'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('try IP 127.0.0.1'),
         findsOneWidget,
       );
     });
@@ -497,7 +502,11 @@ void main() {
       await tapStart(tester);
 
       // The lookup succeeded. The transaction it found did not.
-      expect(find.text('Declined'), findsWidgets);
+      expect(find.byKey(const Key('resultHeadline')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('resultHeadline'))).data,
+        'Declined',
+      );
       expect(find.text('000208'), findsOneWidget);
     });
 
@@ -574,10 +583,18 @@ void main() {
 
       await tester.tap(find.byKey(const Key('terminals')));
       await tester.pumpAndSettle();
+      await scrollTo(tester, const Key('terminal-P653200085189'));
 
-      expect(find.text('Counter 1'), findsOneWidget);
-      expect(find.textContaining('192.168.1.50:9100'), findsOneWidget);
+      expect(find.text('Counter 1', skipOffstage: false), findsOneWidget);
+      // Transaction screen (under the route) and the list tile both mention the
+      // address, so match "at least one" rather than exactly one.
+      expect(
+        find.textContaining('192.168.1.50:9100', skipOffstage: false),
+        findsWidgets,
+      );
       expect(find.byKey(const Key('terminal-P653200085189')), findsOneWidget);
+      expect(find.textContaining('Wi‑Fi / USB cable settings'), findsOneWidget);
+      expect(find.textContaining('Web Service settings'), findsOneWidget);
     });
 
     testWidgets('a terminal is added with name, serial, address and port',
@@ -654,6 +671,76 @@ void main() {
         find.textContaining('is already registered'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('USB cable mode hides address fields and lists as USB cable',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+      await tester.tap(find.byKey(const Key('terminals')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('addTerminal')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('ecrMode')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('USB Cable').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('ipAddress')), findsNothing);
+      expect(find.byKey(const Key('port')), findsNothing);
+      expect(
+        find.textContaining('Connect the till to the terminal with a USB cable'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byKey(const Key('terminalName')), 'USB Counter');
+      await tester.enterText(
+        find.byKey(const Key('serialNumber')),
+        'P653200085191',
+      );
+      await scrollTo(tester, const Key('saveTerminal'));
+      await tester.tap(find.byKey(const Key('saveTerminal')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('USB Counter', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('USB cable', skipOffstage: false), findsWidgets);
+    });
+
+    testWidgets('an unreachable USB cable terminal sends nothing',
+        (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'terminals': <String>[
+          jsonEncode(Terminal(
+            serialNumber: 'USB1',
+            name: 'Cable 1',
+            ecrMode: 1,
+          ).toJson()),
+        ],
+      });
+      FlutterSecureStorage.setMockInitialValues(<String, String>{
+      'wifi_secure_hash_key': '0123456789abcdef0123456789abcdef',
+      'web_service_secure_hash_key': 'fedcba9876543210fedcba9876543210',
+    });
+      final TerminalRepository usbRepo = TerminalRepository();
+      addTearDown(usbRepo.dispose);
+      platform.reachable = false;
+
+      await tester.pumpWidget(ExampleTillApp(repository: usbRepo));
+      await tester.pumpAndSettle();
+      for (int i = 0; i < 20; i++) {
+        final Iterable<FilledButton> starts = tester.widgetList<FilledButton>(
+          find.byKey(const Key('start'), skipOffstage: false),
+        );
+        if (starts.isNotEmpty && starts.first.onPressed != null) break;
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      expect(platform.calls, <String>['probeReachability']);
+      expect(find.textContaining('USB cable is not reachable'), findsOneWidget);
+      expect(find.textContaining('USB host (OTG)'), findsOneWidget);
     });
   });
 }

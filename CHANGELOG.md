@@ -5,6 +5,19 @@ with the addition described in [the release policy](doc/release-policy.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## Unreleased
+
+### Added
+
+- **Windows** support via a pure-Dart `AmwalEcrPlatform` (`DartIoAmwalEcrPlatform`):
+  LAN TCP (Wi‑Fi) and Web Service Hub REST, registered with
+  `dartPluginClass: AmwalEcrWindows`. USB cable remains unsupported on Windows.
+- Protocol engine under `lib/src/dart_io/` — framing, LAN / Web Service HMAC
+  signing, message build, response parse, auto-inquire-on-failure, and cancel
+  by closing the socket / aborting HTTP.
+- Example app **Windows** runner + Codemagic `example-windows` workflow; optional
+  `--dart-define` live config seeds (`ECR_*`) documented in `example/README.md`.
+
 ## 0.2.1
 
 Brings the package level with `com.amwal-pay:ecr-sdk` 1.0.5 and `AmwalECR`
