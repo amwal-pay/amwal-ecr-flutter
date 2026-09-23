@@ -68,8 +68,8 @@ enum EcrTransport {
 
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
-  /// [usbCable] is implemented on Android only; on iOS the native host returns
-  /// a typed unsupported failure if a call still reaches it.
+  /// [usbCable] is implemented on Android only; on iOS and Windows the host
+  /// returns a typed unsupported failure if a call still reaches it.
   bool get isSupportedByPlugin {
     switch (this) {
       case EcrTransport.wifi:

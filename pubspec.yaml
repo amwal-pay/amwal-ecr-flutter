@@ -1,8 +1,11 @@
 name: amwal_ecr
 description: >-
-  Drive an Amwal POS terminal from Flutter. One Dart API over the native
-  Android and iOS ECR SDKs: sale, void, refund, inquiry and e-receipt, with
-  typed outcomes that keep an unknown result apart from a refusal.
+  Drive an Amwal POS terminal from Flutter. One Dart API over native Android
+  and iOS ECR SDKs (Wi‑Fi, USB, Web Service, and Android app-to-app), plus a
+  pure-Dart Windows host (LAN TCP + Web Service): sale, void, refund, inquiry
+  and e-receipt, with typed outcomes that keep an unknown result apart from a
+  refusal.
+
 version: 0.3.0
 repository: https://github.com/amwal-pay/amwal-ecr-flutter
 issue_tracker: https://github.com/amwal-pay/amwal-ecr-flutter/issues
@@ -18,6 +21,7 @@ environment:
   flutter: '>=3.22.0'
 
 dependencies:
+  crypto: ^3.0.7
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.1.8
@@ -35,3 +39,6 @@ flutter:
         pluginClass: AmwalEcrPlugin
       ios:
         pluginClass: AmwalEcrPlugin
+      windows:
+        dartPluginClass: AmwalEcrWindows
+        dartFileName: src/windows/amwal_ecr_windows.dart

@@ -131,7 +131,7 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
                             key: Key('mode-${option.name}'),
                             value: option,
                             child: Text(
-                              option == EcrMode.bluetooth
+                              option.unsupportedReason != null
                                   ? '${option.label} (not supported)'
                                   : option.label,
                             ),
@@ -149,9 +149,12 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Connect the till to the terminal with a USB cable. '
-                  'There is no address to enter — the cable is found when it '
-                  'is plugged in.',
+                  _mode.isSupportedInSimulator
+                      ? 'Connect the till to the terminal with a USB cable. '
+                          'There is no address to enter — the cable is found when it '
+                          'is plugged in.'
+                      : (_mode.unsupportedReason ??
+                          'USB cable is not supported on this platform.'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

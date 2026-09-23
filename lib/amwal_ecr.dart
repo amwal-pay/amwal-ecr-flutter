@@ -1,5 +1,5 @@
-/// Drive an Amwal POS terminal from Flutter, on Android and iOS, through one
-/// Dart API.
+/// Drive an Amwal POS terminal from Flutter, on Android, iOS and Windows,
+/// through one Dart API.
 ///
 /// ```dart
 /// import 'package:amwal_ecr/amwal_ecr.dart';
@@ -26,7 +26,7 @@
 /// ```
 ///
 /// See `doc/integration-guide.md` for the whole of it, and
-/// `doc/compatibility-matrix.md` for where the two platforms differ.
+/// `doc/compatibility-matrix.md` for where the platforms differ.
 library amwal_ecr;
 
 export 'src/ecr_opened_session.dart';

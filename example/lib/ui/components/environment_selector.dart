@@ -30,7 +30,8 @@ class EcrSimulatorSettingsPanel extends StatelessWidget {
         _SettingsCard(
           title: 'Wi‑Fi / USB cable settings',
           subtitle:
-              'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR (LAN protocol).',
+              'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR (LAN protocol). '
+              'USB cable is Android-only; on Windows use Wi‑Fi or Web Service.',
           child: _SecureHashKeyField(
             value: wifiSecureHashKey,
             label: EcrSecureHashLabels.wifi,

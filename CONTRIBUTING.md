@@ -20,6 +20,20 @@ Paths assume `amwal-ecr-flutter` and `ecr_sdk` sit under the same parent directo
 If the Android build fails with JDK 25, uncomment `org.gradle.java.home` in
 `example/android/gradle.properties` and point it at a JDK 17 install.
 
+**Windows.** The package host is pure Dart (`AmwalEcrWindows`). Build and run
+the example only on a Windows machine (or Codemagic `example-windows`):
+
+```bash
+cd example
+flutter pub get
+flutter run -d windows
+```
+
+The example's `flutter_secure_storage` dependency needs Visual Studio **Desktop
+development with C++** plus **C++ ATL**. See
+[`example/README.md`](example/README.md#windows-visual-studio-required). macOS
+cannot compile the Windows target.
+
 ---
 
 ## Testing

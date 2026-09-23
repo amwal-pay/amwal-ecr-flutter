@@ -14,15 +14,18 @@ to use this package.
 Three things have to be true, and two of them are not in your code.
 
 **1. The terminal is in ECR mode.** Its TMS profile carries `terminalMode` `1`
-and an `ecrMode` of `1` (USB cable, Android), `2` (wi‑fi) or `5` (app to app,
-Android). A terminal in wi‑fi mode listens on port 9100; USB cable has no IP;
-app to app has no address at all, because the terminal is the device your till
-is running on. If `isReachable()` answers `false` on an address you are sure of,
+and an `ecrMode` of `1` (USB cable, **Android only**), `2` (wi‑fi), `4` (Web
+Service), or `5` (app to app, **Android only**). A terminal in wi‑fi mode
+listens on port 9100; USB cable has no IP; app to app has no address at all,
+because the terminal is the device your till is running on. On Windows and
+iOS, USB cable and app to app are typed unsupported — use wi‑fi or Web
+Service. If `isReachable()` answers `false` on an address you are sure of,
 check the profile before debugging the network.
 
-**2. The phone can route to the terminal.** Same subnet, or a network that
-routes between them. A guest wi-fi with client isolation will not. Nothing to
-check for app to app: there is no network in it.
+**2. The till can route to the terminal.** Same subnet, or a network that
+routes between them. A guest wi-fi with client isolation will not. On Windows,
+allow the app through the firewall for outbound TCP (and HTTPS for Web
+Service). Nothing to check for app to app: there is no network in it.
 
 **3. You have the terminal's serial number.** The operator registered it; the
 terminal shows its own address and port under the card scheme logos when the
@@ -402,7 +405,7 @@ Three things a till gets wrong if it is not careful:
   booking it as a full sale loses more.
 - **`raw` is there for anything not surfaced.** It is the terminal's whole answer
   as JSON text — parse it if you need a field this API does not model, but
-  prefer the typed fields, which are the same on both platforms.
+  prefer the typed fields, which are the same on Android, iOS, and Windows.
 
 ---
 
@@ -460,8 +463,9 @@ never as an exception.
 
 ## Threading, lifecycles and concurrency
 
-- Every call is safe from the UI isolate. The socket work happens on a native
-  background thread on both platforms.
+- Every call is safe from the UI isolate. Socket / HTTP work runs off the UI
+  isolate (native background thread on Android and iOS; Dart `dart:io` on
+  Windows).
 - One terminal serves **one transaction at a time**. A second money-moving
   request while one is running comes back as `EcrDeclined` with response code
   `96` — nothing was attempted, and it is safe to send again once the terminal
@@ -530,3 +534,5 @@ keys out of the repository entirely.
 - [ ] The Cancel button's wording does not promise that the payment was undone.
 - [ ] The receipt number is recorded before a sale is sent, so a till killed
       mid-transaction can reconcile on next launch.
+- [ ] On Windows, use Wi‑Fi or Web Service only (USB cable and app to app are
+      Android-only), and confirm the PC can route to the terminal / Hub.

@@ -50,7 +50,10 @@ class SelectedTerminalConfig {
   }) {
     final List<String> issues = <String>[];
     if (!terminal.mode.isSupportedInSimulator) {
-      issues.add('${terminal.mode.label} is not supported in this simulator');
+      issues.add(
+        terminal.mode.unsupportedReason ??
+            '${terminal.mode.label} is not supported on this platform',
+      );
     }
 
     final String trimmedKey = secureHashKey.trim();

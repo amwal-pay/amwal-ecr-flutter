@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ecr_mode.dart';
+import 'live_config.dart';
 
 /// App-owned signing and Web Service settings.
 ///
@@ -63,6 +64,23 @@ class EcrSimulatorSettings {
     await preferences.remove(_keyWifiSecureHash);
     await preferences.remove(_keySecureHashLegacy);
     await preferences.remove(_keyWebServiceSecureHash);
+
+    // Compile-time live seeds fill empty slots only (never overwrite).
+    if (wifi.isEmpty && LiveEcrConfig.wifiSecureHashKey.trim().isNotEmpty) {
+      wifi = LiveEcrConfig.wifiSecureHashKey.trim();
+      await secure.write(key: _keyWifiSecureHash, value: wifi);
+    }
+    if (web.isEmpty &&
+        LiveEcrConfig.webServiceSecureHashKey.trim().isNotEmpty) {
+      web = LiveEcrConfig.webServiceSecureHashKey.trim();
+      await secure.write(key: _keyWebServiceSecureHash, value: web);
+    }
+    if (preferences.getString(_keyEnvironment) == null) {
+      final EcrEnvironment? seeded = LiveEcrConfig.environmentOrNull;
+      if (seeded != null) {
+        await preferences.setString(_keyEnvironment, seeded.wireName);
+      }
+    }
 
     return EcrSimulatorSettings._(
       prefs: preferences,
