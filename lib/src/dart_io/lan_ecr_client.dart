@@ -6,6 +6,7 @@ import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
 import 'ecr_message.dart';
@@ -171,6 +172,31 @@ final class LanEcrClient {
           json,
           merchantReference: message.merchantReference,
         ),
+    };
+  }
+
+  /// Asks what the terminal is and what it will accept.
+  ///
+  /// Reads only: nothing is authorised and no card is presented, so it is
+  /// safe to repeat.
+  Future<EcrSignOn> signOn({String merchantReference = ''}) async {
+    final EcrMessage message = EcrMessage.build(
+      type: EcrTransactionType.signOn,
+      config: config,
+      terminalSerial: serialNumber,
+      merchantReference: merchantReference,
+    );
+
+    final _Answer answer = await _exchange(message);
+    return switch (answer) {
+      _Broken(:final EcrFailure failure) => EcrSignOnFailed(
+        merchantReference: message.merchantReference,
+        failure: failure,
+      ),
+      _Ok(:final Map<String, Object?> json) => EcrWireReaders.toSignOn(
+        json,
+        merchantReference: message.merchantReference,
+      ),
     };
   }
 

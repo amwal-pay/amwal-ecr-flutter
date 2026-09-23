@@ -53,6 +53,7 @@ internal class EcrCallHandler(
                 EcrMethods.INQUIRE -> inquire(Call(arguments), once)
                 EcrMethods.INQUIRE_BY_REFERENCE -> inquireByReference(Call(arguments), once)
                 EcrMethods.RECEIPT -> receipt(Call(arguments), once)
+                EcrMethods.SIGN_ON -> signOn(Call(arguments), once)
                 EcrMethods.CLOSE_RECEIPT -> closeReceipt(Call(arguments), once)
                 else -> once.notImplemented()
             }
@@ -184,6 +185,22 @@ internal class EcrCallHandler(
                 call.merchantReference,
             )
         }
+    }
+
+    private fun signOn(call: Call, reply: EcrReply) {
+        // Same reach test as a receipt: both address the terminal directly.
+        // Over the Hub there is nothing to ask — a till configured for Web
+        // Service already knows what a sign-on would tell it about the link.
+        if (!call.supportsReceipt) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Sign-on is not supported over this transport",
+                ),
+            )
+            return
+        }
+        call.run(reply, EcrMapping::signOn) { it.signOn(call.merchantReference) }
     }
 
     private fun closeReceipt(call: Call, reply: EcrReply) {

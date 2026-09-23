@@ -8,6 +8,7 @@ import '../model/ecr_inquiry.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import 'amwal_ecr_platform.dart';
 import 'ecr_channel_contract.dart';
@@ -122,6 +123,16 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
             EcrCodec.receipt(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
             EcrReceiptFailed(merchantReference: '', failure: failure),
+      );
+
+  @override
+  Future<EcrSignOn> signOn(EcrRequest request) => _invoke<EcrSignOn>(
+        method: EcrMethods.signOn,
+        request: request,
+        decode: (Object? payload) =>
+            EcrCodec.signOn(payload, operationId: request.operationId),
+        onHostError: (EcrFailure failure) =>
+            EcrSignOnFailed(merchantReference: '', failure: failure),
       );
 
   @override

@@ -6,6 +6,7 @@ import '../model/ecr_inquiry.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
 import '../model/ecr_transport.dart';
@@ -196,6 +197,31 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
       ),
       onFailure: (EcrFailure failure) =>
           EcrReceiptFailed(merchantReference: '', failure: failure),
+    );
+  }
+
+  @override
+  Future<EcrSignOn> signOn(EcrRequest request) {
+    // Wi-Fi only, as everything here is: this host speaks TCP. The Hub has no
+    // sign-on route either — a Web Service terminal is reached through Amwal
+    // rather than addressed directly, so a till configured for it already
+    // knows the one thing a sign-on would tell it about the link.
+    if (request.transport != EcrTransport.wifi) {
+      return Future<EcrSignOn>.value(
+        EcrSignOnFailed(
+          merchantReference: '',
+          failure: EcrUnsupported(
+            'Sign-on is not available over ',
+          ),
+        ),
+      );
+    }
+    return _invoke<EcrSignOn>(
+      request: request,
+      run: (LanEcrClient lan, WebServiceEcrClient? web) =>
+          lan.signOn(merchantReference: request.merchantReference),
+      onFailure: (EcrFailure failure) =>
+          EcrSignOnFailed(merchantReference: '', failure: failure),
     );
   }
 

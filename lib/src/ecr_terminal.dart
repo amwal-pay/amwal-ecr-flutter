@@ -10,6 +10,7 @@ import 'model/ecr_payment_app.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
 import 'model/ecr_receipt_closed.dart';
+import 'model/ecr_sign_on.dart';
 import 'model/ecr_result.dart';
 import 'model/ecr_transaction_type.dart';
 import 'model/ecr_transport.dart';
@@ -363,6 +364,7 @@ final class EcrTerminal {
         // exhaustive without a default that would hide a new type.
         EcrTransactionType.inquiry ||
         EcrTransactionType.receipt ||
+        EcrTransactionType.signOn ||
         EcrTransactionType.closeReceipt =>
           throw EcrArgumentError('${type.displayName} does not move money'),
       },
@@ -571,6 +573,49 @@ final class EcrTerminal {
         ),
       ),
     );
+  }
+
+  /// Asks what this terminal is and what it will accept.
+  ///
+  /// A till has no other way to know. TMS can disable an operation or move an
+  /// amount limit at any moment, and the terminal picks that up on its next
+  /// heartbeat while your till carries on offering a button that will now be
+  /// refused. Ask at start of day, and whenever you want to check your picture
+  /// of the terminal is still current.
+  ///
+  /// The answer is a snapshot and goes stale the moment TMS changes anything.
+  /// That is safe, and deliberately so: the terminal checks its own profile on
+  /// every request it is sent, so an operation that has since been disabled is
+  /// refused rather than attempted. A till that never signs on twice still
+  /// corrects itself.
+  ///
+  /// Reads only. No card is presented and no money moves, so it is safe to
+  /// repeat as often as you like.
+  Future<EcrSignOn> signOn({
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    final String id = operationId ?? _newOperationId();
+    // The same transports that can be asked for a receipt can be asked what
+    // they are: both reach a terminal directly. Over the Hub there is nothing
+    // to ask — a till configured for Web Service already knows the link.
+    if (!transport.supportsReceipt) {
+      return _refusedWith<EcrSignOn>(
+        id,
+        (EcrFailure failure) =>
+            EcrSignOnFailed(merchantReference: '', failure: failure),
+        _unsupportedTransport('Sign-on'),
+      ).result;
+    }
+
+    return _operation<EcrSignOn>(
+      id,
+      _platform.signOn(
+        _request(operationId: id, merchantReference: merchantReference),
+      ),
+    ).result;
   }
 
   /// Asks the terminal to put its receipt away and go back to its idle screen.

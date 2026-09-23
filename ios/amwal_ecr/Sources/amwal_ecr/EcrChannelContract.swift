@@ -15,6 +15,8 @@ enum EcrMethods {
     static let inquire = "inquire"
     static let inquireByReference = "inquireByReference"
     static let receipt = "receipt"
+    static let signOn = "signOn"
+    static let closeReceipt = "closeReceipt"
     static let cancel = "cancel"
 }
 

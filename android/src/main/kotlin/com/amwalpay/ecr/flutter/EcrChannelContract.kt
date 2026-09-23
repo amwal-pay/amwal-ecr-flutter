@@ -19,6 +19,7 @@ internal object EcrMethods {
     const val INQUIRE = "inquire"
     const val INQUIRE_BY_REFERENCE = "inquireByReference"
     const val RECEIPT = "receipt"
+    const val SIGN_ON = "signOn"
     const val CLOSE_RECEIPT = "closeReceipt"
     const val CANCEL = "cancel"
 }
@@ -64,6 +65,7 @@ internal object EcrResultKeys {
     const val PARTIAL_APPROVAL = "partialApproval"
     const val REQUESTED_AMOUNT = "requestedAmount"
     const val RAW = "raw"
+    const val CAPABILITIES = "capabilities"
     const val FAILURE = "failure"
     const val TRANSACTION = "transaction"
     const val URL = "url"
@@ -90,6 +92,9 @@ internal object EcrOutcomes {
 
     /** Close-receipt outcome. A refusal reuses [DECLINED]. */
     const val IDLE = "idle"
+
+    /** Sign-on outcome. A terminal that cannot serve reuses [UNAVAILABLE]. */
+    const val AVAILABLE = "available"
 }
 
 internal object EcrFailureKeys {
@@ -194,4 +199,25 @@ internal object EcrTransports {
     fun isSupportedTransport(name: String?): Boolean =
         isIpTransport(name) || isUsbCable(name) || isWebService(name) ||
             isPaymentApp(name)
+}
+
+/**
+ * Keys inside the [EcrResultKeys.CAPABILITIES] map.
+ *
+ * The terminal's own field names, carried across the channel unchanged, so the
+ * Dart side reads the same words the wire uses.
+ */
+internal object EcrCapabilityKeys {
+    const val AVAILABLE = "available"
+    const val REASON = "reason"
+    const val ECR_MODE = "ecrMode"
+    const val TERMINAL_NAME = "terminalName"
+    const val CURRENCY_CODE = "currencyCode"
+    const val MINOR_UNIT_DIGITS = "minorUnitDigits"
+    const val E_RECEIPT = "eReceipt"
+    const val PHYSICAL_RECEIPT = "physicalReceipt"
+    const val PERMITTED_TRANSACTIONS = "permittedTransactions"
+    const val MESSAGE_TYPE = "messageType"
+    const val MIN_AMOUNT = "minAmount"
+    const val MAX_AMOUNT = "maxAmount"
 }

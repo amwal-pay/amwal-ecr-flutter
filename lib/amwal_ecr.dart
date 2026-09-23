@@ -43,6 +43,7 @@ export 'src/model/ecr_payment_app.dart';
 export 'src/model/ecr_reachability.dart';
 export 'src/model/ecr_receipt.dart';
 export 'src/model/ecr_receipt_closed.dart';
+export 'src/model/ecr_sign_on.dart';
 export 'src/model/ecr_response_code.dart';
 export 'src/model/ecr_result.dart';
 export 'src/model/ecr_transaction.dart';

@@ -61,6 +61,22 @@ enum EcrTransactionType {
     requiresOriginalDate: true,
   ),
 
+  /// Asks what the terminal is and what it will accept: whether it is
+  /// available, which transport its profile puts it on, which operations that
+  /// profile permits, and the amounts allowed for each.
+  ///
+  /// The only type that names neither an amount nor an earlier transaction —
+  /// it asks about the terminal itself. Absent from [menuOptions] like
+  /// [receipt]: an operator never asks for it, a till does, at start of day
+  /// and whenever it wants to check its picture of the terminal is current.
+  signOn(
+    messageType: 'SIGN_ON',
+    displayName: 'Sign-on',
+    requiresAmount: false,
+    requiresOriginalStan: false,
+    requiresOriginalDate: false,
+  ),
+
   /// Asks the terminal to put its receipt away and return to its idle screen.
   ///
   /// Names neither an amount nor an earlier transaction. Absent from

@@ -70,6 +70,11 @@ abstract final class EcrWebServiceMessage {
       // till's to tidy. Refused before reaching here, in the platform.
       case EcrTransactionType.closeReceipt:
         break;
+      // Nor a sign-on route. A Web Service terminal is reached through Amwal
+      // rather than addressed directly, so a till configured for it already
+      // knows what a sign-on would tell it about the link.
+      case EcrTransactionType.signOn:
+        break;
     }
 
     body['merchantId'] = merchantId;

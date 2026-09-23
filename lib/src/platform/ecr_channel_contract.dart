@@ -48,6 +48,9 @@ abstract final class EcrMethods {
   /// `receipt(args) -> receipt map`
   static const String receipt = 'receipt';
 
+  /// `signOn(args) -> sign-on map`
+  static const String signOn = 'signOn';
+
   /// `closeReceipt(args) -> receipt-closed map`
   static const String closeReceipt = 'closeReceipt';
 
@@ -64,6 +67,7 @@ abstract final class EcrMethods {
     inquire,
     inquireByReference,
     receipt,
+    signOn,
     closeReceipt,
     cancel,
   ];
@@ -197,6 +201,11 @@ abstract final class EcrResultKeys {
   /// transaction whose answer never arrived. Absent when it was not asked.
   static const String recovered = 'recovered';
 
+  /// A capabilities map: what the terminal says it is and what it permits.
+  /// Carried by a sign-on, and by a refusal that names the profile it was
+  /// refused against.
+  static const String capabilities = 'capabilities';
+
   static const List<String> all = <String>[
     outcome,
     merchantReference,
@@ -214,6 +223,62 @@ abstract final class EcrResultKeys {
     url,
     nextStep,
     recovered,
+    capabilities,
+  ];
+}
+
+/// Keys inside the [EcrResultKeys.capabilities] map.
+///
+/// These are the terminal's own field names, carried across the channel
+/// unchanged, so the Dart side reads the same words the wire uses.
+abstract final class EcrCapabilityKeys {
+  /// Whether the terminal can take a transaction right now.
+  static const String available = 'available';
+
+  /// Why not, when it cannot.
+  static const String reason = 'reason';
+
+  /// The raw `ecrMode` from the terminal's TMS profile.
+  static const String ecrMode = 'ecrMode';
+
+  /// The terminal's own name from its profile.
+  static const String terminalName = 'terminalName';
+
+  /// ISO 4217 numeric.
+  static const String currencyCode = 'currencyCode';
+
+  /// Where the decimal point falls for [currencyCode].
+  static const String minorUnitDigits = 'minorUnitDigits';
+
+  /// Whether the terminal can publish an e-receipt.
+  static const String eReceipt = 'eReceipt';
+
+  /// Whether the terminal prints.
+  static const String physicalReceipt = 'physicalReceipt';
+
+  /// One entry per operation the till may send.
+  static const String permittedTransactions = 'permittedTransactions';
+
+  /// Inside one permitted entry: which operation.
+  static const String messageType = 'messageType';
+
+  /// Inside one permitted entry: the amount limits, in major units.
+  static const String minAmount = 'minAmount';
+  static const String maxAmount = 'maxAmount';
+
+  static const List<String> all = <String>[
+    available,
+    reason,
+    ecrMode,
+    terminalName,
+    currencyCode,
+    minorUnitDigits,
+    eReceipt,
+    physicalReceipt,
+    permittedTransactions,
+    messageType,
+    minAmount,
+    maxAmount,
   ];
 }
 
@@ -264,6 +329,10 @@ abstract final class EcrOutcomes {
   /// Close-receipt outcomes. A refusal reuses [declined].
   static const String idle = 'idle';
 
+  /// Sign-on outcomes. A terminal that answered and cannot serve reuses
+  /// [unavailable] — it is the same statement about the same thing.
+  static const String available = 'available';
+
   static const List<String> all = <String>[
     approved,
     declined,
@@ -273,6 +342,7 @@ abstract final class EcrOutcomes {
     ready,
     unavailable,
     idle,
+    available,
   ];
 }
 

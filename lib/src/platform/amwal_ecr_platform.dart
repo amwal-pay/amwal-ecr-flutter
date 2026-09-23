@@ -4,6 +4,7 @@ import '../model/ecr_inquiry.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import 'amwal_ecr_method_channel.dart';
 import 'ecr_request.dart';
@@ -69,6 +70,9 @@ abstract base class AmwalEcrPlatform extends PlatformInterface {
 
   /// Fetches an earlier transaction's e-receipt.
   Future<EcrReceipt> receipt(EcrRequest request);
+
+  /// Asks what the terminal is and what it will accept.
+  Future<EcrSignOn> signOn(EcrRequest request);
 
   /// Asks the terminal to put its receipt away and go back to its idle screen.
   Future<EcrReceiptClosed> closeReceipt(EcrRequest request);

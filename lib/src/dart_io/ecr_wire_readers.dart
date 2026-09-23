@@ -3,8 +3,10 @@ import 'dart:convert';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
+import '../platform/ecr_codec.dart';
 import 'ecr_response_envelope.dart';
 
 /// Maps a terminal JSON answer into typed Dart outcomes.
@@ -139,6 +141,42 @@ abstract final class EcrWireReaders {
         canVoid: wireFlag(data['canVoid']),
         canRefund: wireFlag(data['canRefund']),
       ),
+      raw: raw,
+    );
+  }
+
+  /// Reads the answer to a sign-on.
+  ///
+  /// Availability comes from the capabilities payload, not from the
+  /// envelope's `success`: a terminal that is there and cannot serve has
+  /// answered perfectly well — it has said what it is.
+  static EcrSignOn toSignOn(
+    Map<String, Object?> json, {
+    required String merchantReference,
+  }) {
+    final EcrResponseEnvelope envelope = EcrResponseEnvelope.parse(json);
+    final String resolvedReference = envelope.merchantReference.isEmpty
+        ? merchantReference
+        : envelope.merchantReference;
+    final String raw = jsonEncode(json);
+    final EcrTerminalCapabilities what = EcrCodec.capabilities(envelope.data);
+
+    if (!what.available) {
+      return EcrSignOnUnavailable(
+        merchantReference: resolvedReference,
+        reason: what.reason.isNotEmpty
+            ? what.reason
+            : (envelope.displayMessage.isEmpty
+                  ? 'The terminal is not available'
+                  : envelope.displayMessage),
+        capabilities: what,
+        raw: raw,
+      );
+    }
+
+    return EcrSignOnAvailable(
+      merchantReference: resolvedReference,
+      capabilities: what,
       raw: raw,
     );
   }

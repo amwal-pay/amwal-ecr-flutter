@@ -4,8 +4,11 @@ import '../model/ecr_next_step.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
+import '../model/ecr_transaction_type.dart';
+import '../model/ecr_transport.dart';
 import 'ecr_channel_contract.dart';
 
 /// Turns the maps the host returns into the typed results callers see.
@@ -189,6 +192,116 @@ abstract final class EcrCodec {
           failure: EcrMalformed(_unknownOutcome(unknown, 'a receipt')),
         );
     }
+  }
+
+  /// Reads a sign-on answer.
+  static EcrSignOn signOn(Object? payload, {required String operationId}) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return EcrSignOnFailed(
+        merchantReference: '',
+        failure: EcrMalformed(_notAMap(payload, 'a sign-on')),
+      );
+    }
+
+    final String reference = _string(map, EcrResultKeys.merchantReference);
+    final EcrTerminalCapabilities what =
+        capabilities(map[EcrResultKeys.capabilities]);
+    final String raw = _string(map, EcrResultKeys.raw);
+
+    switch (_string(map, EcrResultKeys.outcome)) {
+      case EcrOutcomes.available:
+        return EcrSignOnAvailable(
+          merchantReference: reference,
+          capabilities: what,
+          raw: raw,
+        );
+      case EcrOutcomes.unavailable:
+        return EcrSignOnUnavailable(
+          merchantReference: reference,
+          reason: what.reason.isNotEmpty
+              ? what.reason
+              : _string(map, EcrResultKeys.responseMessage),
+          capabilities: what,
+          raw: raw,
+        );
+      case EcrOutcomes.failed:
+        return EcrSignOnFailed(
+          merchantReference: reference,
+          failure: failure(map[EcrResultKeys.failure]),
+        );
+      case final String unknown:
+        return EcrSignOnFailed(
+          merchantReference: reference,
+          failure: EcrMalformed(_unknownOutcome(unknown, 'a sign-on')),
+        );
+    }
+  }
+
+  /// Reads a capabilities map.
+  ///
+  /// Absent or unreadable gives an empty, unavailable terminal rather than a
+  /// throw: a till that cannot read the profile must offer nothing, not
+  /// everything.
+  static EcrTerminalCapabilities capabilities(Object? payload) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) return const EcrTerminalCapabilities();
+
+    final Object? mode = map[EcrCapabilityKeys.ecrMode];
+    final int? ecrMode = mode is int ? mode : int.tryParse('${mode ?? ''}');
+
+    final Object? entries = map[EcrCapabilityKeys.permittedTransactions];
+    final List<EcrPermittedTransaction> permitted = <EcrPermittedTransaction>[];
+    if (entries is List) {
+      for (final Object? entry in entries) {
+        final Map<Object?, Object?>? one = _asMap(entry);
+        if (one == null) continue;
+        final EcrTransactionType? type = _typeOf(
+          _string(one, EcrCapabilityKeys.messageType),
+        );
+        // An operation this version has never heard of is dropped, not
+        // guessed at. A till cannot offer a button it has no code for, and
+        // inventing one would be worse than leaving it out.
+        if (type == null) continue;
+        permitted.add(
+          EcrPermittedTransaction(
+            type: type,
+            minAmount: _string(one, EcrCapabilityKeys.minAmount),
+            maxAmount: _string(one, EcrCapabilityKeys.maxAmount),
+          ),
+        );
+      }
+    }
+
+    return EcrTerminalCapabilities(
+      available: _bool(map, EcrCapabilityKeys.available),
+      reason: _string(map, EcrCapabilityKeys.reason),
+      transport: _transportOf(ecrMode),
+      ecrMode: ecrMode,
+      terminalName: _string(map, EcrCapabilityKeys.terminalName),
+      currencyCode: _string(map, EcrCapabilityKeys.currencyCode),
+      minorUnitDigits: _int(map, EcrCapabilityKeys.minorUnitDigits),
+      eReceipt: _bool(map, EcrCapabilityKeys.eReceipt),
+      physicalReceipt: _bool(map, EcrCapabilityKeys.physicalReceipt),
+      permitted: permitted,
+    );
+  }
+
+  static EcrTransactionType? _typeOf(String messageType) {
+    for (final EcrTransactionType type in EcrTransactionType.values) {
+      if (type.messageType == messageType) return type;
+    }
+    return null;
+  }
+
+  /// The transport for an `ecrMode`, or null for one this version does not
+  /// know — which is not an error, only something it cannot name.
+  static EcrTransport? _transportOf(int? ecrMode) {
+    if (ecrMode == null) return null;
+    for (final EcrTransport transport in EcrTransport.values) {
+      if (transport.wireValue == ecrMode) return transport;
+    }
+    return null;
   }
 
   /// Reads a close-receipt answer.

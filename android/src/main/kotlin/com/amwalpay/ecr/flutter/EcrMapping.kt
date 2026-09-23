@@ -7,6 +7,8 @@ import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrReceiptClosed
 import com.amwalpay.ecr.EcrResult
+import com.amwalpay.ecr.EcrSignOn
+import com.amwalpay.ecr.EcrTerminalCapabilities
 import com.amwalpay.ecr.EcrTransaction
 import com.amwalpay.ecr.Failure
 import com.amwalpay.ecr.NextStep
@@ -160,6 +162,54 @@ internal object EcrMapping {
             EcrResultKeys.FAILURE to failure(receipt.failure),
         )
     }
+
+    fun signOn(signOn: EcrSignOn): Map<String, Any?> = when (signOn) {
+        is EcrSignOn.Available -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.AVAILABLE,
+            EcrResultKeys.MERCHANT_REFERENCE to signOn.merchantReference,
+            EcrResultKeys.CAPABILITIES to capabilities(signOn.capabilities),
+            EcrResultKeys.RAW to signOn.raw,
+        )
+
+        is EcrSignOn.Unavailable -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.UNAVAILABLE,
+            EcrResultKeys.MERCHANT_REFERENCE to signOn.merchantReference,
+            EcrResultKeys.REASON to signOn.reason,
+            EcrResultKeys.CAPABILITIES to capabilities(signOn.capabilities),
+            EcrResultKeys.RAW to signOn.raw,
+        )
+
+        is EcrSignOn.Failed -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
+            EcrResultKeys.MERCHANT_REFERENCE to signOn.merchantReference,
+            EcrResultKeys.FAILURE to failure(signOn.failure),
+        )
+    }
+
+    /**
+     * The terminal's profile, as the Dart side reads it.
+     *
+     * `ecrMode` crosses as the number rather than as the SDK's enum name: a
+     * mode this SDK has never heard of still has a number, and dropping it
+     * would lose the one fact a newer till could act on.
+     */
+    fun capabilities(what: EcrTerminalCapabilities): Map<String, Any?> = mapOf(
+        EcrCapabilityKeys.AVAILABLE to what.available,
+        EcrCapabilityKeys.REASON to what.reason,
+        EcrCapabilityKeys.ECR_MODE to what.transport.ecrMode,
+        EcrCapabilityKeys.TERMINAL_NAME to what.terminalName,
+        EcrCapabilityKeys.CURRENCY_CODE to what.currencyCode,
+        EcrCapabilityKeys.MINOR_UNIT_DIGITS to what.minorUnitDigits,
+        EcrCapabilityKeys.E_RECEIPT to what.eReceipt,
+        EcrCapabilityKeys.PHYSICAL_RECEIPT to what.physicalReceipt,
+        EcrCapabilityKeys.PERMITTED_TRANSACTIONS to what.permitted.map { entry ->
+            mapOf(
+                EcrCapabilityKeys.MESSAGE_TYPE to entry.type.messageType,
+                EcrCapabilityKeys.MIN_AMOUNT to entry.minAmount,
+                EcrCapabilityKeys.MAX_AMOUNT to entry.maxAmount,
+            )
+        },
+    )
 
     fun receiptClosed(closed: EcrReceiptClosed): Map<String, Any?> = when (closed) {
         is EcrReceiptClosed.Idle -> mapOf(
