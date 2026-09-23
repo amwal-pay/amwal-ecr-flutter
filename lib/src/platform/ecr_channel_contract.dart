@@ -48,6 +48,9 @@ abstract final class EcrMethods {
   /// `receipt(args) -> receipt map`
   static const String receipt = 'receipt';
 
+  /// `closeReceipt(args) -> receipt-closed map`
+  static const String closeReceipt = 'closeReceipt';
+
   /// `cancel({operationId}) -> bool`, true when an operation was still running.
   static const String cancel = 'cancel';
 
@@ -61,6 +64,7 @@ abstract final class EcrMethods {
     inquire,
     inquireByReference,
     receipt,
+    closeReceipt,
     cancel,
   ];
 }
@@ -257,6 +261,9 @@ abstract final class EcrOutcomes {
   static const String ready = 'ready';
   static const String unavailable = 'unavailable';
 
+  /// Close-receipt outcomes. A refusal reuses [declined].
+  static const String idle = 'idle';
+
   static const List<String> all = <String>[
     approved,
     declined,
@@ -265,6 +272,7 @@ abstract final class EcrOutcomes {
     notFound,
     ready,
     unavailable,
+    idle,
   ];
 }
 

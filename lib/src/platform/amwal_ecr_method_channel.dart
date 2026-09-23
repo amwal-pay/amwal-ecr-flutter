@@ -7,6 +7,7 @@ import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
+import '../model/ecr_receipt_closed.dart';
 import '../model/ecr_result.dart';
 import 'amwal_ecr_platform.dart';
 import 'ecr_channel_contract.dart';
@@ -121,6 +122,17 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
             EcrCodec.receipt(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
             EcrReceiptFailed(merchantReference: '', failure: failure),
+      );
+
+  @override
+  Future<EcrReceiptClosed> closeReceipt(EcrRequest request) =>
+      _invoke<EcrReceiptClosed>(
+        method: EcrMethods.closeReceipt,
+        request: request,
+        decode: (Object? payload) =>
+            EcrCodec.receiptClosed(payload, operationId: request.operationId),
+        onHostError: (EcrFailure failure) =>
+            EcrReceiptClosedFailed(merchantReference: '', failure: failure),
       );
 
   Future<EcrResult> _invokeResult(String method, EcrRequest request) =>

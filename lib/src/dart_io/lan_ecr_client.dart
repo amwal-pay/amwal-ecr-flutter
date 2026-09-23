@@ -5,6 +5,7 @@ import '../model/ecr_config.dart';
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_receipt.dart';
+import '../model/ecr_receipt_closed.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
 import 'ecr_message.dart';
@@ -170,6 +171,31 @@ final class LanEcrClient {
           json,
           merchantReference: message.merchantReference,
         ),
+    };
+  }
+
+  /// Asks the terminal to put its receipt away and return to its idle screen.
+  ///
+  /// Names no transaction and moves no money, so it is safe to repeat: an
+  /// already-idle terminal answers the same way.
+  Future<EcrReceiptClosed> closeReceipt({String merchantReference = ''}) async {
+    final EcrMessage message = EcrMessage.build(
+      type: EcrTransactionType.closeReceipt,
+      config: config,
+      terminalSerial: serialNumber,
+      merchantReference: merchantReference,
+    );
+
+    final _Answer answer = await _exchange(message);
+    return switch (answer) {
+      _Broken(:final EcrFailure failure) => EcrReceiptClosedFailed(
+        merchantReference: message.merchantReference,
+        failure: failure,
+      ),
+      _Ok(:final Map<String, Object?> json) => EcrWireReaders.toReceiptClosed(
+        json,
+        merchantReference: message.merchantReference,
+      ),
     };
   }
 

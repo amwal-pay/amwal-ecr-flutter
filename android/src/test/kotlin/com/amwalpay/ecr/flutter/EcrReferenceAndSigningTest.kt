@@ -3,6 +3,7 @@ package com.amwalpay.ecr.flutter
 import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReceipt
+import com.amwalpay.ecr.EcrReceiptClosed
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrTransaction
 import com.amwalpay.ecr.Failure
@@ -118,6 +119,12 @@ class EcrReferenceAndSigningTest {
             calls += "receipt"
             lastmerchantReference = merchantReference
             return EcrReceipt.Unavailable("REQ", "no", "{}")
+        }
+
+        override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed {
+            calls += "closeReceipt"
+            lastmerchantReference = merchantReference
+            return EcrReceiptClosed.Idle("REQ", "{}")
         }
     }
 

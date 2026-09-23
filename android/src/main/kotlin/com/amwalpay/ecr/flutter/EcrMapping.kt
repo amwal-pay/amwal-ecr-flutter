@@ -5,6 +5,7 @@ import com.amwalpay.ecr.EcrEnvironment
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
+import com.amwalpay.ecr.EcrReceiptClosed
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrTransaction
 import com.amwalpay.ecr.Failure
@@ -157,6 +158,28 @@ internal object EcrMapping {
             EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
             EcrResultKeys.MERCHANT_REFERENCE to receipt.merchantReference,
             EcrResultKeys.FAILURE to failure(receipt.failure),
+        )
+    }
+
+    fun receiptClosed(closed: EcrReceiptClosed): Map<String, Any?> = when (closed) {
+        is EcrReceiptClosed.Idle -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.IDLE,
+            EcrResultKeys.MERCHANT_REFERENCE to closed.merchantReference,
+            EcrResultKeys.RAW to closed.raw,
+        )
+
+        is EcrReceiptClosed.Refused -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.DECLINED,
+            EcrResultKeys.MERCHANT_REFERENCE to closed.merchantReference,
+            EcrResultKeys.RESPONSE_CODE to closed.responseCode,
+            EcrResultKeys.REASON to closed.reason,
+            EcrResultKeys.RAW to closed.raw,
+        )
+
+        is EcrReceiptClosed.Failed -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
+            EcrResultKeys.MERCHANT_REFERENCE to closed.merchantReference,
+            EcrResultKeys.FAILURE to failure(closed.failure),
         )
     }
 

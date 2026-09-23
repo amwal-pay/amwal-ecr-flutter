@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the reverse, stops working.
 void main() {
   group('method names', () {
-    test('are exactly these nine, spelled exactly this way', () {
+    test('are exactly these ten, spelled exactly this way', () {
       expect(EcrMethods.isReachable, 'isReachable');
       expect(EcrMethods.probeReachability, 'probeReachability');
       expect(EcrMethods.sale, 'sale');
@@ -26,6 +26,7 @@ void main() {
       expect(EcrMethods.inquire, 'inquire');
       expect(EcrMethods.inquireByReference, 'inquireByReference');
       expect(EcrMethods.receipt, 'receipt');
+      expect(EcrMethods.closeReceipt, 'closeReceipt');
       expect(EcrMethods.cancel, 'cancel');
     });
 
@@ -39,6 +40,7 @@ void main() {
         'inquire',
         'inquireByReference',
         'receipt',
+        'closeReceipt',
         'cancel',
       ]);
     });

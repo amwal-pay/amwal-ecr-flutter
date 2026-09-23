@@ -19,6 +19,7 @@ internal object EcrMethods {
     const val INQUIRE = "inquire"
     const val INQUIRE_BY_REFERENCE = "inquireByReference"
     const val RECEIPT = "receipt"
+    const val CLOSE_RECEIPT = "closeReceipt"
     const val CANCEL = "cancel"
 }
 
@@ -86,6 +87,9 @@ internal object EcrOutcomes {
     const val NOT_FOUND = "notFound"
     const val READY = "ready"
     const val UNAVAILABLE = "unavailable"
+
+    /** Close-receipt outcome. A refusal reuses [DECLINED]. */
+    const val IDLE = "idle"
 }
 
 internal object EcrFailureKeys {

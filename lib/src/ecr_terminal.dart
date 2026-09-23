@@ -9,6 +9,7 @@ import 'model/ecr_inquiry.dart';
 import 'model/ecr_payment_app.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
+import 'model/ecr_receipt_closed.dart';
 import 'model/ecr_result.dart';
 import 'model/ecr_transaction_type.dart';
 import 'model/ecr_transport.dart';
@@ -361,7 +362,8 @@ final class EcrTerminal {
         // Unreachable: movesMoney was checked above. Kept so the switch is
         // exhaustive without a default that would hide a new type.
         EcrTransactionType.inquiry ||
-        EcrTransactionType.receipt =>
+        EcrTransactionType.receipt ||
+        EcrTransactionType.closeReceipt =>
           throw EcrArgumentError('${type.displayName} does not move money'),
       },
     );
@@ -569,6 +571,54 @@ final class EcrTerminal {
         ),
       ),
     );
+  }
+
+  /// Asks the terminal to put its receipt away and go back to its idle screen.
+  ///
+  /// A receipt waits for the operator, and when your till drove the
+  /// transaction the operator is at the till, not at the terminal. Nobody is
+  /// going to dismiss it, and the terminal refuses the next transaction until
+  /// somebody does. Send this when the cashier has finished with the sale —
+  /// closing the outcome dialog is the natural moment.
+  ///
+  /// **Only you know when that is.** The terminal deliberately does not put
+  /// its own receipt away on a timer: an earlier version did, and took
+  /// receipts off merchants who were still reading them.
+  ///
+  /// Moves no money and names no transaction, so it is safe to repeat — an
+  /// already-idle terminal answers [EcrReceiptClosedIdle] just the same.
+  /// Nothing is lost by it either: [receipt] fetches the e-receipt again and
+  /// [inquire] looks the transaction up.
+  ///
+  /// A terminal too old to know the request answers [EcrReceiptClosedRefused].
+  /// Treat that as "cannot be asked" and carry on; the receipt stays up and
+  /// somebody presses back, as it did before this existed.
+  Future<EcrReceiptClosed> closeReceipt({
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    final String id = operationId ?? _newOperationId();
+    // The transports that can show a receipt are the ones that can be asked to
+    // put one away. Both questions are about the screen in front of the
+    // operator, and a transport with no screen at the other end has nothing to
+    // close.
+    if (!transport.supportsReceipt) {
+      return _refusedWith<EcrReceiptClosed>(
+        id,
+        (EcrFailure failure) =>
+            EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+        _unsupportedTransport('Closing the receipt'),
+      ).result;
+    }
+
+    return _operation<EcrReceiptClosed>(
+      id,
+      _platform.closeReceipt(
+        _request(operationId: id, merchantReference: merchantReference),
+      ),
+    ).result;
   }
 
   /// Asks the host to abandon the operation with [operationId].

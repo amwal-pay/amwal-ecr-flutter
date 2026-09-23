@@ -65,6 +65,11 @@ abstract final class EcrWebServiceMessage {
         body['originalTransactionDate'] = originalTransactionDate;
       case EcrTransactionType.receipt:
         break;
+      // The Hub has no route for it and wants none: over Web Service the
+      // terminal is not on the till's counter, so its screen is not the
+      // till's to tidy. Refused before reaching here, in the platform.
+      case EcrTransactionType.closeReceipt:
+        break;
     }
 
     body['merchantId'] = merchantId;

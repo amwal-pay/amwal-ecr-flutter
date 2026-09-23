@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_receipt.dart';
+import '../model/ecr_receipt_closed.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
 import 'ecr_response_envelope.dart';
@@ -138,6 +139,38 @@ abstract final class EcrWireReaders {
         canVoid: wireFlag(data['canVoid']),
         canRefund: wireFlag(data['canRefund']),
       ),
+      raw: raw,
+    );
+  }
+
+  /// Reads the answer to a request to put the receipt away.
+  ///
+  /// Only the envelope's `success` is looked at, because the terminal is not
+  /// reporting on a receipt — it is reporting that it is idle, which is
+  /// equally true whether it had one to close or not.
+  static EcrReceiptClosed toReceiptClosed(
+    Map<String, Object?> json, {
+    required String merchantReference,
+  }) {
+    final EcrResponseEnvelope envelope = EcrResponseEnvelope.parse(json);
+    final String resolvedReference = envelope.merchantReference.isEmpty
+        ? merchantReference
+        : envelope.merchantReference;
+    final String raw = jsonEncode(json);
+
+    if (!envelope.success) {
+      return EcrReceiptClosedRefused(
+        merchantReference: resolvedReference,
+        responseCode: envelope.responseCode,
+        reason: envelope.displayMessage.isEmpty
+            ? 'The terminal refused to close its receipt'
+            : envelope.displayMessage,
+        raw: raw,
+      );
+    }
+
+    return EcrReceiptClosedIdle(
+      merchantReference: resolvedReference,
       raw: raw,
     );
   }

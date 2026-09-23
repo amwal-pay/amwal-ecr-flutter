@@ -53,6 +53,7 @@ internal class EcrCallHandler(
                 EcrMethods.INQUIRE -> inquire(Call(arguments), once)
                 EcrMethods.INQUIRE_BY_REFERENCE -> inquireByReference(Call(arguments), once)
                 EcrMethods.RECEIPT -> receipt(Call(arguments), once)
+                EcrMethods.CLOSE_RECEIPT -> closeReceipt(Call(arguments), once)
                 else -> once.notImplemented()
             }
         } catch (e: EcrInvalidArgument) {
@@ -169,7 +170,7 @@ internal class EcrCallHandler(
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
-                    "Receipt fetch is only supported over Wi‑Fi / USB cable ECR",
+                    "Receipt fetch is not supported over this transport",
                 ),
             )
             return
@@ -182,6 +183,25 @@ internal class EcrCallHandler(
                 call.originalTerminalId,
                 call.merchantReference,
             )
+        }
+    }
+
+    private fun closeReceipt(call: Call, reply: EcrReply) {
+        // The transports that can show a receipt are the ones that can be
+        // asked to put one away: both are about the screen the operator is
+        // looking at, and a transport with no screen at the far end has
+        // nothing to close.
+        if (!call.supportsReceipt) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Closing the receipt is not supported over this transport",
+                ),
+            )
+            return
+        }
+        call.run(reply, EcrMapping::receiptClosed) {
+            it.closeReceipt(call.merchantReference)
         }
     }
 

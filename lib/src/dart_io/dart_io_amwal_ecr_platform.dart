@@ -5,6 +5,7 @@ import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
+import '../model/ecr_receipt_closed.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
 import '../model/ecr_transport.dart';
@@ -195,6 +196,31 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
       ),
       onFailure: (EcrFailure failure) =>
           EcrReceiptFailed(merchantReference: '', failure: failure),
+    );
+  }
+
+  @override
+  Future<EcrReceiptClosed> closeReceipt(EcrRequest request) {
+    // Wi-Fi only, as everything here is: this host speaks TCP. The Hub has no
+    // route for it either — over Web Service the terminal is not on the till's
+    // counter, and what is on its screen is not the till's to tidy.
+    if (request.transport != EcrTransport.wifi) {
+      return Future<EcrReceiptClosed>.value(
+        EcrReceiptClosedFailed(
+          merchantReference: '',
+          failure: EcrUnsupported(
+            'Closing the receipt is not available over '
+            '${request.transport.name}',
+          ),
+        ),
+      );
+    }
+    return _invoke<EcrReceiptClosed>(
+      request: request,
+      run: (LanEcrClient lan, WebServiceEcrClient? web) =>
+          lan.closeReceipt(merchantReference: request.merchantReference),
+      onFailure: (EcrFailure failure) =>
+          EcrReceiptClosedFailed(merchantReference: '', failure: failure),
     );
   }
 

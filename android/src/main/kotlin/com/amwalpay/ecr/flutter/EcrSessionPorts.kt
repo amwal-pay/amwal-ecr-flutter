@@ -8,6 +8,7 @@ import com.amwalpay.ecr.EcrLogger
 import com.amwalpay.ecr.EcrOpenedSession
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
+import com.amwalpay.ecr.EcrReceiptClosed
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSessions
 import com.amwalpay.ecr.EcrTerminal
@@ -179,6 +180,9 @@ internal class SdkOpenedSessionPort(
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
     )
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        session.closeReceipt(merchantReference = merchantReference)
 }
 
 /**
@@ -259,6 +263,9 @@ internal class PaymentAppTerminalPort(
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
     )
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        terminal.closeReceipt(merchantReference = merchantReference)
 }
 
 internal class UnsupportedEcrTerminalPort(
@@ -316,6 +323,9 @@ internal class UnsupportedEcrTerminalPort(
         originalTerminalId: String,
         merchantReference: String,
     ): EcrReceipt = throw UnsupportedOperationException(message)
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        throw UnsupportedOperationException(message)
 
     private fun unsupported(): Nothing =
         throw EcrUnsupportedTransportException(message)
@@ -386,6 +396,9 @@ internal class InvalidPlanTerminalPort(
         originalTerminalId: String,
         merchantReference: String,
     ): EcrReceipt = EcrReceipt.Failed(merchantReference, Failure.Malformed(message))
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        EcrReceiptClosed.Failed(merchantReference, Failure.Malformed(message))
 
     private fun configFailed(merchantReference: String): EcrResult =
         EcrResult.Failed(merchantReference, Failure.Malformed(message))

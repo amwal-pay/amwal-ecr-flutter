@@ -3,6 +3,7 @@ package com.amwalpay.ecr.flutter
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
+import com.amwalpay.ecr.EcrReceiptClosed
 import com.amwalpay.ecr.EcrResult
 import java.math.BigDecimal
 
@@ -54,6 +55,9 @@ internal interface EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String,
     ): EcrReceipt
+
+    /** Asks the terminal to put its receipt away and go back to idle. */
+    suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed
 }
 
 /** Builds the port for one call's terminal. Replaced in tests. */

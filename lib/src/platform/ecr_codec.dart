@@ -3,6 +3,7 @@ import '../model/ecr_inquiry.dart';
 import '../model/ecr_next_step.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
+import '../model/ecr_receipt_closed.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
 import 'ecr_channel_contract.dart';
@@ -186,6 +187,47 @@ abstract final class EcrCodec {
         return EcrReceiptFailed(
           merchantReference: reference,
           failure: EcrMalformed(_unknownOutcome(unknown, 'a receipt')),
+        );
+    }
+  }
+
+  /// Reads a close-receipt answer.
+  static EcrReceiptClosed receiptClosed(
+    Object? payload, {
+    required String operationId,
+  }) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return EcrReceiptClosedFailed(
+        merchantReference: '',
+        failure: EcrMalformed(_notAMap(payload, 'a closed receipt')),
+      );
+    }
+
+    final String reference = _string(map, EcrResultKeys.merchantReference);
+
+    switch (_string(map, EcrResultKeys.outcome)) {
+      case EcrOutcomes.idle:
+        return EcrReceiptClosedIdle(
+          merchantReference: reference,
+          raw: _string(map, EcrResultKeys.raw),
+        );
+      case EcrOutcomes.declined:
+        return EcrReceiptClosedRefused(
+          merchantReference: reference,
+          responseCode: _string(map, EcrResultKeys.responseCode),
+          reason: _string(map, EcrResultKeys.responseMessage),
+          raw: _string(map, EcrResultKeys.raw),
+        );
+      case EcrOutcomes.failed:
+        return EcrReceiptClosedFailed(
+          merchantReference: reference,
+          failure: failure(map[EcrResultKeys.failure]),
+        );
+      case final String unknown:
+        return EcrReceiptClosedFailed(
+          merchantReference: reference,
+          failure: EcrMalformed(_unknownOutcome(unknown, 'a closed receipt')),
         );
     }
   }
