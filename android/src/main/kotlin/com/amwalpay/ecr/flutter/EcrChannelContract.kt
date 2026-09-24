@@ -194,6 +194,18 @@ internal object EcrTransports {
         isIpTransport(name) || isUsbCable(name)
 
     /**
+     * Whether the terminal can usefully be asked to put its receipt away.
+     *
+     * App to app is excluded, and not because it would fail — because it has
+     * already happened. An app-to-app answer is held until the operator closes
+     * the receipt, so by the time the till has a result the terminal is idle
+     * again. Sending it anyway brings the payment app forward for a moment and
+     * sends it away again, for nothing.
+     */
+    fun supportsCloseReceipt(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name)
+
+    /**
      * Whether the terminal can be asked if it is there without sending a
      * transaction.
      *

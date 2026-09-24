@@ -80,6 +80,18 @@ enum EcrTransport {
   /// for it already knows what a sign-on would tell it about the link.
   bool get supportsSignOn => isIpTransport || isUsbCable;
 
+  /// Whether the terminal can usefully be asked to put its receipt away.
+  ///
+  /// **App to app is excluded, and not because it would fail** — because it has
+  /// already happened. An app-to-app answer is held until the operator closes
+  /// the receipt, so by the time a till has a result the terminal is back on
+  /// its idle screen. Sending it anyway brings the payment app to the front for
+  /// a moment and sends it away again, for nothing.
+  ///
+  /// Web Service is excluded for the reason it always is: there the terminal is
+  /// not on the till's counter, so its screen is not the till's to tidy.
+  bool get supportsCloseReceipt => isIpTransport || isUsbCable;
+
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
   /// [usbCable] is implemented on Android only; on iOS and Windows the host

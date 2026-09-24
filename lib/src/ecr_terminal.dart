@@ -646,11 +646,10 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    // The transports that can show a receipt are the ones that can be asked to
-    // put one away. Both questions are about the screen in front of the
-    // operator, and a transport with no screen at the other end has nothing to
-    // close.
-    if (!transport.supportsReceipt) {
+    // Narrower than fetching a receipt: app to app is excluded because there
+    // the receipt is already closed by the time an answer comes back. See
+    // [EcrTransport.supportsCloseReceipt].
+    if (!transport.supportsCloseReceipt) {
       return _refusedWith<EcrReceiptClosed>(
         id,
         (EcrFailure failure) =>

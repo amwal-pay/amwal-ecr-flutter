@@ -204,11 +204,9 @@ internal class EcrCallHandler(
     }
 
     private fun closeReceipt(call: Call, reply: EcrReply) {
-        // The transports that can show a receipt are the ones that can be
-        // asked to put one away: both are about the screen the operator is
-        // looking at, and a transport with no screen at the far end has
-        // nothing to close.
-        if (!call.supportsReceipt) {
+        // Narrower than fetching a receipt: app to app is excluded because
+        // there the receipt is already closed when the answer comes back.
+        if (!call.supportsCloseReceipt) {
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
@@ -334,6 +332,7 @@ internal class EcrCallHandler(
 
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
         val supportsSignOn: Boolean get() = EcrTransports.supportsSignOn(transport)
+        val supportsCloseReceipt: Boolean get() = EcrTransports.supportsCloseReceipt(transport)
 
         val hasReachabilityProbe: Boolean
             get() = EcrTransports.hasReachabilityProbe(transport)
