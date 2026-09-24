@@ -72,6 +72,18 @@ final class EcrCallHandler {
                 try inquireByReference(Call(arguments), once)
             case EcrMethods.receipt:
                 try receipt(Call(arguments), once)
+            // Named so the three contract files stay in step, and answered
+            // rather than left to notImplemented. AmwalECR does not carry
+            // either operation yet, and a typed unsupported failure is what a
+            // till can act on — the Dart side reads it as "this platform
+            // cannot do it", which is exactly true.
+            case EcrMethods.signOn, EcrMethods.closeReceipt:
+                once.success(
+                    EcrMapping.failedResult(
+                        kind: EcrFailureKinds.unsupported,
+                        message: "\(method) is not supported on iOS yet"
+                    )
+                )
             default:
                 once.notImplemented()
             }

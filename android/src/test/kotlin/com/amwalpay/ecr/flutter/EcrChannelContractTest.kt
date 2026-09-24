@@ -161,15 +161,50 @@ class EcrChannelContractTest {
     }
 
     @Test
-    fun `Wi-Fi, USB cable and Web Service can be driven from the plugin`() {
+    fun `Wi-Fi, USB cable, Web Service and the payment app can be driven from the plugin`() {
         assertEquals(true, EcrTransports.isSupportedTransport("usb_cable"))
         assertEquals(true, EcrTransports.isSupportedTransport("wifi"))
         assertEquals(true, EcrTransports.isSupportedTransport("webService"))
         assertEquals(true, EcrTransports.isSupportedTransport("web_service"))
+        assertEquals(true, EcrTransports.isSupportedTransport("app_to_app"))
         assertEquals(false, EcrTransports.isSupportedTransport("bluetooth"))
         assertEquals(true, EcrTransports.supportsReceipt("wifi"))
         assertEquals(true, EcrTransports.supportsReceipt("usb_cable"))
         assertEquals(false, EcrTransports.supportsReceipt("webService"))
+        // Local, and a receipt like the others: the terminal keeps the same
+        // record and answers the same request over it.
+        assertEquals(true, EcrTransports.supportsReceipt("app_to_app"))
+    }
+
+    @Test
+    fun `the payment app is its own transport and nothing else claims it`() {
+        assertEquals("app_to_app", EcrTransports.PAYMENT_APP)
+        assertEquals(true, EcrTransports.isPaymentApp("app_to_app"))
+        assertEquals(false, EcrTransports.isPaymentApp("usb_cable"))
+        assertEquals(false, EcrTransports.isPaymentApp("wifi"))
+        assertEquals(false, EcrTransports.isPaymentApp("webService"))
+        assertEquals(false, EcrTransports.isPaymentApp("carrier-pigeon"))
+        assertEquals(false, EcrTransports.isPaymentApp(null))
+        // It opens no socket, whatever else it is.
+        assertEquals(false, EcrTransports.isIpTransport("app_to_app"))
+        assertEquals(false, EcrTransports.isUsbCable("app_to_app"))
+    }
+
+    @Test
+    fun `what can be probed is not the same question as what can fetch a receipt`() {
+        // They were one answer for three transports and are not for the
+        // fourth. Asked as "not Wi-Fi and not cable", a probe over app to app
+        // answered "unreachable" without ever looking — which read, on a
+        // device where the payment app was plainly installed, as "not
+        // installed".
+        assertEquals(true, EcrTransports.hasReachabilityProbe("app_to_app"))
+        assertEquals(true, EcrTransports.supportsReceipt("app_to_app"))
+
+        assertEquals(true, EcrTransports.hasReachabilityProbe("wifi"))
+        assertEquals(true, EcrTransports.hasReachabilityProbe("usb_cable"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe("webService"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe("bluetooth"))
+        assertEquals(false, EcrTransports.hasReachabilityProbe(null))
     }
 
     @Test

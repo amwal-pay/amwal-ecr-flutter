@@ -1,9 +1,58 @@
 # Changelog
 
 All notable changes to `amwal_ecr`. This project follows semantic versioning,
-with the addition described in [the release policy](doc/release-policy.md): any
+with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
+
+## 0.3.0
+
+Adds a fourth transport and a Windows host in the same release.
+
+**Breaking, in the way an enum is breaking.** `EcrTransport` gains
+`appToApp`, so an exhaustive `switch` over it in your code stops compiling
+until it has a branch. The Windows host does not change the Dart API for
+Wi‑Fi or Web Service: the same `EcrSessions.open` / `EcrTerminal` path works
+on Android, iOS, and Windows. USB cable and app to app remain Android-only.
+
+### Added
+
+- **`EcrTransport.appToApp`** (`ecrMode` 5, channel name `app_to_app`) and
+  **`EcrTerminal.appToApp`**, which takes the payment app's application id
+  instead of an address. An address passed there is refused at construction.
+- **`EcrPaymentApp.defaultPackage`** — the application id of the terminal
+  build, overridable for a test build.
+- `EcrOpenedSession.usesPaymentApp`, and `EcrTransport.hasReachabilityProbe` /
+  `.supportsReceipt`, which replace two open-coded predicate pairs that were
+  one answer for three transports and are not for the fourth.
+- The Android host is now `ActivityAware`, and the plugin's manifest declares
+  the payment app in `<queries>`.
+- **Windows** support via a pure-Dart `AmwalEcrPlatform` (`DartIoAmwalEcrPlatform`):
+  LAN TCP (Wi‑Fi) and Web Service Hub REST, registered with
+  `dartPluginClass: AmwalEcrWindows`. USB cable and app to app return a typed
+  unsupported failure on Windows.
+- Protocol engine under `lib/src/dart_io/` — framing, LAN / Web Service HMAC
+  signing, message build, response parse, auto-inquire-on-failure, and cancel
+  by closing the socket / aborting HTTP.
+- Example app **Windows** runner + Codemagic `example-windows` workflow; optional
+  `--dart-define` live config seeds (`ECR_*`) documented in `example/README.md`.
+- Windows docs: Install / troubleshooting in the package README, full platform
+  matrix in `doc/compatibility-matrix.md`, and Visual Studio ATL notes in both
+  example READMEs (for `flutter_secure_storage`).
+
+### Worth knowing before you ship it
+
+- App to app is Android only. On iOS, Windows, and the web an operation is
+  refused before anything is sent, with a message about the platform rather
+  than about a port.
+- An e-receipt can be fetched over app to app, as on the other local
+  transports, at the cost of another handover the operator watches.
+- An interrupted app-to-app round trip — the payment app destroyed before it
+  answered — is an unknown outcome pointing at `inquireByMerchantReference`,
+  never a decline. Send a `merchantReference` on every request: it is the only
+  handle that survives.
+- `autoInquireOnFailure` is forced off for app to app, because the inquiry is
+  itself another trip through the payment app.
 
 ## 0.2.1
 

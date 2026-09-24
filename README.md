@@ -1,7 +1,7 @@
 # amwal_ecr
 
-Drive an Amwal POS terminal from Flutter, on Android and iOS, through one Dart
-API.
+Drive an Amwal POS terminal from Flutter, on Android, iOS and Windows, through
+one Dart API.
 
 ```dart
 final EcrTerminal terminal = EcrTerminal(
@@ -90,6 +90,12 @@ project is built with `flutter config --enable-swift-package-manager` — on iOS
 Both are published SDKs in their own right, so a native module in the same app
 can use the same terminal without going through Flutter.
 
+**On Windows** there is no native ECR binary. The same Dart API is served by a
+pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`) that speaks LAN
+TCP and Web Service Hub REST over `dart:io`. Add the dependency as usual — no
+extra Windows plugin registration is required. USB cable is not supported on
+Windows (typed `EcrUnsupported`).
+
 The Android host declares `INTERNET` itself. On iOS, add the local network
 description to `ios/Runner/Info.plist`:
 
@@ -103,7 +109,12 @@ refusal is indistinguishable from a terminal that is switched off: every call
 answers `EcrUnreachable`. Ship the key, and treat a first-run `EcrUnreachable`
 on iOS as a permission question before a networking one.
 
-If the terminal is on a different subnet from the phone, that is a network
+On Windows, allow the app through the firewall when prompted so it can open
+outbound TCP to the terminal (default port `9100`) and HTTPS to the Hub for Web
+Service. Put the PC on a network that can route to the terminal — guest Wi‑Fi
+with client isolation will not work.
+
+If the terminal is on a different subnet from the till, that is a network
 problem, not a configuration one — the two have to be able to route to each
 other.
 
@@ -116,7 +127,9 @@ other.
 A terminal does not listen on port 9100 by default. Its TMS profile decides:
 `terminalMode` `1` puts it in ECR mode, and `ecrMode` says how it is attached.
 **The terminal opens a listener for `ecrMode` 2 (wi‑fi). `ecrMode` 1 is USB
-cable (Android only, no IP). Web Service (`ecrMode` 4) uses REST.**
+cable (Android only, no IP). Web Service (`ecrMode` 4) uses REST. `ecrMode` 5
+is app to app (Android only): the till hands the request to the Amwal payment
+app on the same device — use `EcrTerminal.appToApp`, not an address.**
 
 ```dart
 EcrTerminal(
@@ -129,8 +142,8 @@ EcrTerminal(
 On `bluetooth` every operation answers with an
 [`EcrUnsupported`] failure immediately, without opening a socket — so a till
 reading a profile it does not control handles it as one more outcome rather
-than as a hang. USB cable is supported on Android; on iOS it returns the same
-typed unsupported failure.
+than as a hang. USB cable and app to app are supported on Android; on iOS and
+Windows they return the same typed unsupported failure.
 
 The terminal shows its own IP and port under the card scheme logos when the link
 is wi-fi. That is what the operator reads off and registers.
@@ -328,8 +341,8 @@ shop floor.
 - **[Integration guide](doc/integration-guide.md)** — the whole thing, with the
   patterns a till actually needs.
 - **[Compatibility matrix](doc/compatibility-matrix.md)** — exact native
-  versions, platform floors, and every place the two platforms differ.
-- **[Release policy](doc/release-policy.md)** — versioning, release order and
+  versions, platform floors, and every place Android, iOS, and Windows differ.
+- **[Release policy](RELEASING.md)** — versioning, release order and
   how to roll back.
 - **[Wire protocol](https://github.com/amwal-pay/ECR-simulator/blob/main/ecr-sdk/docs/protocol.md)** — what actually goes over
   the socket, if you are debugging on the wire.
@@ -341,9 +354,12 @@ shop floor.
 `example/` is a direct port of the Android example in `app/`: the same two
 screens, the same settings, the same order of checks, the same dialogs.
 
-- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable, or Web
-  Service), with separate LAN and Web Service signing keys and environment
-  (SIT/UAT/PROD), matching the Android simulator app.
+- **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable on
+  Android, or Web Service), with separate LAN and Web Service signing keys and
+  environment (SIT/UAT/PROD), matching the Android simulator app. On **Windows**
+  the same UI runs over the pure-Dart host (Wi‑Fi + Web Service; USB is marked
+  unsupported). Optional `--dart-define` live seeds are documented in
+  [`example/README.md`](example/README.md).
 - **Transaction** — type, amount, receipt number, the original's date, and which
   terminal. It probes the terminal before it sends anything, then shows the
   outcome in the same dialogs.
@@ -356,8 +372,15 @@ them, because the Android example does not — see
 
 ```bash
 cd example
-flutter run
+flutter run                 # default device
+flutter run -d windows      # desktop till (LAN / Web Service)
 ```
+
+**Windows builds must run on a Windows host** (or Codemagic `example-windows`).
+macOS cannot compile or run the Windows target. See
+[`example/README.md`](example/README.md) for Visual Studio **C++ ATL** (required
+by the example's `flutter_secure_storage` plugin), NTFS/symlink notes, and live
+`--dart-define` seeds.
 
 **Android build fails with `25.0.2`?** Flutter is using JDK 25 from Android Studio,
 which Android Gradle Plugin does not support yet. Use JDK 17:
@@ -487,17 +510,19 @@ pub.dev, after checking that the tag, `pubspec.yaml` and `CHANGELOG.md` agree
 and that the `AmwalECR` range the iOS host asks for is live on trunk; a version
 already on pub.dev is skipped, not re-pushed. Credentials come from a Codemagic
 environment group, never from the repository — see
-[the release policy](doc/release-policy.md#first-time-setup).
+[the release policy](RELEASING.md#first-time-setup).
 
 ### Distributing the example
 
-Two more workflows in [`codemagic.yaml`](codemagic.yaml) put the example app in
-testers' hands. Neither runs on an ordinary push — every run is a build somebody
-is notified about — so they start from a tag, or a push to `release/example`:
+Three more workflows in [`codemagic.yaml`](codemagic.yaml) put the example app in
+testers' hands. None of them run on an ordinary push — every run is a build
+somebody is notified about — so they start from a tag, or a push to
+`release/example`:
 
 ```bash
 git tag example-ios-1     && git push origin example-ios-1      # → TestFlight, group "Testers"
 git tag example-android-1 && git push origin example-android-1  # → Firebase App Distribution, group "tester"
+git tag example-windows-1 && git push origin example-windows-1  # → Windows Release zip artifact
 ```
 
 - **`example-ios-testflight`** signs `example/` for App Store distribution
@@ -508,11 +533,14 @@ git tag example-android-1 && git push origin example-android-1  # → Firebase A
 - **`example-android-firebase`** builds the release APK — signed with the debug
   key, as the Flutter template does, which App Distribution accepts — and
   uploads it to the Firebase app for `com.amwalpay.amwal_ecr_example`.
+- **`example-windows`** builds `example/` with `flutter build windows --release`
+  on a `windows_x2` instance and zips the runner `Release` folder (downloadable
+  artifact).
 
-Both read the shared Codemagic environment group `A`: `FIREBASE_SERVICE_ACCOUNT`
-and `FIREBASE_ANDROID_APP_ID` (the Firebase app id, project `amwal-8ad3e`). The
-build number is Codemagic's per-app counter; the build name is `version:` in
-`example/pubspec.yaml`.
+Firebase workflows read the shared Codemagic environment group `A`:
+`FIREBASE_SERVICE_ACCOUNT` and `FIREBASE_ANDROID_APP_ID` (the Firebase app id,
+project `amwal-8ad3e`). The build number is Codemagic's per-app counter; the
+build name is `version:` in `example/pubspec.yaml`.
 
 ---
 
@@ -577,6 +605,10 @@ AmwalEcr: <- approved code=00
 
 On iOS the same lines go to the Xcode console, prefixed `[AmwalEcr]`.
 
+On Windows the pure-Dart host prints comparable lines to the console / IDE
+debug output (no Logcat). Release builds stay quiet unless you enable logging
+the same way you would for any Flutter desktop app.
+
 Read it in this order:
 
 - **No `->` line at all** — the call never left Dart. The form was refused
@@ -598,10 +630,20 @@ Release builds stay quiet. To make one talk for a session:
 - the terminal's TMS profile must have `terminalMode` `1` and `ecrMode` `1` or
   `2` — on any other mode the port is simply not open;
 - the terminal must be on its idle screen;
-- the phone and the terminal must be able to route to each other. A guest
+- the till and the terminal must be able to route to each other. A guest
   network with client isolation will not work, and an **Android emulator cannot
   reach a device on your LAN** without port forwarding — use a real phone on the
-  same Wi-Fi.
+  same Wi-Fi;
+- on **Windows**, confirm Windows Firewall allowed the app, the project sits on
+  local NTFS (plugin symlinks), and you are not targeting USB cable (unsupported).
+
+### Windows example fails to build (`flutter_secure_storage_windows_plugin.vcxproj`)
+
+The truncated MSBuild line that ends in that `.vcxproj` path usually means
+**C++ ATL is missing** from Visual Studio (real missing pieces: `atlstr.h` /
+`atls.lib`). Install **Desktop development with C++** plus **C++ ATL for latest
+v143 build tools**, then `flutter clean` and rebuild. Full steps:
+[`example/README.md`](example/README.md#windows-visual-studio-required).
 
 ---
 

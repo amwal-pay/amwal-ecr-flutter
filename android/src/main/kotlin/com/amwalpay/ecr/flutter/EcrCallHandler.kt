@@ -53,6 +53,8 @@ internal class EcrCallHandler(
                 EcrMethods.INQUIRE -> inquire(Call(arguments), once)
                 EcrMethods.INQUIRE_BY_REFERENCE -> inquireByReference(Call(arguments), once)
                 EcrMethods.RECEIPT -> receipt(Call(arguments), once)
+                EcrMethods.SIGN_ON -> signOn(Call(arguments), once)
+                EcrMethods.CLOSE_RECEIPT -> closeReceipt(Call(arguments), once)
                 else -> once.notImplemented()
             }
         } catch (e: EcrInvalidArgument) {
@@ -84,7 +86,7 @@ internal class EcrCallHandler(
         // A probe is not registered as cancellable: it is bounded by
         // probeTimeout, which is three seconds, and a cancel that arrives
         // inside that window has nothing useful to do.
-        if (!call.isIpTransport && !call.isUsbCable) {
+        if (!call.hasReachabilityProbe) {
             reply.success(false)
             return
         }
@@ -94,7 +96,7 @@ internal class EcrCallHandler(
     }
 
     private fun probe(call: Call, reply: EcrReply) {
-        if (!call.isIpTransport && !call.isUsbCable) {
+        if (!call.hasReachabilityProbe) {
             reply.success(
                 EcrMapping.reachability(
                     com.amwalpay.ecr.EcrReachability(
@@ -169,7 +171,7 @@ internal class EcrCallHandler(
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
-                    "Receipt fetch is only supported over Wi‑Fi / USB cable ECR",
+                    "Receipt fetch is not supported over this transport",
                 ),
             )
             return
@@ -182,6 +184,39 @@ internal class EcrCallHandler(
                 call.originalTerminalId,
                 call.merchantReference,
             )
+        }
+    }
+
+    private fun signOn(call: Call, reply: EcrReply) {
+        // Narrower than a receipt: app to app is excluded as well as Web
+        // Service. A sign-on there costs a handover the operator watches, to
+        // learn what the next refusal carries anyway.
+        if (!call.supportsSignOn) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Sign-on is not supported over this transport",
+                ),
+            )
+            return
+        }
+        call.run(reply, EcrMapping::signOn) { it.signOn(call.merchantReference) }
+    }
+
+    private fun closeReceipt(call: Call, reply: EcrReply) {
+        // Narrower than fetching a receipt: app to app is excluded because
+        // there the receipt is already closed when the answer comes back.
+        if (!call.supportsCloseReceipt) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Closing the receipt is not supported over this transport",
+                ),
+            )
+            return
+        }
+        call.run(reply, EcrMapping::receiptClosed) {
+            it.closeReceipt(call.merchantReference)
         }
     }
 
@@ -296,6 +331,11 @@ internal class EcrCallHandler(
         val isUsbCable: Boolean get() = EcrTransports.isUsbCable(transport)
 
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
+        val supportsSignOn: Boolean get() = EcrTransports.supportsSignOn(transport)
+        val supportsCloseReceipt: Boolean get() = EcrTransports.supportsCloseReceipt(transport)
+
+        val hasReachabilityProbe: Boolean
+            get() = EcrTransports.hasReachabilityProbe(transport)
 
         val isSupportedTransport: Boolean get() = EcrTransports.isSupportedTransport(transport)
 

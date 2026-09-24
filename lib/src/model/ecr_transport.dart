@@ -22,7 +22,16 @@ enum EcrTransport {
   bluetooth(wireValue: 3, isIpTransport: false),
 
   /// `ecrMode` 4. The terminal is driven from the payment host over REST.
-  webService(wireValue: 4, isIpTransport: false);
+  webService(wireValue: 4, isIpTransport: false),
+
+  /// `ecrMode` 5. The terminal **is** this device: the till hands the request
+  /// to the Amwal payment app installed beside it and waits for the result.
+  ///
+  /// The only transport with no address. [EcrTerminal.host] carries the
+  /// payment app's application id instead, and reachability is whether that
+  /// app is installed and will accept a request — not whether anything
+  /// answers on a socket.
+  appToApp(wireValue: 5, isIpTransport: false);
 
   const EcrTransport({required this.wireValue, required this.isIpTransport});
 
@@ -37,16 +46,63 @@ enum EcrTransport {
   /// Whether the till reaches the terminal down a USB cable.
   bool get isUsbCable => this == EcrTransport.usbCable;
 
+  /// Whether the terminal is the device this till is running on.
+  bool get isAppToApp => this == EcrTransport.appToApp;
+
+  /// Whether a till can ask, before sending anything, if the terminal is
+  /// there.
+  ///
+  /// Named rather than written as "not web service" at each call site, because
+  /// the answer is not simply "is it a socket": app to app can be checked
+  /// without sending anything, and Web Service cannot be checked at all.
+  bool get hasReachabilityProbe =>
+      isIpTransport || isUsbCable || isAppToApp;
+
+  /// Whether an e-receipt can be fetched over this transport.
+  ///
+  /// App to app included. The terminal keeps the same record and answers the
+  /// same request over it — the Kotlin SDK has always allowed this, and a
+  /// terminal that behaved differently depending on which SDK asked is the one
+  /// thing this package exists to prevent.
+  bool get supportsReceipt => isIpTransport || isUsbCable || isAppToApp;
+
+  /// Whether the terminal can be asked what it is over this transport.
+  ///
+  /// **App to app is excluded, deliberately.** A sign-on there costs a visible
+  /// handover — this app to the background, the payment app to the front — to
+  /// learn something no operator asked for. Nothing is lost by not asking: a
+  /// request the profile does not permit is refused anyway, and the refusal
+  /// carries the same profile a sign-on would have. The native SDK makes the
+  /// same exclusion for the same reason.
+  ///
+  /// Web Service is excluded too, for a different one: there the terminal is
+  /// reached through Amwal rather than addressed directly, so a till configured
+  /// for it already knows what a sign-on would tell it about the link.
+  bool get supportsSignOn => isIpTransport || isUsbCable;
+
+  /// Whether the terminal can usefully be asked to put its receipt away.
+  ///
+  /// **App to app is excluded, and not because it would fail** — because it has
+  /// already happened. An app-to-app answer is held until the operator closes
+  /// the receipt, so by the time a till has a result the terminal is back on
+  /// its idle screen. Sending it anyway brings the payment app to the front for
+  /// a moment and sends it away again, for nothing.
+  ///
+  /// Web Service is excluded for the reason it always is: there the terminal is
+  /// not on the till's counter, so its screen is not the till's to tidy.
+  bool get supportsCloseReceipt => isIpTransport || isUsbCable;
+
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
-  /// [usbCable] is implemented on Android only; on iOS the native host returns
-  /// a typed unsupported failure if a call still reaches it.
+  /// [usbCable] is implemented on Android only; on iOS and Windows the host
+  /// returns a typed unsupported failure if a call still reaches it.
   bool get isSupportedByPlugin {
     switch (this) {
       case EcrTransport.wifi:
       case EcrTransport.webService:
         return true;
       case EcrTransport.usbCable:
+      case EcrTransport.appToApp:
         return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       case EcrTransport.bluetooth:
         return false;
@@ -67,6 +123,7 @@ enum EcrTransport {
   /// [usbCable] is `"usb_cable"` — not [Enum.name] (`usbCable`).
   String get channelName => switch (this) {
         EcrTransport.usbCable => 'usb_cable',
+        EcrTransport.appToApp => 'app_to_app',
         _ => name,
       };
 

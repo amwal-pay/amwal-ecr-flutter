@@ -8,8 +8,11 @@ import com.amwalpay.ecr.EcrLogger
 import com.amwalpay.ecr.EcrOpenedSession
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
+import com.amwalpay.ecr.EcrReceiptClosed
+import com.amwalpay.ecr.EcrSignOn
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSessions
+import com.amwalpay.ecr.EcrTerminal
 import com.amwalpay.ecr.Failure
 import java.math.BigDecimal
 
@@ -22,11 +25,42 @@ internal object EcrSessionPorts {
     fun create(
         host: String,
         serialNumber: String,
+        activities: () -> android.app.Activity? = { null },
+        paymentAppResults: PaymentAppResults? = null,
         transport: String,
         config: EcrConfig,
         logger: EcrLogger,
         context: Context? = null,
     ): EcrTerminalPort {
+        // The payment app on this device is not an EcrLink: there is nothing
+        // to plan, because there is no address to validate and no port to
+        // check. It is an EcrTerminal over a different channel, which is all
+        // the SDK ever asked a transport to be.
+        if (EcrTransports.isPaymentApp(transport)) {
+            if (paymentAppResults == null) return UnsupportedEcrTerminalPort(transport)
+            return PaymentAppTerminalPort(
+                EcrTerminal(
+                    channel = PaymentAppEcrChannel(
+                        // The constant, not whatever arrived on the channel.
+                        // Dart refuses any other application id already; this
+                        // is the same rule where it cannot be talked around.
+                        packageName = PaymentAppEcrChannel.PACKAGE_NAME,
+                        activities = activities,
+                        results = paymentAppResults,
+                        log = { logger.debug(it) },
+                    ),
+                    serialNumber = serialNumber,
+                    // Auto-inquiry off, whatever the caller asked for. It is
+                    // another round trip through the payment app, so on this
+                    // transport alone it would put that app back on screen
+                    // moments after the operator dismissed it. Recovery here is
+                    // the till's, when its operator is ready.
+                    config = config.copy(autoInquireOnFailure = false),
+                    logger = logger,
+                ),
+            )
+        }
+
         val link = linkFor(host, transport, config) ?: return UnsupportedEcrTerminalPort(transport)
         val plan = EcrSessions.plan(
             link = link,
@@ -147,6 +181,98 @@ internal class SdkOpenedSessionPort(
         transactionDate = transactionDate,
         originalTerminalId = originalTerminalId,
     )
+
+    override suspend fun signOn(merchantReference: String): EcrSignOn =
+        session.signOn(merchantReference = merchantReference)
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        session.closeReceipt(merchantReference = merchantReference)
+}
+
+/**
+ * One [EcrTerminal] driving the payment app on this device.
+ *
+ * Its own port rather than an [EcrOpenedSession] because that class plans a
+ * link, and there is nothing here to plan: no address to validate and no port
+ * to open. Everything above the channel — signing, the nonce, verifying the
+ * answer, what a response code means — is the terminal's, exactly as it is for
+ * a socket.
+ */
+internal class PaymentAppTerminalPort(
+    private val terminal: EcrTerminal,
+) : EcrTerminalPort {
+
+    override suspend fun isReachable(): Boolean = terminal.isReachable()
+
+    override suspend fun probeReachability(): EcrReachability =
+        terminal.probeReachability()
+
+    override suspend fun sale(amount: BigDecimal, merchantReference: String): EcrResult =
+        terminal.sale(amount = amount, merchantReference = merchantReference)
+
+    override suspend fun void(
+        receiptNumber: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.void(
+        receiptNumber = receiptNumber,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun refund(
+        amount: BigDecimal,
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrResult = terminal.refund(
+        amount = amount,
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun inquire(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquire(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+    )
+
+    override suspend fun inquireByReference(
+        originalReference: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrInquiry = terminal.inquireByReference(
+        originalReference = originalReference,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+        merchantReference = merchantReference,
+    )
+
+    override suspend fun receipt(
+        receiptNumber: String,
+        transactionDate: String,
+        originalTerminalId: String,
+        merchantReference: String,
+    ): EcrReceipt = terminal.receipt(
+        receiptNumber = receiptNumber,
+        transactionDate = transactionDate,
+        originalTerminalId = originalTerminalId,
+    )
+
+    override suspend fun signOn(merchantReference: String): EcrSignOn =
+        terminal.signOn(merchantReference = merchantReference)
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        terminal.closeReceipt(merchantReference = merchantReference)
 }
 
 internal class UnsupportedEcrTerminalPort(
@@ -204,6 +330,12 @@ internal class UnsupportedEcrTerminalPort(
         originalTerminalId: String,
         merchantReference: String,
     ): EcrReceipt = throw UnsupportedOperationException(message)
+
+    override suspend fun signOn(merchantReference: String): EcrSignOn =
+        throw UnsupportedOperationException(message)
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        throw UnsupportedOperationException(message)
 
     private fun unsupported(): Nothing =
         throw EcrUnsupportedTransportException(message)
@@ -274,6 +406,12 @@ internal class InvalidPlanTerminalPort(
         originalTerminalId: String,
         merchantReference: String,
     ): EcrReceipt = EcrReceipt.Failed(merchantReference, Failure.Malformed(message))
+
+    override suspend fun signOn(merchantReference: String): EcrSignOn =
+        EcrSignOn.Failed(merchantReference, Failure.Malformed(message))
+
+    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        EcrReceiptClosed.Failed(merchantReference, Failure.Malformed(message))
 
     private fun configFailed(merchantReference: String): EcrResult =
         EcrResult.Failed(merchantReference, Failure.Malformed(message))

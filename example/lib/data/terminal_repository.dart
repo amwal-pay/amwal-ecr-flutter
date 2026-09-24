@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'live_config.dart';
 import 'terminal.dart';
 
 /// The outcome of a write that can fail on a duplicate serial number.
@@ -48,7 +49,16 @@ class TerminalRepository {
         .map((String json) =>
             Terminal.fromJson(jsonDecode(json) as Map<String, Object?>))
         .toList();
+    await _seedLiveTerminalIfNeeded();
     return _cache;
+  }
+
+  /// Inserts a compile-time live terminal once when the store is empty.
+  Future<void> _seedLiveTerminalIfNeeded() async {
+    if (_cache.isNotEmpty) return;
+    final Terminal? live = LiveEcrConfig.terminalOrNull();
+    if (live == null) return;
+    await _store(<Terminal>[live]);
   }
 
   Future<void> _store(List<Terminal> terminals) async {

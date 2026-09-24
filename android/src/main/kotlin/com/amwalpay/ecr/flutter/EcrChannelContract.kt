@@ -19,6 +19,8 @@ internal object EcrMethods {
     const val INQUIRE = "inquire"
     const val INQUIRE_BY_REFERENCE = "inquireByReference"
     const val RECEIPT = "receipt"
+    const val SIGN_ON = "signOn"
+    const val CLOSE_RECEIPT = "closeReceipt"
     const val CANCEL = "cancel"
 }
 
@@ -63,6 +65,7 @@ internal object EcrResultKeys {
     const val PARTIAL_APPROVAL = "partialApproval"
     const val REQUESTED_AMOUNT = "requestedAmount"
     const val RAW = "raw"
+    const val CAPABILITIES = "capabilities"
     const val FAILURE = "failure"
     const val TRANSACTION = "transaction"
     const val URL = "url"
@@ -86,6 +89,12 @@ internal object EcrOutcomes {
     const val NOT_FOUND = "notFound"
     const val READY = "ready"
     const val UNAVAILABLE = "unavailable"
+
+    /** Close-receipt outcome. A refusal reuses [DECLINED]. */
+    const val IDLE = "idle"
+
+    /** Sign-on outcome. A terminal that cannot serve reuses [UNAVAILABLE]. */
+    const val AVAILABLE = "available"
 }
 
 internal object EcrFailureKeys {
@@ -152,7 +161,12 @@ internal object EcrTransports {
     /** Snake_case alias; maps to [WEB_SERVICE]. */
     const val WEB_SERVICE_SNAKE = "web_service"
 
+    /** The Amwal payment app on this same device. */
+    const val PAYMENT_APP = "app_to_app"
+
     fun isUsbCable(name: String?): Boolean = name == USB_CABLE
+
+    fun isPaymentApp(name: String?): Boolean = name == PAYMENT_APP
 
     fun isWebService(name: String?): Boolean =
         name == WEB_SERVICE || name == WEB_SERVICE_SNAKE
@@ -160,11 +174,72 @@ internal object EcrTransports {
     /** Whether the terminal opens a socket for this transport. Wi‑Fi only. */
     fun isIpTransport(name: String?): Boolean = name == WIFI
 
-    /** Whether receipt fetch is available (Wi‑Fi or USB cable). */
+    /**
+     * Whether receipt fetch is available.
+     *
+     * Everything but Web Service. The payment app on this device keeps the
+     * same record and answers the same request, and the Kotlin SDK allows it.
+     */
     fun supportsReceipt(name: String?): Boolean =
-        name == WIFI || isUsbCable(name)
+        name == WIFI || isUsbCable(name) || isPaymentApp(name)
+
+    /**
+     * Whether the terminal can be asked what it is over this transport.
+     *
+     * Narrower than [supportsReceipt]: the payment app is excluded. A sign-on
+     * there costs a visible handover — this app to the background, the payment
+     * app to the front — to learn what the next refusal carries anyway.
+     */
+    fun supportsSignOn(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name)
+
+    /**
+     * Whether the terminal can usefully be asked to put its receipt away.
+     *
+     * App to app is excluded, and not because it would fail — because it has
+     * already happened. An app-to-app answer is held until the operator closes
+     * the receipt, so by the time the till has a result the terminal is idle
+     * again. Sending it anyway brings the payment app forward for a moment and
+     * sends it away again, for nothing.
+     */
+    fun supportsCloseReceipt(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name)
+
+    /**
+     * Whether the terminal can be asked if it is there without sending a
+     * transaction.
+     *
+     * Named rather than written as "not web service" at each call site: it was
+     * the same answer as [supportsReceipt] for three transports and is not for
+     * the fourth. The payment app can be checked — is it installed, will it
+     * accept a request — and cannot hand over a receipt.
+     */
+    fun hasReachabilityProbe(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
 
     /** Whether this Flutter plugin can drive transactions over this transport. */
     fun isSupportedTransport(name: String?): Boolean =
-        isIpTransport(name) || isUsbCable(name) || isWebService(name)
+        isIpTransport(name) || isUsbCable(name) || isWebService(name) ||
+            isPaymentApp(name)
+}
+
+/**
+ * Keys inside the [EcrResultKeys.CAPABILITIES] map.
+ *
+ * The terminal's own field names, carried across the channel unchanged, so the
+ * Dart side reads the same words the wire uses.
+ */
+internal object EcrCapabilityKeys {
+    const val AVAILABLE = "available"
+    const val REASON = "reason"
+    const val ECR_MODE = "ecrMode"
+    const val TERMINAL_NAME = "terminalName"
+    const val CURRENCY_CODE = "currencyCode"
+    const val MINOR_UNIT_DIGITS = "minorUnitDigits"
+    const val E_RECEIPT = "eReceipt"
+    const val PHYSICAL_RECEIPT = "physicalReceipt"
+    const val PERMITTED_TRANSACTIONS = "permittedTransactions"
+    const val MESSAGE_TYPE = "messageType"
+    const val MIN_AMOUNT = "minAmount"
+    const val MAX_AMOUNT = "maxAmount"
 }

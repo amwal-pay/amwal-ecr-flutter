@@ -14,13 +14,18 @@ to use this package.
 Three things have to be true, and two of them are not in your code.
 
 **1. The terminal is in ECR mode.** Its TMS profile carries `terminalMode` `1`
-and an `ecrMode` of `1` (USB cable, Android) or `2` (wi‑fi). A terminal in wi‑fi
-mode listens on port 9100; USB cable has no IP. If `isReachable()` answers
-`false` on an address you are sure of, check the profile before debugging the
-network.
+and an `ecrMode` of `1` (USB cable, **Android only**), `2` (wi‑fi), `4` (Web
+Service), or `5` (app to app, **Android only**). A terminal in wi‑fi mode
+listens on port 9100; USB cable has no IP; app to app has no address at all,
+because the terminal is the device your till is running on. On Windows and
+iOS, USB cable and app to app are typed unsupported — use wi‑fi or Web
+Service. If `isReachable()` answers `false` on an address you are sure of,
+check the profile before debugging the network.
 
-**2. The phone can route to the terminal.** Same subnet, or a network that
-routes between them. A guest wi-fi with client isolation will not.
+**2. The till can route to the terminal.** Same subnet, or a network that
+routes between them. A guest wi-fi with client isolation will not. On Windows,
+allow the app through the firewall for outbound TCP (and HTTPS for Web
+Service). Nothing to check for app to app: there is no network in it.
 
 **3. You have the terminal's serial number.** The operator registered it; the
 terminal shows its own address and port under the card scheme logos when the
@@ -49,6 +54,146 @@ final EcrTerminal terminal = session.terminal;
 Prefer `EcrSessions.open` so sale, inquiry, and receipt share one transport.
 An `EcrTerminal` holds no connection between calls, so it is cheap to build and
 safe to keep. Build a new one when the settings change rather than mutating one.
+
+### Driving the payment app on this same device
+
+When your till runs on the terminal itself, there is no address to give: the
+transaction is handed to the Amwal payment app installed beside you, and it
+answers when the cardholder is done.
+
+Every snippet below is from the example app, which is a working till you can
+install on a terminal and read alongside this.
+
+**1. Nothing to add to your manifest.** The package declares the payment app in
+`<queries>`, and that reaches your app through the manifest merge. Without it,
+from Android 11, resolving the payment app returns null and starting it throws
+— which reads as "not installed" on a device where it plainly is.
+
+**2. Offer the mode where you register a terminal.** Its `ecrMode` is 5, and it
+is the one mode with no address to collect:
+
+```dart
+// lib/data/ecr_mode.dart
+enum EcrMode {
+  usbCable(1, 'USB Cable'),
+  wifi(2, 'Wi‑Fi'),
+  bluetooth(3, 'Bluetooth'),
+  webService(4, 'Web Service'),
+  appToApp(5, 'App to app');
+  // …
+  bool get isAppToApp => this == EcrMode.appToApp;
+}
+```
+
+The registration screen hides the IP and port fields for it, and asks for
+nothing in their place — which application takes the payment is not a setting:
+
+```dart
+// lib/ui/terminals/terminal_edit_screen.dart
+if (_mode.isAppToApp) ...<Widget>[
+  Text(
+    'The terminal is this device. There is nothing to address: the '
+    'transaction is handed to the Amwal payment app '
+    '(${EcrPaymentApp.packageName}), and the serial number still has to be '
+    'the one that app drives.',
+  ),
+],
+```
+
+The serial number still matters. It travels in the envelope exactly as it does
+over a socket, and it has to be the terminal the payment app is provisioned as.
+
+**3. Open the terminal.** One line differs from Wi‑Fi — and on the mode where
+`host` would be an address, it is the payment app's application id:
+
+```dart
+// lib/ui/transaction/transaction_controller.dart
+EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) {
+  final EcrTransport transport = switch (terminal.mode) {
+    EcrMode.usbCable => EcrTransport.usbCable,
+    EcrMode.wifi => EcrTransport.wifi,
+    EcrMode.bluetooth => EcrTransport.bluetooth,
+    EcrMode.webService => EcrTransport.webService,
+    EcrMode.appToApp => EcrTransport.appToApp,
+  };
+
+  return EcrSessions.open(
+    host: switch (terminal.mode) {
+      EcrMode.wifi => terminal.ipAddress,
+      EcrMode.appToApp => EcrPaymentApp.packageName,
+      _ => '',
+    },
+    serialNumber: terminal.serialNumber,
+    transport: transport,
+    config: active.ecrConfig,
+  ).terminal;
+}
+```
+
+`EcrTerminal.appToApp(serialNumber: …)` is the shorter way to say the same
+thing when your till drives only this mode.
+
+**4. Check it before you take an amount, if you like.** The probe launches
+nothing — it asks whether the payment app is installed and will accept a
+request:
+
+```dart
+if (active.usesLocalTerminal) {
+  final EcrReachability probe = await terminal.probeReachability();
+  if (!probe.reachable) {
+    // Show why. Over app to app the example lists: the app is installed, it
+    // is a build that accepts app-to-app requests, the merchant is signed in,
+    // and the serial matches the terminal it drives.
+    return;
+  }
+}
+```
+
+It cannot tell you whether a merchant is signed in. That answer only comes
+back from a real request, which is the next step.
+
+**5. Run the transaction.** Identical to every other transport:
+
+```dart
+final EcrResult result = await terminal.sale(
+  EcrAmount.parse('10.500'),
+  merchantReference: 'ORDER-91',
+);
+```
+
+The payment app comes to the front, takes the card, and steps back when the
+operator is done with the receipt. Your till returns to the foreground with
+the answer already in hand.
+
+**6. Read the answer.** Also identical — `EcrApproved`, `EcrDeclined`,
+`EcrFailed` — with three things worth knowing before you ship it.
+
+**Always send a `merchantReference`.** Your till and the payment app are two
+apps, and Android can destroy either at any moment. If that happens mid-payment
+you get no answer at all, and the reference is the only handle left to ask what
+became of the transaction:
+
+```dart
+if (result.outcomeIsUnknown) {
+  final EcrInquiry settled = await terminal.inquireByReference('ORDER-91');
+  // EcrInquiryFound → the transaction happened; read transaction.status.
+  // EcrInquiryNotFound → no record of it. Do not treat this as "it failed".
+}
+```
+
+**Android only.** On iOS and on the web the operation is refused before
+anything is sent, as an `EcrUnsupported` failure whose outcome is *not*
+unknown — nothing was attempted.
+
+**The merchant has to be signed in on the payment app.** If nobody is, the
+request is refused immediately with a reason saying so, and no payment screen
+is put in front of the operator. Show that reason: opening the Amwal app once
+and signing in is the whole fix.
+
+The payment app must also be visible to yours. The plugin declares it in
+`<queries>`, so you get that from the manifest merge — but if you see "not
+installed" on a device where it plainly is, that declaration is the first thing
+to check.
 
 ### `minorUnitDigits` is the setting to get right
 
@@ -260,7 +405,7 @@ Three things a till gets wrong if it is not careful:
   booking it as a full sale loses more.
 - **`raw` is there for anything not surfaced.** It is the terminal's whole answer
   as JSON text — parse it if you need a field this API does not model, but
-  prefer the typed fields, which are the same on both platforms.
+  prefer the typed fields, which are the same on Android, iOS, and Windows.
 
 ---
 
@@ -290,6 +435,10 @@ like a timeout.
 
 Cancelling an inquiry or a receipt is harmless: nothing changes either way.
 
+Over app to app it means less still: the payment app is on screen in front of
+the cardholder, and one app cannot dismiss another's screen. The till stops
+waiting; the payment continues.
+
 ---
 
 ## Errors that are not outcomes
@@ -314,8 +463,9 @@ never as an exception.
 
 ## Threading, lifecycles and concurrency
 
-- Every call is safe from the UI isolate. The socket work happens on a native
-  background thread on both platforms.
+- Every call is safe from the UI isolate. Socket / HTTP work runs off the UI
+  isolate (native background thread on Android and iOS; Dart `dart:io` on
+  Windows).
 - One terminal serves **one transaction at a time**. A second money-moving
   request while one is running comes back as `EcrDeclined` with response code
   `96` — nothing was attempted, and it is safe to send again once the terminal
@@ -384,3 +534,5 @@ keys out of the repository entirely.
 - [ ] The Cancel button's wording does not promise that the payment was undone.
 - [ ] The receipt number is recorded before a sale is sent, so a till killed
       mid-transaction can reconcile on next launch.
+- [ ] On Windows, use Wi‑Fi or Web Service only (USB cable and app to app are
+      Android-only), and confirm the PC can route to the terminal / Hub.

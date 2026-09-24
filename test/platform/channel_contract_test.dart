@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the reverse, stops working.
 void main() {
   group('method names', () {
-    test('are exactly these nine, spelled exactly this way', () {
+    test('are exactly these eleven, spelled exactly this way', () {
       expect(EcrMethods.isReachable, 'isReachable');
       expect(EcrMethods.probeReachability, 'probeReachability');
       expect(EcrMethods.sale, 'sale');
@@ -26,6 +26,8 @@ void main() {
       expect(EcrMethods.inquire, 'inquire');
       expect(EcrMethods.inquireByReference, 'inquireByReference');
       expect(EcrMethods.receipt, 'receipt');
+      expect(EcrMethods.signOn, 'signOn');
+      expect(EcrMethods.closeReceipt, 'closeReceipt');
       expect(EcrMethods.cancel, 'cancel');
     });
 
@@ -39,6 +41,8 @@ void main() {
         'inquire',
         'inquireByReference',
         'receipt',
+        'signOn',
+        'closeReceipt',
         'cancel',
       ]);
     });
@@ -285,10 +289,13 @@ void main() {
       expect(EcrTransport.bluetooth.channelName, 'bluetooth');
       expect(EcrTransport.webService.channelName, 'webService');
 
+      expect(EcrTransport.appToApp.channelName, 'app_to_app');
+
       expect(EcrTransport.usbCable.wireValue, 1);
       expect(EcrTransport.wifi.wireValue, 2);
       expect(EcrTransport.bluetooth.wireValue, 3);
       expect(EcrTransport.webService.wireValue, 4);
+      expect(EcrTransport.appToApp.wireValue, 5);
     });
 
     test('only Wi‑Fi is an IP transport; USB cable is not', () {
@@ -297,13 +304,35 @@ void main() {
       expect(EcrTransport.wifi.isIpTransport, isTrue);
       expect(EcrTransport.bluetooth.isIpTransport, isFalse);
       expect(EcrTransport.webService.isIpTransport, isFalse);
+      expect(EcrTransport.appToApp.isIpTransport, isFalse);
+      expect(EcrTransport.appToApp.isAppToApp, isTrue);
+    });
+
+    test('what can be probed and what can fetch a receipt are two questions',
+        () {
+      // They were the same answer for three transports and are not for the
+      // fourth: app to app can be checked before anything is sent, and cannot
+      // fetch a receipt.
+      expect(EcrTransport.appToApp.hasReachabilityProbe, isTrue);
+      expect(EcrTransport.appToApp.supportsReceipt, isTrue);
+
+      expect(EcrTransport.wifi.hasReachabilityProbe, isTrue);
+      expect(EcrTransport.wifi.supportsReceipt, isTrue);
+      expect(EcrTransport.usbCable.hasReachabilityProbe, isTrue);
+      expect(EcrTransport.usbCable.supportsReceipt, isTrue);
+      expect(EcrTransport.webService.hasReachabilityProbe, isFalse);
+      expect(EcrTransport.webService.supportsReceipt, isFalse);
+      expect(EcrTransport.bluetooth.hasReachabilityProbe, isFalse);
+      expect(EcrTransport.bluetooth.supportsReceipt, isFalse);
     });
 
     test('an ecrMode this version has not heard of reads as null, not as a guess', () {
       expect(EcrTransport.fromWireValue(1), EcrTransport.usbCable);
+      expect(EcrTransport.fromWireValue(5), EcrTransport.appToApp);
       expect(EcrTransport.fromWireValue(9), isNull);
       expect(EcrTransport.fromChannelName('wifi'), EcrTransport.wifi);
       expect(EcrTransport.fromChannelName('usb_cable'), EcrTransport.usbCable);
+      expect(EcrTransport.fromChannelName('app_to_app'), EcrTransport.appToApp);
       expect(EcrTransport.fromChannelName('ethernet'), isNull);
       expect(EcrTransport.fromChannelName('web_service'), EcrTransport.webService);
       expect(EcrTransport.fromChannelName('carrier-pigeon'), isNull);

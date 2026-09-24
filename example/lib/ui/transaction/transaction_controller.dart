@@ -83,7 +83,14 @@ class TransactionController extends ChangeNotifier {
               ..write(probe.error == null ? '' : '\n(${probe.error})')
               ..write('\n\n')
               ..write(
-                active.usesUsbCable
+                active.usesPaymentApp
+                    ? 'Check:\n'
+                        '• The Amwal payment app is installed on this device\n'
+                        '• It is a build that accepts app-to-app requests\n'
+                        '• The merchant is signed in — open it once and sign in\n'
+                        '• The application ID matches (${probe.endpoint})\n'
+                        '• Serial number matches the terminal this app drives'
+                    : active.usesUsbCable
                     ? 'Check:\n'
                         '• The USB cable is connected to the terminal\n'
                         '• POS app is in ECR mode (USB cable) and says it is waiting\n'
@@ -141,7 +148,9 @@ class TransactionController extends ChangeNotifier {
           originalTerminalId: request.originalTerminalId,
         ),
       EcrTransactionType.inquiry ||
-      EcrTransactionType.receipt =>
+      EcrTransactionType.receipt ||
+      EcrTransactionType.signOn ||
+      EcrTransactionType.closeReceipt =>
         throw StateError('${request.type.displayName} is not run from here'),
     };
 
@@ -264,10 +273,17 @@ class TransactionController extends ChangeNotifier {
       EcrMode.wifi => EcrTransport.wifi,
       EcrMode.bluetooth => EcrTransport.bluetooth,
       EcrMode.webService => EcrTransport.webService,
+      EcrMode.appToApp => EcrTransport.appToApp,
     };
 
     return EcrSessions.open(
-      host: active.usesLan ? terminal.ipAddress : '',
+      // The one transport whose "address" is an application id: there is no
+      // device to dial, because the terminal is this one.
+      host: switch (terminal.mode) {
+        EcrMode.wifi => terminal.ipAddress,
+        EcrMode.appToApp => EcrPaymentApp.packageName,
+        _ => '',
+      },
       serialNumber: terminal.serialNumber,
       transport: transport,
       config: active.ecrConfig,

@@ -9,4 +9,19 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!--
+      App-to-app needs to see the payment app before it can start it. From API
+      30 an app cannot resolve another it has not declared, and the failure is
+      silent in the worst way: resolveActivity returns null and startActivity
+      throws, which reads exactly like "not installed" on a device where it is.
+      Declared here so every integrator gets it from the merge rather than
+      finding out on a terminal.
+    -->
+    <queries>
+        <package android:name="com.amwalpay.pos" />
+        <intent>
+            <action android:name="com.amwalpay.pos.ecr.TRANSACTION" />
+        </intent>
+    </queries>
 </manifest>

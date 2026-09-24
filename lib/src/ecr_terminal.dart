@@ -6,8 +6,11 @@ import 'model/ecr_config.dart';
 import 'model/ecr_errors.dart';
 import 'model/ecr_failure.dart';
 import 'model/ecr_inquiry.dart';
+import 'model/ecr_payment_app.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
+import 'model/ecr_receipt_closed.dart';
+import 'model/ecr_sign_on.dart';
 import 'model/ecr_result.dart';
 import 'model/ecr_transaction_type.dart';
 import 'model/ecr_transport.dart';
@@ -46,14 +49,17 @@ final class EcrTerminal {
   /// [host] is the terminal's address on the local network for IP transports.
   /// For [EcrTransport.webService] and [EcrTransport.usbCable], leave empty —
   /// Web Service addressing comes from [config.merchantId] and
-  /// [config.terminalId]; USB finds the cable on the bus.
+  /// [config.terminalId]; USB finds the cable on the bus. For
+  /// [EcrTransport.appToApp] it is the payment app's application id, and
+  /// [EcrTerminal.appToApp] is the readable way to say so.
   ///
   /// [serialNumber] is what the operator registered — the terminal shows its
   /// own address on screen under the card scheme logos when the link is Wi-Fi.
   ///
   /// [transport] declares how the terminal is attached, from its TMS profile.
-  /// Wi‑Fi, USB cable (Android), and Web Service can be driven from here;
-  /// Bluetooth becomes an [EcrUnsupported] failure at the first operation.
+  /// Wi‑Fi, USB cable (Android), Web Service and app to app (Android) can be
+  /// driven from here; Bluetooth becomes an [EcrUnsupported] failure at the
+  /// first operation.
   EcrTerminal({
     required this.host,
     this.serialNumber = '',
@@ -67,7 +73,38 @@ final class EcrTerminal {
     if (transport.isIpTransport && host.trim().isEmpty) {
       throw const EcrArgumentError('A LAN terminal needs a host address');
     }
+    if (transport.isAppToApp && host != EcrPaymentApp.packageName) {
+      throw EcrArgumentError(
+        'An app-to-app terminal is always ${EcrPaymentApp.packageName}. Use '
+        'EcrTerminal.appToApp rather than naming an application to pay into.',
+      );
+    }
   }
+
+  /// The Amwal payment app installed on this same device.
+  ///
+  /// Named rather than reached through [EcrTerminal.new] because `host` means
+  /// something else here: not an address, and not a choice. The application
+  /// that takes a payment is fixed — a till that could name one could name
+  /// another, and there is no network in this for anything to notice.
+  ///
+  /// There is nothing to configure at all. Whether a payment happens is
+  /// decided by the TMS profile on this device and by whether a merchant is
+  /// signed in, both of which the payment app answers for itself.
+  factory EcrTerminal.appToApp({
+    String serialNumber = '',
+    EcrConfig? config,
+    AmwalEcrPlatform? platform,
+    Random? random,
+  }) =>
+      EcrTerminal(
+        host: EcrPaymentApp.packageName,
+        serialNumber: serialNumber,
+        config: config,
+        transport: EcrTransport.appToApp,
+        platform: platform,
+        random: random,
+      );
 
   /// The terminal's address on the local network.
   final String host;
@@ -108,7 +145,9 @@ final class EcrTerminal {
   /// transport that has no listener / cable probe, rather than spending
   /// [EcrConfig.probeTimeout] finding out.
   Future<EcrReachability> probeReachability() {
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    // Refused here for a transport this platform cannot drive, rather than
+    // asked of a host that would only answer that it has never heard of it.
+    if (!transport.hasReachabilityProbe || !transport.isSupportedByPlugin) {
       return Future<EcrReachability>.value(
         EcrReachability(
           reachable: false,
@@ -324,7 +363,9 @@ final class EcrTerminal {
         // Unreachable: movesMoney was checked above. Kept so the switch is
         // exhaustive without a default that would hide a new type.
         EcrTransactionType.inquiry ||
-        EcrTransactionType.receipt =>
+        EcrTransactionType.receipt ||
+        EcrTransactionType.signOn ||
+        EcrTransactionType.closeReceipt =>
           throw EcrArgumentError('${type.displayName} does not move money'),
       },
     );
@@ -454,7 +495,10 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    // Never refused for app to app: this is how a till settles a transaction
+    // whose answer went missing, and refusing it here would close the only
+    // route out of an unknown outcome.
+    if (!transport.hasReachabilityProbe) {
       return _refusedInquiry(id, 'Inquiry by reference');
     }
 
@@ -508,7 +552,7 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    if (!transport.isIpTransport && !transport.isUsbCable) {
+    if (!transport.supportsReceipt) {
       return _refusedWith<EcrReceipt>(
         id,
         (EcrFailure failure) =>
@@ -529,6 +573,97 @@ final class EcrTerminal {
         ),
       ),
     );
+  }
+
+  /// Asks what this terminal is and what it will accept.
+  ///
+  /// A till has no other way to know. TMS can disable an operation or move an
+  /// amount limit at any moment, and the terminal picks that up on its next
+  /// heartbeat while your till carries on offering a button that will now be
+  /// refused. Ask at start of day, and whenever you want to check your picture
+  /// of the terminal is still current.
+  ///
+  /// The answer is a snapshot and goes stale the moment TMS changes anything.
+  /// That is safe, and deliberately so: the terminal checks its own profile on
+  /// every request it is sent, so an operation that has since been disabled is
+  /// refused rather than attempted. A till that never signs on twice still
+  /// corrects itself.
+  ///
+  /// Reads only. No card is presented and no money moves, so it is safe to
+  /// repeat as often as you like.
+  Future<EcrSignOn> signOn({
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    final String id = operationId ?? _newOperationId();
+    // App to app is excluded here as well as Web Service — see
+    // [EcrTransport.supportsSignOn]. A handover the operator watches, to learn
+    // something the next refusal would have told the till anyway, is not a
+    // trade worth making.
+    if (!transport.supportsSignOn) {
+      return _refusedWith<EcrSignOn>(
+        id,
+        (EcrFailure failure) =>
+            EcrSignOnFailed(merchantReference: '', failure: failure),
+        _unsupportedTransport('Sign-on'),
+      ).result;
+    }
+
+    return _operation<EcrSignOn>(
+      id,
+      _platform.signOn(
+        _request(operationId: id, merchantReference: merchantReference),
+      ),
+    ).result;
+  }
+
+  /// Asks the terminal to put its receipt away and go back to its idle screen.
+  ///
+  /// A receipt waits for the operator, and when your till drove the
+  /// transaction the operator is at the till, not at the terminal. Nobody is
+  /// going to dismiss it, and the terminal refuses the next transaction until
+  /// somebody does. Send this when the cashier has finished with the sale —
+  /// closing the outcome dialog is the natural moment.
+  ///
+  /// **Only you know when that is.** The terminal deliberately does not put
+  /// its own receipt away on a timer: an earlier version did, and took
+  /// receipts off merchants who were still reading them.
+  ///
+  /// Moves no money and names no transaction, so it is safe to repeat — an
+  /// already-idle terminal answers [EcrReceiptClosedIdle] just the same.
+  /// Nothing is lost by it either: [receipt] fetches the e-receipt again and
+  /// [inquire] looks the transaction up.
+  ///
+  /// A terminal too old to know the request answers [EcrReceiptClosedRefused].
+  /// Treat that as "cannot be asked" and carry on; the receipt stays up and
+  /// somebody presses back, as it did before this existed.
+  Future<EcrReceiptClosed> closeReceipt({
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    final String id = operationId ?? _newOperationId();
+    // Narrower than fetching a receipt: app to app is excluded because there
+    // the receipt is already closed by the time an answer comes back. See
+    // [EcrTransport.supportsCloseReceipt].
+    if (!transport.supportsCloseReceipt) {
+      return _refusedWith<EcrReceiptClosed>(
+        id,
+        (EcrFailure failure) =>
+            EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+        _unsupportedTransport('Closing the receipt'),
+      ).result;
+    }
+
+    return _operation<EcrReceiptClosed>(
+      id,
+      _platform.closeReceipt(
+        _request(operationId: id, merchantReference: merchantReference),
+      ),
+    ).result;
   }
 
   /// Asks the host to abandon the operation with [operationId].
@@ -597,12 +732,24 @@ final class EcrTerminal {
         onCancel: (String _) async => false,
       );
 
-  EcrUnsupported _unsupportedTransport(String operation) => EcrUnsupported(
-        '$operation is not available over ${transport.name}. '
-        'A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), '
-        'or Web Service REST; on ${transport.name} the port stays closed and '
-        'the terminal is driven by other machinery entirely.',
+  EcrUnsupported _unsupportedTransport(String operation) {
+    // App to app fails for a different reason than the other unsupported
+    // transports, and saying "the port stays closed" would send an integrator
+    // looking for a network problem that does not exist.
+    if (transport.isAppToApp) {
+      return EcrUnsupported(
+        '$operation could not be started. The Amwal payment app is driven by '
+        'an Android intent, so this platform cannot start it and nothing was '
+        'sent.',
       );
+    }
+    return EcrUnsupported(
+      '$operation is not available over ${transport.name}. '
+      'A terminal opens its ECR listener for Wi‑Fi, USB cable (Android), '
+      'or Web Service REST; on ${transport.name} the port stays closed and '
+      'the terminal is driven by other machinery entirely.',
+    );
+  }
 
   /// A date the protocol can carry, or nothing at all.
   ///
