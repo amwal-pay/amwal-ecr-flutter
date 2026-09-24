@@ -184,6 +184,16 @@ internal object EcrTransports {
         name == WIFI || isUsbCable(name) || isPaymentApp(name)
 
     /**
+     * Whether the terminal can be asked what it is over this transport.
+     *
+     * Narrower than [supportsReceipt]: the payment app is excluded. A sign-on
+     * there costs a visible handover — this app to the background, the payment
+     * app to the front — to learn what the next refusal carries anyway.
+     */
+    fun supportsSignOn(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name)
+
+    /**
      * Whether the terminal can be asked if it is there without sending a
      * transaction.
      *

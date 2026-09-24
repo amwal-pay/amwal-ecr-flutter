@@ -66,6 +66,20 @@ enum EcrTransport {
   /// thing this package exists to prevent.
   bool get supportsReceipt => isIpTransport || isUsbCable || isAppToApp;
 
+  /// Whether the terminal can be asked what it is over this transport.
+  ///
+  /// **App to app is excluded, deliberately.** A sign-on there costs a visible
+  /// handover — this app to the background, the payment app to the front — to
+  /// learn something no operator asked for. Nothing is lost by not asking: a
+  /// request the profile does not permit is refused anyway, and the refusal
+  /// carries the same profile a sign-on would have. The native SDK makes the
+  /// same exclusion for the same reason.
+  ///
+  /// Web Service is excluded too, for a different one: there the terminal is
+  /// reached through Amwal rather than addressed directly, so a till configured
+  /// for it already knows what a sign-on would tell it about the link.
+  bool get supportsSignOn => isIpTransport || isUsbCable;
+
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
   /// [usbCable] is implemented on Android only; on iOS and Windows the host

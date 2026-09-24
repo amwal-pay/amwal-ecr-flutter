@@ -188,10 +188,10 @@ internal class EcrCallHandler(
     }
 
     private fun signOn(call: Call, reply: EcrReply) {
-        // Same reach test as a receipt: both address the terminal directly.
-        // Over the Hub there is nothing to ask — a till configured for Web
-        // Service already knows what a sign-on would tell it about the link.
-        if (!call.supportsReceipt) {
+        // Narrower than a receipt: app to app is excluded as well as Web
+        // Service. A sign-on there costs a handover the operator watches, to
+        // learn what the next refusal carries anyway.
+        if (!call.supportsSignOn) {
             reply.success(
                 EcrMapping.failedResult(
                     EcrFailureKinds.UNSUPPORTED,
@@ -333,6 +333,7 @@ internal class EcrCallHandler(
         val isUsbCable: Boolean get() = EcrTransports.isUsbCable(transport)
 
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
+        val supportsSignOn: Boolean get() = EcrTransports.supportsSignOn(transport)
 
         val hasReachabilityProbe: Boolean
             get() = EcrTransports.hasReachabilityProbe(transport)

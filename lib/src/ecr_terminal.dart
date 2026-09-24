@@ -598,10 +598,11 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    // The same transports that can be asked for a receipt can be asked what
-    // they are: both reach a terminal directly. Over the Hub there is nothing
-    // to ask — a till configured for Web Service already knows the link.
-    if (!transport.supportsReceipt) {
+    // App to app is excluded here as well as Web Service — see
+    // [EcrTransport.supportsSignOn]. A handover the operator watches, to learn
+    // something the next refusal would have told the till anyway, is not a
+    // trade worth making.
+    if (!transport.supportsSignOn) {
       return _refusedWith<EcrSignOn>(
         id,
         (EcrFailure failure) =>
