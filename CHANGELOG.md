@@ -5,6 +5,11 @@ with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## 0.3.1
+
+CI only: the publish check no longer fails on the tracked example lockfile.
+No code or API changes since 0.3.0 (which was never published to pub.dev).
+
 ## 0.3.0
 
 Adds a fourth transport and a Windows host in the same release.
