@@ -888,5 +888,23 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   }
 
   @override
+  Future<EcrSignOn> signOn(EcrRequest request) async {
+    calls.add('signOn');
+    return EcrSignOnFailed(
+      merchantReference: request.merchantReference,
+      failure: const EcrUnreachable('nothing configured'),
+    );
+  }
+
+  @override
+  Future<EcrReceiptClosed> closeReceipt(EcrRequest request) async {
+    calls.add('closeReceipt');
+    return EcrReceiptClosedIdle(
+      merchantReference: request.merchantReference,
+      raw: '{}',
+    );
+  }
+
+  @override
   Future<bool> cancel(String operationId) async => false;
 }

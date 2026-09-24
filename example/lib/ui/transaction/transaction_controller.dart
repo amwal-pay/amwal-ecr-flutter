@@ -148,7 +148,9 @@ class TransactionController extends ChangeNotifier {
           originalTerminalId: request.originalTerminalId,
         ),
       EcrTransactionType.inquiry ||
-      EcrTransactionType.receipt =>
+      EcrTransactionType.receipt ||
+      EcrTransactionType.signOn ||
+      EcrTransactionType.closeReceipt =>
         throw StateError('${request.type.displayName} is not run from here'),
     };
 
