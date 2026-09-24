@@ -94,6 +94,9 @@ definitions:
         set -euo pipefail
         flutter analyze --no-fatal-infos
         flutter test
+        # `pub get` refreshes the tracked example/pubspec.lock; the publish
+        # check wants a clean git tree, so restore it (it is not published).
+        git checkout -- example/pubspec.lock
         dart pub publish --dry-run
     - &windows_package_shape
       name: Windows package shape (pubspec + publish archive)
