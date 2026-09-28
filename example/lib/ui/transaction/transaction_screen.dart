@@ -6,6 +6,8 @@ import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 import '../components/amount_field.dart';
 import '../components/dropdown.dart';
+import '../status/sign_on_status.dart';
+import '../status/terminal_sign_on_state.dart';
 import 'terminal_config_card.dart';
 import 'transaction_controller.dart';
 import 'transaction_form.dart';
@@ -89,6 +91,16 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
   void _onStateChanged() {
+    // A type the terminal has stopped permitting cannot stay selected, or the
+    // operator sends a request the form itself no longer offers.
+    final List<EcrTransactionType> available = _controller.availableTypes;
+    if (!available.contains(_form.type)) {
+      _receiptNumber.clear();
+      _originalReference.clear();
+      _merchantReference.clear();
+      _originalTerminalId.clear();
+      _form = TransactionFormState(type: available.first);
+    }
     setState(() {});
     _maybeShowResult();
   }
@@ -258,7 +270,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
             Dropdown<EcrTransactionType>(
               fieldKey: const Key('transactionType'),
               label: 'Transaction type',
-              options: EcrTransactionType.menuOptions,
+              options: _controller.availableTypes,
               selected: _form.type,
               enabled: !busy,
               labelOf: (EcrTransactionType type) => type.displayName,
@@ -444,6 +456,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   _controller.updateSelectedTerminal(terminal);
                 },
               ),
+            // What the terminal itself says, right under the choice that picked
+            // it. The operator is looking here when they change terminals, and
+            // the answer to "can this one take a sale" is no use three screens
+            // away.
+            if (_controller.signOn != null)
+              _TerminalStatusLine(signOn: _controller.signOn!),
             if (_controller.selectedConfig != null) ...<Widget>[
               const SizedBox(height: 16),
               TerminalConfigCard(config: _controller.selectedConfig!),
@@ -488,6 +506,60 @@ class _TransactionScreenState extends State<TransactionScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What the terminal itself says, under the dropdown that selected it.
+///
+/// Shown because the transaction-type list narrows itself from this, and a
+/// dropdown that has quietly lost an entry is indistinguishable from a bug.
+class _TerminalStatusLine extends StatelessWidget {
+  const _TerminalStatusLine({required this.signOn});
+
+  final TerminalSignOnState signOn;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String? name = signOn.terminalCapabilities?.terminalName;
+    final EcrTransport? transport = signOn.reportedTransport;
+
+    final String text = (StringBuffer()
+          ..write(switch (signOn) {
+            TerminalAsking() => 'Asking the terminal…',
+            TerminalReady() => 'Terminal ready',
+            _ => 'Terminal not ready',
+          })
+          ..write(transport == null ? '' : ' · ${transportWords(transport)}')
+          ..write(name == null || name.isEmpty ? '' : ' · $name'))
+        .toString();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        key: const Key('terminalStatus'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              SignOnDot(signOn: signOn),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: signOn is TerminalReady
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SignOnSummary(signOn: signOn),
+        ],
       ),
     );
   }

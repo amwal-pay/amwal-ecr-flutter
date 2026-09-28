@@ -64,23 +64,24 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
     setState(() => _errors = validated);
     if (validated.any) return;
 
+    final Terminal terminal = Terminal(
+      serialNumber: _serial.text.trim(),
+      name: _name.text.trim(),
+      ecrMode: _mode.value,
+      ipAddress: _ip.text.trim(),
+      port: int.tryParse(_port.text.trim()) ?? 0,
+      merchantId: _merchantId.text.trim(),
+      terminalId: _terminalId.text.trim(),
+    );
     final SaveOutcome outcome = await widget.repository.save(
-      Terminal(
-        serialNumber: _serial.text.trim(),
-        name: _name.text.trim(),
-        ecrMode: _mode.value,
-        ipAddress: _ip.text.trim(),
-        port: int.tryParse(_port.text.trim()) ?? 0,
-        merchantId: _merchantId.text.trim(),
-        terminalId: _terminalId.text.trim(),
-      ),
+      terminal,
       originalSerial: widget.original?.serialNumber,
     );
 
     if (!mounted) return;
     switch (outcome) {
       case SaveSucceeded():
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop(terminal);
       case SaveRejected(:final String reason):
         setState(() => _saveError = reason);
     }
