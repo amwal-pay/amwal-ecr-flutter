@@ -189,6 +189,52 @@ enum EcrMapping {
         }
     }
 
+    static func signOn(_ signOn: EcrSignOn) -> [String: Any] {
+        switch signOn {
+        case let .available(reference, capabilities, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.available,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.capabilities: self.capabilities(capabilities),
+                EcrResultKeys.raw: raw,
+            ]
+        case let .unavailable(reference, reason, capabilities, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.unavailable,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.reason: reason,
+                EcrResultKeys.capabilities: self.capabilities(capabilities),
+                EcrResultKeys.raw: raw,
+            ]
+        case let .failed(reference, failure):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.failed,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.failure: self.failure(failure),
+            ]
+        }
+    }
+
+    static func capabilities(_ what: EcrTerminalCapabilities) -> [String: Any] {
+        [
+            "available": what.available,
+            "reason": what.reason,
+            "ecrMode": what.transport.ecrMode,
+            "terminalName": what.terminalName,
+            "currencyCode": what.currencyCode,
+            "minorUnitDigits": what.minorUnitDigits,
+            "eReceipt": what.eReceipt,
+            "physicalReceipt": what.physicalReceipt,
+            "permittedTransactions": what.permitted.map { entry in
+                [
+                    "messageType": entry.type.messageType,
+                    "minAmount": entry.minAmount,
+                    "maxAmount": entry.maxAmount,
+                ]
+            },
+        ]
+    }
+
     static func receipt(_ receipt: EcrReceipt) -> [String: Any] {
         switch receipt {
         case let .ready(reference, url, raw):

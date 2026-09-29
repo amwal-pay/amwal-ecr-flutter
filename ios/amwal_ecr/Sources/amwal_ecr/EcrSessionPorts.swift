@@ -137,6 +137,10 @@ final class SdkOpenedSessionPort: EcrTerminalPort {
         )
     }
 
+    func signOn(merchantReference: String) throws -> EcrSignOn {
+        try session.signOn(merchantReference: merchantReference)
+    }
+
     func cancel() { session.cancel() }
 }
 
@@ -191,6 +195,10 @@ final class UnsupportedEcrTerminalPort: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrReceipt {
+        throw EcrInvalidArgument(message)
+    }
+
+    func signOn(merchantReference: String) throws -> EcrSignOn {
         throw EcrInvalidArgument(message)
     }
 
@@ -266,6 +274,10 @@ final class InvalidPlanTerminalPort: EcrTerminalPort {
         originalTerminalId: String,
         merchantReference: String
     ) throws -> EcrReceipt {
+        .failed(merchantReference: merchantReference, failure: .malformed(message))
+    }
+
+    func signOn(merchantReference: String) throws -> EcrSignOn {
         .failed(merchantReference: merchantReference, failure: .malformed(message))
     }
 

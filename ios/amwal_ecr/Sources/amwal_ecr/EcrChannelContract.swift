@@ -66,6 +66,7 @@ enum EcrResultKeys {
     static let url = "url"
     static let nextStep = "nextStep"
     static let recovered = "recovered"
+    static let capabilities = "capabilities"
 }
 
 enum EcrReachabilityKeys {
@@ -84,6 +85,7 @@ enum EcrOutcomes {
     static let notFound = "notFound"
     static let ready = "ready"
     static let unavailable = "unavailable"
+    static let available = "available"
 }
 
 enum EcrFailureKeys {

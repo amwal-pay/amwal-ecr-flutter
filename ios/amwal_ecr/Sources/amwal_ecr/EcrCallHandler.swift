@@ -77,11 +77,13 @@ final class EcrCallHandler {
             // either operation yet, and a typed unsupported failure is what a
             // till can act on — the Dart side reads it as "this platform
             // cannot do it", which is exactly true.
-            case EcrMethods.signOn, EcrMethods.closeReceipt:
+            case EcrMethods.signOn:
+                try signOn(Call(arguments), once)
+            case EcrMethods.closeReceipt:
                 once.success(
                     EcrMapping.failedResult(
                         kind: EcrFailureKinds.unsupported,
-                        message: "\(method) is not supported on iOS yet"
+                        message: "closeReceipt is not supported on iOS yet"
                     )
                 )
             default:
@@ -218,6 +220,12 @@ final class EcrCallHandler {
                 originalTerminalId: call.originalTerminalId,
                 merchantReference: call.merchantReference
             )
+        }
+    }
+
+    private func signOn(_ call: Call, _ reply: OneShotReply) throws {
+        try run(call, reply, EcrMapping.signOn) {
+            try $0.signOn(merchantReference: call.merchantReference)
         }
     }
 

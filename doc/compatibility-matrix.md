@@ -30,7 +30,7 @@ field, it fails to be understood by a current terminal.
 | Platform | Provider | Version | Source |
 |---|---|---|---|
 | Android | `com.amwal-pay:ecr-sdk` | **1.0.5** (local / project), exact | Maven Central / sibling `:ecr-sdk` |
-| iOS | `AmwalECR` | **`0.2.1`** | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| iOS | `AmwalECR` | **`0.2.2`** | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
 | Windows | Pure-Dart `DartIoAmwalEcrPlatform` | ships in this package | No separate native artifact |
 
 Android and iOS providers expose **`EcrSessions.open` / `EcrOpenedSession`**. The
@@ -48,15 +48,15 @@ outcome is reported changes what a till books, and that is not something to pick
 up by surprise on a dependency refresh. Raising it is a deliberate change: bump
 `android/build.gradle`, re-run the contract tests, and note it in the changelog.
 
-**The iOS version is ranged to the patch line** — `~> 0.2.0` in
-`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.2.0")` in
-`ios/amwal_ecr/Package.swift`. Not because it matters less, but because an app
-can hold a native till of its own against the same pod and the two must resolve
-together; an exact pin would be an integrator's problem to unpick. The range is
-safe by the release policy, which gives a major version to anything that changes
-what an outcome means, so `0.2.x` cannot report differently from what this
-bridge is contract-tested against. The two files must always name the same
-range.
+**The iOS version is ranged to the patch line** — `~> 0.2.1` in
+`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.2.1")` in
+`ios/amwal_ecr/Package.swift` (native `AmwalECR` is at **0.2.2**). Not because
+it matters less, but because an app can hold a native till of its own against
+the same pod and the two must resolve together; an exact pin would be an
+integrator's problem to unpick. The range is safe by the release policy, which
+gives a major version to anything that changes what an outcome means, so
+`0.2.x` cannot report differently from what this bridge is contract-tested
+against. The two files must always name the same range.
 
 ### The iOS seam
 

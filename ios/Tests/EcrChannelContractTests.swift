@@ -71,6 +71,7 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("url", EcrResultKeys.url)
         XCTAssertEqual("nextStep", EcrResultKeys.nextStep)
         XCTAssertEqual("recovered", EcrResultKeys.recovered)
+        XCTAssertEqual("capabilities", EcrResultKeys.capabilities)
     }
 
     func testOutcomesAreSpelledExactlyThisWay() {
@@ -81,6 +82,7 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("notFound", EcrOutcomes.notFound)
         XCTAssertEqual("ready", EcrOutcomes.ready)
         XCTAssertEqual("unavailable", EcrOutcomes.unavailable)
+        XCTAssertEqual("available", EcrOutcomes.available)
     }
 
     func testFailureKindsAreSpelledExactlyThisWay() {

@@ -109,6 +109,12 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             return .unavailable(merchantReference: "REQ", reason: "no", raw: "{}")
         }
 
+        func signOn(merchantReference: String) throws -> EcrSignOn {
+            calls.append("signOn")
+            lastMerchantReference = merchantReference
+            return .failed(merchantReference: merchantReference, failure: .malformed("unset"))
+        }
+
         func cancel() {}
     }
 

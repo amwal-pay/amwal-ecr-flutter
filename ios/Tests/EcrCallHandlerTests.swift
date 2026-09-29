@@ -143,6 +143,12 @@ final class EcrCallHandlerTests: XCTestCase {
             return receiptValue
         }
 
+        func signOn(merchantReference: String) throws -> EcrSignOn {
+            lastMerchantReference = merchantReference
+            record("signOn")
+            return .failed(merchantReference: merchantReference, failure: .malformed("unset"))
+        }
+
         func cancel() {
             gate?.signal()
             cancelled.fulfill()
