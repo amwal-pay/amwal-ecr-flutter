@@ -2,7 +2,7 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application
-        android:label="amwal_ecr_example"
+        android:label="ECR Flutter"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
