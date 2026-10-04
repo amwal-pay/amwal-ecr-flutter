@@ -1,8 +1,8 @@
 PODS:
-  - amwal_ecr (0.2.1):
-    - AmwalECR (~> 0.2.1)
+  - amwal_ecr (0.2.3):
+    - AmwalECR (~> 0.2.3)
     - Flutter
-  - AmwalECR (0.2.2)
+  - AmwalECR (0.2.3)
   - Flutter (1.0.0)
   - flutter_secure_storage (6.0.0):
     - Flutter
@@ -14,17 +14,18 @@ PODS:
 
 DEPENDENCIES:
   - amwal_ecr (from `.symlinks/plugins/amwal_ecr/ios`)
-  - AmwalECR (from `../../../AmwalECR-iOS-CocoaPods`)
   - Flutter (from `Flutter`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
 
+SPEC REPOS:
+  trunk:
+    - AmwalECR
+
 EXTERNAL SOURCES:
   amwal_ecr:
     :path: ".symlinks/plugins/amwal_ecr/ios"
-  AmwalECR:
-    :path: "../../../AmwalECR-iOS-CocoaPods"
   Flutter:
     :path: Flutter
   flutter_secure_storage:
@@ -35,8 +36,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
 
 SPEC CHECKSUMS:
-  amwal_ecr: 70abad24394423425bed1c26377ebb08b210a5e3
-  AmwalECR: cf95382d186fa36978e66264557ee606a3b0ad98
+  amwal_ecr: b5fb56e03b5354f72d7a7905ee47daeccb478dc6
+  AmwalECR: edf51cba2a104f8989aac5b230fbea54116c359e
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e

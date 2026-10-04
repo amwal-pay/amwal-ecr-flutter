@@ -7,7 +7,7 @@ import PackageDescription
 let package = Package(
     name: "amwal_ecr",
     platforms: [
-        .iOS("12.0"),
+        .iOS("17.0"),
     ],
     products: [
         .library(name: "amwal-ecr", targets: ["amwal_ecr"]),
@@ -15,7 +15,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/amwal-pay/AmwalECR-iOS-SPM.git",
-            .upToNextMinor(from: "0.2.1")
+            .upToNextMinor(from: "0.2.3")
         ),
     ],
     targets: [

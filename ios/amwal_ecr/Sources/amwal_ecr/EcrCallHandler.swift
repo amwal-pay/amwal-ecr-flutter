@@ -72,20 +72,10 @@ final class EcrCallHandler {
                 try inquireByReference(Call(arguments), once)
             case EcrMethods.receipt:
                 try receipt(Call(arguments), once)
-            // Named so the three contract files stay in step, and answered
-            // rather than left to notImplemented. AmwalECR does not carry
-            // either operation yet, and a typed unsupported failure is what a
-            // till can act on — the Dart side reads it as "this platform
-            // cannot do it", which is exactly true.
             case EcrMethods.signOn:
                 try signOn(Call(arguments), once)
             case EcrMethods.closeReceipt:
-                once.success(
-                    EcrMapping.failedResult(
-                        kind: EcrFailureKinds.unsupported,
-                        message: "closeReceipt is not supported on iOS yet"
-                    )
-                )
+                try closeReceipt(Call(arguments), once)
             default:
                 once.notImplemented()
             }
@@ -224,8 +214,35 @@ final class EcrCallHandler {
     }
 
     private func signOn(_ call: Call, _ reply: OneShotReply) throws {
+        // Match Android: app to app / Web Service are refused before a handover.
+        guard call.supportsSignOn else {
+            reply.success(
+                EcrMapping.failedResult(
+                    kind: EcrFailureKinds.unsupported,
+                    message: "Sign-on is not supported over this transport"
+                )
+            )
+            return
+        }
         try run(call, reply, EcrMapping.signOn) {
             try $0.signOn(merchantReference: call.merchantReference)
+        }
+    }
+
+    private func closeReceipt(_ call: Call, _ reply: OneShotReply) throws {
+        // Match Android: Wi‑Fi / USB cable only. App to app already closed the
+        // receipt when the answer arrived; Web Service has no counter screen.
+        guard call.supportsCloseReceipt else {
+            reply.success(
+                EcrMapping.failedResult(
+                    kind: EcrFailureKinds.unsupported,
+                    message: "Closing the receipt is not supported over this transport"
+                )
+            )
+            return
+        }
+        try run(call, reply, EcrMapping.receiptClosed) {
+            try $0.closeReceipt(merchantReference: call.merchantReference)
         }
     }
 
@@ -305,6 +322,10 @@ final class EcrCallHandler {
         var isIpTransport: Bool { EcrTransports.isIpTransport(transport) }
 
         var isSupportedTransport: Bool { EcrTransports.isSupportedTransport(transport) }
+
+        var supportsSignOn: Bool { EcrTransports.supportsSignOn(transport) }
+
+        var supportsCloseReceipt: Bool { EcrTransports.supportsCloseReceipt(transport) }
 
         func terminal(_ factory: EcrTerminalFactory) -> EcrTerminalPort {
             factory(host, serialNumber, transport, config)

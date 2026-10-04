@@ -115,6 +115,12 @@ final class EcrReferenceAndSigningTests: XCTestCase {
             return .failed(merchantReference: merchantReference, failure: .malformed("unset"))
         }
 
+        func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
+            calls.append("closeReceipt")
+            lastMerchantReference = merchantReference
+            return .idle(merchantReference: merchantReference, raw: "{}")
+        }
+
         func cancel() {}
     }
 

@@ -86,6 +86,8 @@ enum EcrOutcomes {
     static let ready = "ready"
     static let unavailable = "unavailable"
     static let available = "available"
+    /// Close-receipt: the terminal was already idle / put the receipt away.
+    static let idle = "idle"
 }
 
 enum EcrFailureKeys {
@@ -181,5 +183,25 @@ enum EcrTransports {
     /// handler when [isSupportedTransport] is false.
     static func isSupportedTransport(_ name: String?) -> Bool {
         isIpTransport(name) || isWebService(name)
+    }
+
+    /// Whether an e-receipt can be fetched over this transport.
+    static func supportsReceipt(_ name: String?) -> Bool {
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
+    }
+
+    /// Whether sign-on is useful over this transport (Wi‑Fi / USB cable).
+    static func supportsSignOn(_ name: String?) -> Bool {
+        isIpTransport(name) || isUsbCable(name)
+    }
+
+    /// Whether asking the terminal to dismiss its receipt is useful.
+    static func supportsCloseReceipt(_ name: String?) -> Bool {
+        isIpTransport(name) || isUsbCable(name)
+    }
+
+    /// Whether a reachability probe exists without sending a transaction.
+    static func hasReachabilityProbe(_ name: String?) -> Bool {
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
     }
 }

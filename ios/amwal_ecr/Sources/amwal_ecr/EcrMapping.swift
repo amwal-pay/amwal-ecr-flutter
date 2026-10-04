@@ -215,6 +215,32 @@ enum EcrMapping {
         }
     }
 
+    /// Mirrors Android `EcrMapping.receiptClosed` — idle / declined / failed.
+    static func receiptClosed(_ closed: EcrReceiptClosed) -> [String: Any] {
+        switch closed {
+        case let .idle(reference, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.idle,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.raw: raw,
+            ]
+        case let .refused(reference, responseCode, reason, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.declined,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.responseCode: responseCode,
+                EcrResultKeys.reason: reason,
+                EcrResultKeys.raw: raw,
+            ]
+        case let .failed(reference, failure):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.failed,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.failure: self.failure(failure),
+            ]
+        }
+    }
+
     static func capabilities(_ what: EcrTerminalCapabilities) -> [String: Any] {
         [
             "available": what.available,

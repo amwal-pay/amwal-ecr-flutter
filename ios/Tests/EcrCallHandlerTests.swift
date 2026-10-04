@@ -149,6 +149,12 @@ final class EcrCallHandlerTests: XCTestCase {
             return .failed(merchantReference: merchantReference, failure: .malformed("unset"))
         }
 
+        func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
+            lastMerchantReference = merchantReference
+            record("closeReceipt")
+            return .idle(merchantReference: merchantReference, raw: "{}")
+        }
+
         func cancel() {
             gate?.signal()
             cancelled.fulfill()
@@ -208,7 +214,8 @@ final class EcrCallHandlerTests: XCTestCase {
         amount: String? = "1.234",
         receiptNumber: String = "",
         transactionDate: String = "",
-        originalTerminalId: String = ""
+        originalTerminalId: String = "",
+        merchantReference: String = ""
     ) -> [String: Any] {
         var map: [String: Any] = [
             EcrArgs.operationId: operationId,
@@ -227,6 +234,7 @@ final class EcrCallHandlerTests: XCTestCase {
             EcrArgs.receiptNumber: receiptNumber,
             EcrArgs.transactionDate: transactionDate,
             EcrArgs.originalTerminalId: originalTerminalId,
+            EcrArgs.merchantReference: merchantReference,
         ]
         if let amount = amount { map[EcrArgs.amount] = amount }
         return map
@@ -355,6 +363,37 @@ final class EcrCallHandlerTests: XCTestCase {
             let failure = reply.result()[EcrResultKeys.failure] as? [String: Any]
             XCTAssertEqual(EcrFailureKinds.unsupported, failure?[EcrFailureKeys.kind] as? String)
         }
+    }
+
+    func testCloseReceiptOverWifiAsksTheTerminal() {
+        let terminal = FakeTerminal()
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.closeReceipt,
+            arguments: args(merchantReference: "after-sale"),
+            reply: reply
+        )
+        wait(for: [reply.answered], timeout: 2)
+
+        XCTAssertEqual(["closeReceipt"], terminal.calls)
+        XCTAssertEqual("after-sale", terminal.lastMerchantReference)
+        XCTAssertEqual(EcrOutcomes.idle, reply.result()[EcrResultKeys.outcome] as? String)
+    }
+
+    func testCloseReceiptOverWebServiceIsRefusedWithoutTouchingTheTerminal() {
+        let terminal = FakeTerminal()
+        let reply = RecordingReply()
+
+        handler(for: terminal).handle(
+            method: EcrMethods.closeReceipt,
+            arguments: args(transport: "webService"),
+            reply: reply
+        )
+
+        XCTAssertTrue(terminal.calls.isEmpty)
+        let failure = reply.result()[EcrResultKeys.failure] as? [String: Any]
+        XCTAssertEqual(EcrFailureKinds.unsupported, failure?[EcrFailureKeys.kind] as? String)
     }
 
     func testIsReachableOverATransportWithNoListenerIsFalseNotAProbe() {

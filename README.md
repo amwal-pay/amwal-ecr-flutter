@@ -19,8 +19,10 @@ switch (await terminal.sale(EcrAmount.parse('1.234'))) {
 }
 ```
 
-Sale, void, refund, inquiry and e-receipt, with the same types, the same units
-and the same outcomes on both platforms.
+Sale, void, refund, inquiry, sign-on, e-receipt and close-receipt, with the
+same types, the same units and the same outcomes on every host that supports
+the transport. See the [compatibility matrix](doc/compatibility-matrix.md)
+for the few places Android, iOS and Windows still differ.
 
 ---
 
@@ -81,14 +83,18 @@ either.
 
 ```yaml
 dependencies:
-  amwal_ecr: ^0.2.0
+  amwal_ecr: ^0.3.2
 ```
 
-The native SDKs come with it: `com.amwal-pay:ecr-sdk` from Maven Central on
-Android, and `AmwalECR` from CocoaPods trunk — or Swift Package Manager, if the
-project is built with `flutter config --enable-swift-package-manager` — on iOS.
-Both are published SDKs in their own right, so a native module in the same app
-can use the same terminal without going through Flutter.
+The native SDKs come with it: `com.amwal-pay:ecr-sdk` **1.0.6** from Maven
+Central on Android, and `AmwalECR` **0.2.3** from CocoaPods trunk — or Swift
+Package Manager, if the project is built with
+`flutter config --enable-swift-package-manager` — on iOS. Both are published
+SDKs in their own right, so a native module in the same app can use the same
+terminal without going through Flutter.
+
+**AmwalECR 0.2.3 requires iOS 17.** Raise the Runner deployment target to match
+(the example apps use `17.0`).
 
 **On Windows** there is no native ECR binary. The same Dart API is served by a
 pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`) that speaks LAN
@@ -148,19 +154,34 @@ Windows they return the same typed unsupported failure.
 The terminal shows its own IP and port under the card scheme logos when the link
 is wi-fi. That is what the operator reads off and registers.
 
-### 2. Check it is listening
+### 2. Check it is listening — and what it allows
 
 ```dart
 if (!await terminal.isReachable()) {
   // Wrong address, terminal off, or a different network.
   return;
 }
+
+// Optional: ask the terminal what it is (Wi‑Fi / USB cable only).
+switch (await terminal.signOn()) {
+  case EcrSignOnAvailable(:final EcrTerminalCapabilities capabilities):
+    // Enable till buttons from capabilities.permittedOperations.
+  case EcrSignOnUnavailable(:final String reason):
+    // Profile or link refused the probe — show reason.
+  case EcrSignOnFailed(:final EcrFailure failure):
+    // No answer — same unknown-outcome rules as a sale.
+}
 ```
 
-Worth doing before a sale: it turns a wrong address into an immediate answer
-rather than a failure a cardholder waits through. It proves the port is open,
-not that the terminal is idle — a terminal already taking a payment answers a
-handshake too.
+`isReachable()` / `probeReachability()` prove the port (or payment app) is
+open. `signOn()` asks what the terminal will accept next — amount limits,
+permitted operations, reported transport. Prefer `EcrSessions.open` so the
+same transport is used for sale, inquiry, receipt and sign-on.
+
+Worth doing before a sale: a wrong address becomes an immediate answer rather
+than a failure a cardholder waits through. Reachability proves the link is
+open, not that the terminal is idle — a terminal already taking a payment
+answers a handshake too.
 
 ### 3. Take a payment
 
@@ -175,15 +196,22 @@ the default read timeout is 120 seconds for that reason.
 
 ## Operations
 
-| | What it does | Needs |
-|---|---|---|
-| `sale(amount)` | Takes a payment. The cardholder presents their card. | amount |
-| `voidTransaction(receiptNumber)` | Cancels an earlier transaction **in full**. No card, no amount — a void returns exactly what the original took. | receipt number |
-| `refund(amount, …)` | Returns money against an earlier transaction, in full or in part. The cardholder presents their card. | amount, receipt number, the original's day |
-| `inquire(…)` | Asks what became of an earlier transaction, by receipt number. Reads only. | receipt number, the original's day |
-| `inquireByReference(…)` | The same question, by the reference *you* sent the transaction with. The lookup to use when an answer never arrived. | the original's reference |
-| `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day |
-| `isReachable()` | Whether the port is open. | — |
+| | What it does | Needs | Hosts |
+|---|---|---|---|
+| `sale(amount)` | Takes a payment. The cardholder presents their card. | amount | Android, iOS, Windows |
+| `voidTransaction(receiptNumber)` | Cancels an earlier transaction **in full**. No card, no amount — a void returns exactly what the original took. | receipt number | Android, iOS, Windows |
+| `refund(amount, …)` | Returns money against an earlier transaction, in full or in part. The cardholder presents their card. | amount, receipt number, the original's day | Android, iOS, Windows |
+| `inquire(…)` | Asks what became of an earlier transaction, by receipt number. Reads only. | receipt number, the original's day | Android, iOS, Windows |
+| `inquireByReference(…)` | The same question, by the reference *you* sent the transaction with. The lookup to use when an answer never arrived. | the original's reference | Android, iOS, Windows |
+| `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day | Android, iOS, Windows (not over Web Service) |
+| `signOn()` | Asks what the terminal is and which operations it permits. Reads only. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
+| `closeReceipt()` | Asks the terminal to dismiss its on-screen receipt and return to idle. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
+| `isReachable()` / `probeReachability()` | Whether the link (or payment app) is there. | — | Android, iOS, Windows |
+
+USB cable and app to app are **Android-only**; on iOS and Windows those
+transports return `EcrUnsupported` before anything is sent. Sign-on and
+close-receipt are refused over Web Service and app to app on every host
+(`EcrTransport.supportsSignOn` / `supportsCloseReceipt`).
 
 Every money-moving call also takes `merchantReference`: your own name for the
 transaction — an order number, a basket id. Pass it and the same string
@@ -361,14 +389,15 @@ screens, the same settings, the same order of checks, the same dialogs.
   unsupported). Optional `--dart-define` live seeds are documented in
   [`example/README.md`](example/README.md).
 - **Transaction** — type, amount, receipt number, the original's date, and which
-  terminal. It probes the terminal before it sends anything, then shows the
-  outcome in the same dialogs.
+  terminal. Before a money-moving request it signs on over Wi‑Fi / USB (Android
+  and iOS) and shows **Terminal ready** with permitted operations. Outcomes use
+  the same dialogs as the Android sample.
 
 Where the two apps differ, the Android one is right and this is a bug. It is
-deliberately *not* a showcase: the package offers cancellation, transport
-selection and a standalone reachability probe, and the example uses none of
-them, because the Android example does not — see
-[response code 96](#a-sale-comes-back-96) for why that matters.
+deliberately *not* a showcase of every package API: cancellation is available
+on the package and unused in the example for the same reason the Android sample
+keeps buttons disabled until an answer arrives — see
+[response code 96](#a-sale-comes-back-96).
 
 ```bash
 cd example
@@ -650,4 +679,3 @@ v143 build tools**, then `flutter clean` and rebuild. Full steps:
 ## Licence
 
 Apache 2.0. See [LICENSE](LICENSE).
-# amwal-ecr-flutter

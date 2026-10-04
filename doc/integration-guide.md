@@ -360,6 +360,50 @@ switch (await terminal.receipt(
 Non-financial and reprintable — ask as often as you like, including while the
 terminal is busy. A till with no printer can still hand a receipt over.
 
+### Sign-on
+
+Ask the terminal what it will accept before enabling till buttons. Same API on
+Android, iOS and Windows over **Wi‑Fi or USB cable** (USB is Android-only):
+
+```dart
+switch (await terminal.signOn()) {
+  case EcrSignOnAvailable(:final EcrTerminalCapabilities capabilities):
+    // capabilities.permittedOperations, amount limits, reported transport…
+  case EcrSignOnUnavailable(:final String reason):
+    showToCashier(reason);
+  case EcrSignOnFailed(:final EcrFailure failure):
+    // Treat like any other unknown / unreachable failure for a read-only call
+    showToCashier(failure.message);
+}
+```
+
+Over Web Service or app to app the call is refused before anything is sent
+(`EcrTransport.supportsSignOn` is false). Prefer `EcrSessions.open` so sign-on
+and the money-moving request share one transport.
+
+### Close receipt
+
+When your till drove the sale, the operator is at the till — not at the
+terminal — so nobody dismisses the on-screen receipt. Ask the terminal to put
+it away when the cashier finishes with the outcome dialog:
+
+```dart
+switch (await terminal.closeReceipt()) {
+  case EcrReceiptClosed():
+  case EcrReceiptClosedIdle():
+    // Terminal is idle again (or already was).
+  case EcrReceiptClosedRefused(:final String reason):
+    // Terminal too old / refuses — leave it; operator presses back.
+  case EcrReceiptClosedFailed(:final EcrFailure failure):
+    showToCashier(failure.message);
+}
+```
+
+**Android and Windows** support this over Wi‑Fi / USB cable. **iOS** still
+returns a typed unsupported failure until the bridge wires the native call.
+App to app and Web Service never need it (see
+[compatibility matrix §6.6](compatibility-matrix.md#66-closereceipt-on-ios)).
+
 ---
 
 ## Reading the answer
@@ -536,3 +580,10 @@ keys out of the repository entirely.
       mid-transaction can reconcile on next launch.
 - [ ] On Windows, use Wi‑Fi or Web Service only (USB cable and app to app are
       Android-only), and confirm the PC can route to the terminal / Hub.
+- [ ] On iOS, set the deployment target to **17.0** (AmwalECR 0.2.3) and ship
+      `NSLocalNetworkUsageDescription`.
+- [ ] Sign-on over Wi‑Fi (and USB on Android) before enabling money-moving
+      buttons when the till needs a live picture of permitted operations.
+- [ ] After a successful sale, call `closeReceipt()` when the outcome dialog
+      closes so the terminal returns to idle (Wi‑Fi / USB cable; skipped
+      automatically over Web Service and app to app).

@@ -5,6 +5,25 @@ with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## 0.3.2
+
+### Added / fixed (working tree)
+
+- **iOS `signOn`** — the bridge calls native `AmwalECR` sign-on over Wi‑Fi and
+  USB cable (same transports as Android). Published `0.3.1` on pub.dev still
+  answers every iOS `signOn` with a typed unsupported stub; point a path
+  dependency at this checkout (as `example/` and `AmwalECR-flutter-example` do)
+  to get the real answer.
+- **iOS `closeReceipt`** — same as Android: Wi‑Fi / USB cable ask the terminal
+  to dismiss its on-screen receipt (`idle` / declined / failed). Web Service and
+  app to app still answer typed unsupported before anything is sent.
+- Example apps show terminal readiness from sign-on (permitted operations,
+  reported transport / terminal name).
+
+### Still platform-limited
+
+- USB cable and app to app remain **Android-only**.
+
 ## 0.3.1
 
 CI only: the publish check no longer fails on the tracked example lockfile.

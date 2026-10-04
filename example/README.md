@@ -9,11 +9,15 @@ amwal_ecr:
 ```
 
 Platforms: **Android**, **iOS**, and **Windows** (LAN Wi‑Fi + Web Service; USB
-cable is Android-only).
+cable and app to app are Android-only).
 
-The standalone distributor repo
-[`AmwalECR-flutter-example`](https://github.com/amwal-pay/AmwalECR-flutter-example)
-mirrors this app with `path: ../amwal-ecr-flutter` for sibling checkouts.
+Launcher / home-screen name: **ECR Flutter** (Android `android:label`, iOS
+`CFBundleDisplayName`).
+
+**iOS sign-on and close-receipt** work against the local plugin path (Wi‑Fi).
+Published pub.dev `0.3.1` still stubs iOS `signOn` — keep `amwal_ecr: path: ../`
+(or the sibling path in `AmwalECR-flutter-example`) to get the working-tree
+`0.3.2` hosts (`signOn` + `closeReceipt`).
 
 ## Run
 

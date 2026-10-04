@@ -150,6 +150,22 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertFalse(EcrTransports.isSupportedTransport("bluetooth"))
     }
 
+    func testCloseReceiptAndSignOnMatchAndroidTransportGates() {
+        XCTAssertTrue(EcrTransports.supportsCloseReceipt("wifi"))
+        XCTAssertTrue(EcrTransports.supportsCloseReceipt("usb_cable"))
+        XCTAssertFalse(EcrTransports.supportsCloseReceipt("webService"))
+        XCTAssertFalse(EcrTransports.supportsCloseReceipt("app_to_app"))
+
+        XCTAssertTrue(EcrTransports.supportsSignOn("wifi"))
+        XCTAssertTrue(EcrTransports.supportsSignOn("usb_cable"))
+        XCTAssertFalse(EcrTransports.supportsSignOn("webService"))
+        XCTAssertFalse(EcrTransports.supportsSignOn("app_to_app"))
+    }
+
+    func testIdleOutcomeIsSpelledExactlyThisWay() {
+        XCTAssertEqual("idle", EcrOutcomes.idle)
+    }
+
     func testReachabilityKeysAreSpelledExactlyThisWay() {
         XCTAssertEqual("reachable", EcrReachabilityKeys.reachable)
         XCTAssertEqual("host", EcrReachabilityKeys.host)

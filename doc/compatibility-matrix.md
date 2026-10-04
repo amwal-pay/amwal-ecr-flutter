@@ -15,8 +15,8 @@ discovered.
 
 | | |
 |---|---|
-| `amwal_ecr` | 0.3.0 |
-| Dart SDK | `^3.5.0` — the API uses sealed classes and pattern matching |
+| `amwal_ecr` | 0.3.2 (working tree; see [CHANGELOG](../CHANGELOG.md) Unreleased for iOS sign-on) |
+| Dart SDK | `>=3.5.0 <4.0.0` — the API uses sealed classes and pattern matching |
 | Flutter | `>=3.22.0` |
 | Protocol version | `1` (the `version` field in every request) |
 
@@ -29,14 +29,14 @@ field, it fails to be understood by a current terminal.
 
 | Platform | Provider | Version | Source |
 |---|---|---|---|
-| Android | `com.amwal-pay:ecr-sdk` | **1.0.5** (local / project), exact | Maven Central / sibling `:ecr-sdk` |
-| iOS | `AmwalECR` | **`0.2.2`** | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| Android | `com.amwal-pay:ecr-sdk` | **1.0.6** (plugin `android/gradle.properties`) | Maven Central / sibling `:ecr-sdk` / JAR |
+| iOS | `AmwalECR` | **`0.2.3`** (`~> 0.2.3` range in podspec / Package.swift) | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
 | Windows | Pure-Dart `DartIoAmwalEcrPlatform` | ships in this package | No separate native artifact |
 
-Android and iOS providers expose **`EcrSessions.open` / `EcrOpenedSession`**. The
-Flutter hosts call that API so LAN, USB cable, and Web Service share one
-dispatch path. Windows implements the same Dart session API without a native
-SDK binary.
+Android and iOS providers expose **`EcrSessions.open` / `EcrOpenedSession`**, plus
+**sign-on** and (where the SDK allows) **close receipt**. The Flutter hosts call
+those APIs so LAN, USB cable, and Web Service share one dispatch path. Windows
+implements the same Dart session API without a native SDK binary.
 
 Both mobile providers are published SDKs that native apps use directly, without
 Flutter. On Android and iOS this package is a bridge over them. On Windows the
@@ -48,9 +48,9 @@ outcome is reported changes what a till books, and that is not something to pick
 up by surprise on a dependency refresh. Raising it is a deliberate change: bump
 `android/build.gradle`, re-run the contract tests, and note it in the changelog.
 
-**The iOS version is ranged to the patch line** — `~> 0.2.1` in
-`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.2.1")` in
-`ios/amwal_ecr/Package.swift` (native `AmwalECR` is at **0.2.2**). Not because
+**The iOS version is ranged to the patch line** — `~> 0.2.3` in
+`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.2.3")` in
+`ios/amwal_ecr/Package.swift` (native `AmwalECR` is at **0.2.3**). Not because
 it matters less, but because an app can hold a native till of its own against
 the same pod and the two must resolve together; an exact pin would be an
 integrator's problem to unpick. The range is safe by the release policy, which
@@ -77,7 +77,8 @@ change, and the Dart tests will not notice it happened.
 | Android | API 21 | Plain TCP on the local network; nothing needs newer |
 | Android compile SDK | 34 | |
 | Android/Kotlin JVM target | 17 | The ECR SDK is a Java 17 library |
-| iOS | 12.0 | The floor of `AmwalECR`, both podspecs and both `Package.swift` files — raise them together |
+| iOS (plugin podspec floor) | 12.0 | Historical floor in `amwal_ecr.podspec` |
+| iOS (**effective**, AmwalECR 0.2.3) | **17.0** | Raise the app target; example apps use `17.0` |
 | Swift | 5.5 | |
 | Windows | Windows 10 | Pure-Dart `dart:io` TCP + HTTPS; no native ECR plugin binary. Build only on a Windows host (Visual Studio + Desktop C++). |
 
@@ -139,13 +140,15 @@ checkable claim rather than an assurance.
 
 | Operation | Android | iOS | Windows | Notes |
 |---|---|---|---|---|
-| `isReachable` | ✔ | ✔ | ✔ | Bounded by `probeTimeout` |
+| `isReachable` / `probeReachability` | ✔ | ✔ | ✔ | Bounded by `probeTimeout`; app-to-app probes install/willingness |
 | `sale` | ✔ | ✔ | ✔ | |
 | `voidTransaction` | ✔ | ✔ | ✔ | |
 | `refund` | ✔ | ✔ | ✔ | |
 | `inquire` | ✔ | ✔ | ✔ | Answered while the terminal is busy |
 | `inquireByReference` | ✔ | ✔ | ✔ | The lookup after an answer goes missing |
-| `receipt` | ✔ | ✔ | ✔ | |
+| `receipt` | ✔ | ✔ | ✔ | Not over Web Service (`supportsReceipt`) |
+| `signOn` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app |
+| `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsCloseReceipt`); not Web Service or app to app |
 | `cancel` | ✔ | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
 
 | Outcome | Android | iOS | Windows |
@@ -165,6 +168,8 @@ checkable claim rather than an assurance.
 | Unauthenticated answer | ✔ | ✔ | ✔ |
 | A lost answer followed up (`EcrFailed.recovered`) | ✔ | ✔ | ✔ |
 | `nextStep` on a decline | ✔ | ✔ | ✔ |
+| Sign-on available / unavailable | ✔ | ✔ | ✔ |
+| Close-receipt closed / idle / refused | ✔ | ✔ | ✔ |
 
 USB cable operations apply on Android only; on iOS / Windows they fail as
 `EcrUnsupported` before anything is sent.
@@ -173,29 +178,13 @@ implied:
 
 | Operation | `appToApp` | Notes |
 |---|---|---|
-| `isReachable` | ✔ | Resolves the payment app. Launches nothing |
+| `isReachable` / `probeReachability` | ✔ | Resolves the payment app. Launches nothing |
 | `sale` / `voidTransaction` / `refund` | ✔ | The payment app comes to the front and answers |
 | `inquire` / `inquireByReference` | ✔ | Never refused locally: the only way out of an unknown outcome |
-| `receipt` | ✘ | `EcrReceiptFailed`, nothing sent — there is no link held open to fetch one over |
+| `receipt` | ✔ | Same record as LAN; costs another handover the operator watches |
+| `signOn` | ✘ | Deliberately excluded — a handover only to learn the next refusal |
+| `closeReceipt` | ✘ | Receipt already dismissed when the answer arrives |
 | `cancel` | ✔ | Stops waiting. It cannot dismiss the payment app's screen — see §6.4 |
-
-| Outcome | Android | iOS |
-|---|---|---|
-| Approved | ✔ | ✔ |
-| Partial approval | ✔ | ✔ |
-| Declined | ✔ | ✔ |
-| Busy (`96`) | ✔ | ✔ |
-| Cancelled at the terminal (`17`) | ✔ | ✔ |
-| Original not found (`25`) | ✔ | ✔ |
-| Indeterminate (`91`) → `outcomeIsUnknown` | ✔ | ✔ |
-| Timeout | ✔ | ✔ |
-| Connection lost | ✔ | ✔ |
-| Malformed answer | ✔ | ✔ |
-| Unreachable | ✔ | ✔ |
-| Cancelled by the caller | ✔ | ✔ |
-| Unauthenticated answer | ✔ | ✔ | 
-| A lost answer followed up (`EcrFailed.recovered`) | ✔ | ✔ |
-| `nextStep` on a decline | ✔ | ✔ |
 
 ---
 
@@ -328,6 +317,16 @@ recovery is the till's: read `outcomeIsUnknown`, and inquire by merchant
 reference when the operator is ready. This is the one place where the setting
 a caller passes is not the setting that is used, which is why it is written
 down here rather than left in a comment.
+
+### 6.6 `closeReceipt` on iOS
+
+Android, iOS, and the Windows Dart host close an on-screen receipt over Wi‑Fi /
+USB cable (`EcrTerminal.closeReceipt`). The iOS bridge calls native AmwalECR
+and maps `idle` / declined / failed the same way Android does. Web Service and
+app to app still answer typed unsupported before anything is sent
+(`EcrTransport.supportsCloseReceipt`). Sign-on is wired the same way on iOS for
+Wi‑Fi / USB cable — the same `EcrSignOnAvailable` / `Unavailable` / `Failed`
+shapes as Android.
 
 ---
 
