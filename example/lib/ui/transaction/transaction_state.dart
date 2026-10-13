@@ -74,16 +74,35 @@ final class TransactionInquired extends TransactionState {
 /// The exchange itself failed: unreachable, timed out, malformed, or an answer
 /// that could not be trusted.
 final class TransactionFailed extends TransactionState {
-  const TransactionFailed(this.message, {this.inquirableReference});
+  const TransactionFailed(this.message);
 
   final String message;
+}
 
-  /// Set when the outcome is genuinely **unknown** — the request went out and
-  /// no answer came back, so the transaction may well have completed. The
-  /// screen offers to look it up by that reference, which is the only thing to
-  /// do that is not a second charge. Null when nothing was ever sent, and then
-  /// there is nothing to ask about.
-  final String? inquirableReference;
+/// Live countdown for an in-flight ECR operation (sale, void, inquiry, …).
+///
+/// [remainingSeconds] counts down from [totalSeconds] (the configured response
+/// timeout). A null [OperationTimer] means nothing is running.
+final class OperationTimer {
+  const OperationTimer({
+    required this.remainingSeconds,
+    required this.totalSeconds,
+  });
+
+  final int remainingSeconds;
+  final int totalSeconds;
+
+  double get progress => totalSeconds <= 0
+      ? 0
+      : (remainingSeconds / totalSeconds).clamp(0, 1);
+
+  /// `m:ss` for the remaining wait.
+  String get label {
+    final int safe = remainingSeconds < 0 ? 0 : remainingSeconds;
+    final int minutes = safe ~/ 60;
+    final int seconds = safe % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 }
 
 /// One operation, as the screen asks for it.

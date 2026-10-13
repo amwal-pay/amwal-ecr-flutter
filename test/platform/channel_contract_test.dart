@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the reverse, stops working.
 void main() {
   group('method names', () {
-    test('are exactly these eleven, spelled exactly this way', () {
+    test('are exactly these twelve, spelled exactly this way', () {
       expect(EcrMethods.isReachable, 'isReachable');
       expect(EcrMethods.probeReachability, 'probeReachability');
       expect(EcrMethods.sale, 'sale');
@@ -28,6 +28,7 @@ void main() {
       expect(EcrMethods.receipt, 'receipt');
       expect(EcrMethods.signOn, 'signOn');
       expect(EcrMethods.closeReceipt, 'closeReceipt');
+      expect(EcrMethods.printReceipt, 'printReceipt');
       expect(EcrMethods.cancel, 'cancel');
     });
 
@@ -43,6 +44,7 @@ void main() {
         'receipt',
         'signOn',
         'closeReceipt',
+        'printReceipt',
         'cancel',
       ]);
     });
@@ -65,6 +67,10 @@ void main() {
       expect(EcrArgs.originalTerminalId, 'originalTerminalId');
       expect(EcrArgs.merchantReference, 'merchantReference');
       expect(EcrArgs.originalMerchantReference, 'originalMerchantReference');
+      expect(EcrArgs.receiptImage, 'receiptImage');
+      expect(EcrPrintKeys.status, 'status');
+      expect(EcrPrintKeys.message, 'message');
+      expect(EcrPrintKeys.ok, 'ok');
     });
 
     test('the published list covers them and nothing else', () {
@@ -80,6 +86,7 @@ void main() {
         'originalTerminalId',
         'merchantReference',
         'originalMerchantReference',
+        'receiptImage',
       ]);
     });
   });

@@ -227,7 +227,7 @@ class EcrCallHandlerTest {
     )
 
     private fun handlerFor(terminal: EcrTerminalPort, scope: TestScope): EcrCallHandler =
-        EcrCallHandler(scope) { _, _, _, _ -> terminal }
+        EcrCallHandler(scope, terminals = { _, _, _, _ -> terminal })
 
     @Test
     fun `a sale is sent once and answered once`() = runTest(UnconfinedTestDispatcher()) {

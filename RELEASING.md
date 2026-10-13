@@ -3,12 +3,12 @@
 How the three artifacts are versioned, in what order they go out, and how to get
 back if it goes wrong.
 
-| Artifact | Registry | Repository | Tag | Versioned by |
-|---|---|---|---|---|
-| `com.amwal-pay:ecr-sdk` | Maven Central | [ECR-simulator](https://github.com/amwal-pay/ECR-simulator) | — | `ecr-sdk/build.gradle` |
-| `AmwalECR` (SwiftPM) | SwiftPM, from the repository's tags | [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) | **`vX.Y.Z`** | the tag itself |
-| `AmwalECR` (pod) | CocoaPods trunk | [AmwalECR-iOS-CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods) | **`vX.Y.Z`** | `AmwalECR.podspec` |
-| `amwal_ecr` | pub.dev | [amwal-ecr-flutter](https://github.com/amwal-pay/amwal-ecr-flutter) | `vX.Y.Z` | `pubspec.yaml` |
+| Artifact                | Registry                            | Repository                                                                    | Tag          | Versioned by           |
+| ----------------------- | ----------------------------------- | ----------------------------------------------------------------------------- | ------------ | ---------------------- |
+| `com.amwal-pay:ecr-sdk` | Maven Central                       | [ECR-simulator](https://github.com/amwal-pay/ECR-simulator)                   | —            | `ecr-sdk/build.gradle` |
+| `AmwalECR` (SwiftPM)    | SwiftPM, from the repository's tags | [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM)             | **`vX.Y.Z`** | the tag itself         |
+| `AmwalECR` (pod)        | CocoaPods trunk                     | [AmwalECR-iOS-CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods) | **`vX.Y.Z`** | `AmwalECR.podspec`     |
+| `amwal_ecr`             | pub.dev                             | [amwal-ecr-flutter](https://github.com/amwal-pay/amwal-ecr-flutter)           | `vX.Y.Z`     | `pubspec.yaml`         |
 
 Each has its own repository and its own changelog, and they version
 independently — a fix to the Swift socket is not a reason to republish the Dart
@@ -32,16 +32,16 @@ is a contract between a Dart package and a native host that ship in the same
 binary but are built at different times. Renaming one is not a refactor — it is
 a call that stops being answered at a till.
 
-| Change | Version |
-|---|---|
-| A new optional argument, defaulted on both hosts | minor |
-| A new failure kind, outcome, or result field | minor — older Dart reads an unknown kind as `EcrMalformed`, which is the safe reading |
-| Renaming **anything** in the channel contract | **major** |
-| Removing a field the Dart side reads | **major** |
-| Raising the pinned `ecr-sdk` version, or the `AmwalECR` range | minor, and named in the changelog |
-| Adding a new Flutter host platform (e.g. Windows) without changing outcomes | **minor** |
-| Raising the Dart, Flutter, Android or iOS floor | **major** |
-| Changing what an outcome *means* — a decline becoming a failure, `outcomeIsUnknown` changing for a case | **major**, however small the diff |
+| Change                                                                                                  | Version                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| A new optional argument, defaulted on both hosts                                                        | minor                                                                                 |
+| A new failure kind, outcome, or result field                                                            | minor — older Dart reads an unknown kind as `EcrMalformed`, which is the safe reading |
+| Renaming **anything** in the channel contract                                                           | **major**                                                                             |
+| Removing a field the Dart side reads                                                                    | **major**                                                                             |
+| Raising the pinned `ecr-sdk` version, or the `AmwalECR` range                                           | minor, and named in the changelog                                                     |
+| Adding a new Flutter host platform (e.g. Windows) without changing outcomes                             | **minor**                                                                             |
+| Raising the Dart, Flutter, Android or iOS floor                                                         | **major**                                                                             |
+| Changing what an outcome _means_ — a decline becoming a failure, `outcomeIsUnknown` changing for a case | **major**, however small the diff                                                     |
 
 That last row is the one that matters. `outcomeIsUnknown` decides whether a till
 retries. A change to it is a change to whether customers get charged twice, and
@@ -50,7 +50,7 @@ of code.
 
 ### The protocol version is separate
 
-The `version` field in every request is the *wire* protocol's, currently `1`. It
+The `version` field in every request is the _wire_ protocol's, currently `1`. It
 is bumped only when the message format changes in a way older terminals cannot
 read, and that is a change to the terminal, the Kotlin SDK and this package
 together.
@@ -62,12 +62,12 @@ together.
 Each repository publishes its own artifact, by a script that also runs on a
 workstation:
 
-| Repository | Artifact | Starts on | Script |
-|---|---|---|---|
-| ECR-simulator | `com.amwal-pay:ecr-sdk` | by hand | `publish.sh` |
-| AmwalECR-iOS-SPM | the SwiftPM package | tag `vX.Y.Z` | — the tag *is* the release |
-| AmwalECR-iOS-CocoaPods | the `AmwalECR` pod | tag `vX.Y.Z` | `pod trunk push AmwalECR.podspec` |
-| amwal-ecr-flutter | `amwal_ecr` | tag `vX.Y.Z` | `dart pub publish` |
+| Repository             | Artifact                | Starts on    | Script                            |
+| ---------------------- | ----------------------- | ------------ | --------------------------------- |
+| ECR-simulator          | `com.amwal-pay:ecr-sdk` | by hand      | `publish.sh`                      |
+| AmwalECR-iOS-SPM       | the SwiftPM package     | tag `vX.Y.Z` | — the tag _is_ the release        |
+| AmwalECR-iOS-CocoaPods | the `AmwalECR` pod      | tag `vX.Y.Z` | `pod trunk push AmwalECR.podspec` |
+| amwal-ecr-flutter      | `amwal_ecr`             | tag `vX.Y.Z` | `dart pub publish`                |
 
 Whatever drives them, publishes must be **idempotent**: a version already on the
 registry is reported and skipped, not re-pushed, so a re-run of a build is never
@@ -172,6 +172,7 @@ Concretely, for a release that includes a native change:
    The SwiftPM tag is what those consumers resolve, so it goes out **before** the
    trunk push, and neither tag is ever moved afterwards: a moved tag is a
    different library under a version somebody has already locked.
+
 3. **Pin the new versions** in `android/build.gradle`, `ios/amwal_ecr.podspec`
    and `ios/amwal_ecr/Package.swift` — the last two must name the same range —
    and update the compatibility matrix in the same commit.
@@ -295,11 +296,13 @@ integrators while remaining perfectly visible to the SDK's own tests.
 
 ### What to roll back to
 
-| Release | `amwal_ecr` | `ecr-sdk` | `AmwalECR` | Notes |
-|---|---|---|---|---|
-| 0.3.0 | 0.3.0 | 1.0.5 | 0.2.1 | Windows pure-Dart host (LAN + Web Service) |
-| 0.2.1 | 0.2.1 | 1.0.5 | 0.2.1 | ECR modes: USB Android, Web Service |
-| 0.1.0 | 0.1.0 | 1.0.3 | 0.1.0 | first release |
+| Release | `amwal_ecr` | `ecr-sdk` | `AmwalECR` | Notes                                                                                                                                              |
+| ------- | ----------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.4.0   | 0.4.0       | 1.0.8     | 0.3.0      | AmwalECR 0.3.0 pin; ecr-sdk 1.0.8; Web Service inquiry transport failure → `EcrInquiryFailed` App-to-app `printReceipt` (Android; 384 px / ≤15 MB) |
+| 0.3.2   | 0.3.2       | 1.0.6     | 0.2.3      | iOS `signOn` + `closeReceipt`                                                                                                                      |
+| 0.3.0   | 0.3.0       | 1.0.5     | 0.2.1      | Windows pure-Dart host (LAN + Web Service)                                                                                                         |
+| 0.2.1   | 0.2.1       | 1.0.5     | 0.2.1      | ECR modes: USB Android, Web Service                                                                                                                |
+| 0.1.0   | 0.1.0       | 1.0.3     | 0.1.0      | first release                                                                                                                                      |
 
 Keep this table current. It is the only place that records which pair was ever
 shipped together, and at three in the morning it is the only thing anyone wants.
@@ -320,7 +323,7 @@ Integrators pin back in the meantime:
 
 ```yaml
 dependencies:
-  amwal_ecr: 0.1.0   # exact, not ^
+  amwal_ecr: 0.1.0 # exact, not ^
 ```
 
 ### Rolling back the iOS provider

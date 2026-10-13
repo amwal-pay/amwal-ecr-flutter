@@ -1,5 +1,6 @@
 /// Drive an Amwal POS terminal from Flutter, on Android, iOS and Windows,
-/// through one Dart API.
+/// through one Dart API. Over Android app to app, [EcrTerminal.printReceipt]
+/// can ask the payment app to print a receipt image (384 px / ≤ 15 MB).
 ///
 /// ```dart
 /// import 'package:amwal_ecr/amwal_ecr.dart';
@@ -40,6 +41,7 @@ export 'src/model/ecr_failure.dart';
 export 'src/model/ecr_inquiry.dart';
 export 'src/model/ecr_next_step.dart';
 export 'src/model/ecr_payment_app.dart';
+export 'src/model/ecr_print_outcome.dart';
 export 'src/model/ecr_reachability.dart';
 export 'src/model/ecr_receipt.dart';
 export 'src/model/ecr_receipt_closed.dart';

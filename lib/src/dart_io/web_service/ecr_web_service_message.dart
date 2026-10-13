@@ -22,9 +22,10 @@ abstract final class EcrWebServiceMessage {
     int? amountMinorUnits,
     String stan = '',
     String originalTransactionDate = '',
+    /// Set for inquiry-by-reference; ignored for stan-based inquiry.
+    String originalMerchantReference = '',
     String merchantReference = '',
     String transactionDateTime = '',
-    String requestDateTime = '',
     DateTime? now,
   }) {
     if (type == EcrTransactionType.receipt) {
@@ -40,13 +41,16 @@ abstract final class EcrWebServiceMessage {
     final Map<String, Object?> body = <String, Object?>{
       'version': EcrMessage.protocolVersion,
       'messageType': type.messageType,
-      'merchantReference': reference,
+      'merchantId': merchantId,
+      'terminalId': terminalId,
       'terminalSerial': terminalSerial,
+      'ecrId': ecrId,
+      'merchantReference': reference,
       'currencyCode': currencyCode,
       'transactionDateTime': wireDateTime,
-      'requestDateTime':
-          requestDateTime.isEmpty ? wireDateTime : requestDateTime,
-      'ecrId': ecrId,
+      // Hub validates this separately from transactionDateTime
+      // (`RequestDateTimeIsRequired` when omitted); always the same instant.
+      'requestDateTime': wireDateTime,
     };
 
     switch (type) {
@@ -55,14 +59,27 @@ abstract final class EcrWebServiceMessage {
             (amountMinorUnits ?? 0).toString().padLeft(12, '0');
       case EcrTransactionType.voidTransaction:
         body['stan'] = EcrMessage.paddedStan(stan);
+        body['originalMerchantReference'] = reference;
+        body['originalTerminalId'] = terminalId;
       case EcrTransactionType.refund:
         body['amount'] =
             (amountMinorUnits ?? 0).toString().padLeft(12, '0');
         body['stan'] = EcrMessage.paddedStan(stan);
         body['originalTransactionDate'] = originalTransactionDate;
+        body['originalMerchantReference'] = reference;
+        body['originalTerminalId'] = terminalId;
       case EcrTransactionType.inquiry:
-        body['stan'] = EcrMessage.paddedStan(stan);
+        final String invoiceStan = EcrMessage.paddedStan(stan);
+        final bool byStan = invoiceStan.isNotEmpty;
+        final bool byReference =
+            !byStan && originalMerchantReference.trim().isNotEmpty;
+        body['stan'] = invoiceStan;
         body['originalTransactionDate'] = originalTransactionDate;
+        // By STAN → empty originalMerchantReference; by reference → set it.
+        body['originalMerchantReference'] = byReference
+            ? EcrMessage.resolveMerchantReference(originalMerchantReference)
+            : '';
+        body['originalTerminalId'] = terminalId;
       case EcrTransactionType.receipt:
         break;
       // The Hub has no route for it and wants none: over Web Service the
@@ -76,9 +93,6 @@ abstract final class EcrWebServiceMessage {
       case EcrTransactionType.signOn:
         break;
     }
-
-    body['merchantId'] = merchantId;
-    body['terminalId'] = terminalId;
 
     final Map<String, Object?> json = secureHashKey.isEmpty
         ? body

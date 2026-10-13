@@ -180,10 +180,10 @@ class EcrReferenceAndSigningTest {
     )
 
     private fun handlerFor(terminal: SpyTerminal, scope: TestScope): EcrCallHandler =
-        EcrCallHandler(scope) { _, _, _, config ->
+        EcrCallHandler(scope, terminals = { _, _, _, config ->
             terminal.config = config
             terminal
-        }
+        })
 
     // ── The shared secret ─────────────────────────────────────────────────
 

@@ -11,13 +11,19 @@ amwal_ecr:
 Platforms: **Android**, **iOS**, and **Windows** (LAN Wi‑Fi + Web Service; USB
 cable and app to app are Android-only).
 
+On an approved **app-to-app** result the outcome dialog offers **Print
+receipt**: the till builds a bilingual 384 px PNG (≤ 15 MB) from the operation
+(`lib/print/`) and calls `EcrTerminal.printReceipt`. The payment app’s status
+and message come back in a **Print receipt** popup (not a snackbar). Wi‑Fi /
+USB / Web Service never show that button.
+
 Launcher / home-screen name: **ECR Flutter** (Android `android:label`, iOS
 `CFBundleDisplayName`).
 
 **iOS sign-on and close-receipt** work against the local plugin path (Wi‑Fi).
-Published pub.dev `0.3.1` still stubs iOS `signOn` — keep `amwal_ecr: path: ../`
-(or the sibling path in `AmwalECR-flutter-example`) to get the working-tree
-`0.3.2` hosts (`signOn` + `closeReceipt`).
+Published pub.dev `0.3.1` still stubs iOS `signOn`. Keep `amwal_ecr: path: ../`
+(or the sibling path in `AmwalECR-flutter-example`) for `0.3.2+` hosts
+(`signOn` + `closeReceipt`) and `0.3.3` app-to-app `printReceipt`.
 
 ## Run
 

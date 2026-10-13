@@ -15,7 +15,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/amwal-pay/AmwalECR-iOS-SPM.git",
-            .upToNextMinor(from: "0.2.3")
+            .upToNextMinor(from: "0.3.0")
         ),
     ],
     targets: [

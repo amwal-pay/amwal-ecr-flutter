@@ -21,6 +21,7 @@ internal object EcrMethods {
     const val RECEIPT = "receipt"
     const val SIGN_ON = "signOn"
     const val CLOSE_RECEIPT = "closeReceipt"
+    const val PRINT_RECEIPT = "printReceipt"
     const val CANCEL = "cancel"
 }
 
@@ -36,6 +37,18 @@ internal object EcrArgs {
     const val ORIGINAL_TERMINAL_ID = "originalTerminalId"
     const val MERCHANT_REFERENCE = "merchantReference"
     const val ORIGINAL_MERCHANT_REFERENCE = "originalMerchantReference"
+    const val RECEIPT_IMAGE = "receiptImage"
+}
+
+/**
+ * Keys in the map returned by [EcrMethods.PRINT_RECEIPT].
+ *
+ * [STATUS] and [MESSAGE] stay separate — never a combined "FAILED: …" string.
+ */
+internal object EcrPrintKeys {
+    const val STATUS = "status"
+    const val MESSAGE = "message"
+    const val OK = "ok"
 }
 
 internal object EcrConfigKeys {

@@ -15,7 +15,7 @@ final class EcrConfig {
     this.minorUnitDigits = 3,
     this.port = defaultPort,
     this.connectTimeout = const Duration(seconds: 10),
-    this.responseTimeout = const Duration(seconds: 120),
+    this.responseTimeout = defaultResponseTimeout,
     this.probeTimeout = const Duration(seconds: 3),
     this.secureHashKey = '',
     this.merchantId = '',
@@ -53,6 +53,17 @@ final class EcrConfig {
 
   /// The port Amwal POS terminals listen on for ECR requests.
   static const int defaultPort = 9100;
+
+  /// Default LAN / USB read timeout.
+  static const Duration defaultResponseTimeout = Duration(seconds: 120);
+
+  /// HTTP read timeout for Web Service REST calls (`/Ecr/Sale`, void, refund,
+  /// inquiry). Longer than the LAN default: the Hub wait includes card present
+  /// + PIN, and 120s was cutting sales off early.
+  ///
+  /// Applied by [EcrTerminal] / [EcrSessions.open] when [responseTimeout] is
+  /// still the LAN default; an explicit override is kept.
+  static const Duration webServiceResponseTimeout = Duration(seconds: 130);
 
   /// 64 bits is the shortest key worth calling a secret.
   static const int _minSecretLength = 16;

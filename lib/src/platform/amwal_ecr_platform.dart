@@ -1,6 +1,7 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
@@ -76,6 +77,9 @@ abstract base class AmwalEcrPlatform extends PlatformInterface {
 
   /// Asks the terminal to put its receipt away and go back to its idle screen.
   Future<EcrReceiptClosed> closeReceipt(EcrRequest request);
+
+  /// Asks the Amwal payment app to print a receipt image (app-to-app only).
+  Future<EcrPrintOutcome> printReceipt(EcrRequest request);
 
   /// Asks the host to abandon the operation with [operationId].
   ///

@@ -15,7 +15,7 @@ discovered.
 
 | | |
 |---|---|
-| `amwal_ecr` | 0.3.2 (working tree; see [CHANGELOG](../CHANGELOG.md) Unreleased for iOS sign-on) |
+| `amwal_ecr` | 0.4.0 (see [CHANGELOG](../CHANGELOG.md) — AmwalECR 0.3.0 / ecr-sdk 1.0.8: unknown outcomes → `EcrFailed`, Web Service 130s timeout) |
 | Dart SDK | `>=3.5.0 <4.0.0` — the API uses sealed classes and pattern matching |
 | Flutter | `>=3.22.0` |
 | Protocol version | `1` (the `version` field in every request) |
@@ -29,8 +29,8 @@ field, it fails to be understood by a current terminal.
 
 | Platform | Provider | Version | Source |
 |---|---|---|---|
-| Android | `com.amwal-pay:ecr-sdk` | **1.0.6** (plugin `android/gradle.properties`) | Maven Central / sibling `:ecr-sdk` / JAR |
-| iOS | `AmwalECR` | **`0.2.3`** (`~> 0.2.3` range in podspec / Package.swift) | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| Android | `com.amwal-pay:ecr-sdk` | **1.0.8** (plugin `android/gradle.properties`) | Maven Central / sibling `:ecr-sdk` / JAR |
+| iOS | `AmwalECR` | **`0.3.0`** (`~> 0.3.0` range in podspec / Package.swift) | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
 | Windows | Pure-Dart `DartIoAmwalEcrPlatform` | ships in this package | No separate native artifact |
 
 Android and iOS providers expose **`EcrSessions.open` / `EcrOpenedSession`**, plus
@@ -48,14 +48,14 @@ outcome is reported changes what a till books, and that is not something to pick
 up by surprise on a dependency refresh. Raising it is a deliberate change: bump
 `android/build.gradle`, re-run the contract tests, and note it in the changelog.
 
-**The iOS version is ranged to the patch line** — `~> 0.2.3` in
-`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.2.3")` in
-`ios/amwal_ecr/Package.swift` (native `AmwalECR` is at **0.2.3**). Not because
+**The iOS version is ranged to the patch line** — `~> 0.3.0` in
+`ios/amwal_ecr.podspec`, `.upToNextMinor(from: "0.3.0")` in
+`ios/amwal_ecr/Package.swift` (native `AmwalECR` is at **0.3.0**). Not because
 it matters less, but because an app can hold a native till of its own against
 the same pod and the two must resolve together; an exact pin would be an
 integrator's problem to unpick. The range is safe by the release policy, which
 gives a major version to anything that changes what an outcome means, so
-`0.2.x` cannot report differently from what this bridge is contract-tested
+`0.3.x` cannot report differently from what this bridge is contract-tested
 against. The two files must always name the same range.
 
 ### The iOS seam
@@ -77,8 +77,7 @@ change, and the Dart tests will not notice it happened.
 | Android | API 21 | Plain TCP on the local network; nothing needs newer |
 | Android compile SDK | 34 | |
 | Android/Kotlin JVM target | 17 | The ECR SDK is a Java 17 library |
-| iOS (plugin podspec floor) | 12.0 | Historical floor in `amwal_ecr.podspec` |
-| iOS (**effective**, AmwalECR 0.2.3) | **17.0** | Raise the app target; example apps use `17.0` |
+| iOS (plugin podspec / Package.swift) | **17.0** | Matches AmwalECR **0.3.0**; example apps use `17.0` |
 | Swift | 5.5 | |
 | Windows | Windows 10 | Pure-Dart `dart:io` TCP + HTTPS; no native ECR plugin binary. Build only on a Windows host (Visual Studio + Desktop C++). |
 
@@ -149,6 +148,7 @@ checkable claim rather than an assurance.
 | `receipt` | ✔ | ✔ | ✔ | Not over Web Service (`supportsReceipt`) |
 | `signOn` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app |
 | `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsCloseReceipt`); not Web Service or app to app |
+| `printReceipt` | ✔ | ✘ | ✘ | **App to app only** (Android). Image width **384 px**, size **≤ 15 MB**. Wi‑Fi / USB / Web Service refuse before the host; iOS / Windows answer the same way |
 | `cancel` | ✔ | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
 
 | Outcome | Android | iOS | Windows |
@@ -170,6 +170,7 @@ checkable claim rather than an assurance.
 | `nextStep` on a decline | ✔ | ✔ | ✔ |
 | Sign-on available / unavailable | ✔ | ✔ | ✔ |
 | Close-receipt closed / idle / refused | ✔ | ✔ | ✔ |
+| Print `SUCCESSFUL` / `FAILED` (`EcrPrintOutcome`) | ✔ | ✘ | ✘ | App to app only; status and message stay separate |
 
 USB cable operations apply on Android only; on iOS / Windows they fail as
 `EcrUnsupported` before anything is sent.
@@ -182,6 +183,7 @@ implied:
 | `sale` / `voidTransaction` / `refund` | ✔ | The payment app comes to the front and answers |
 | `inquire` / `inquireByReference` | ✔ | Never refused locally: the only way out of an unknown outcome |
 | `receipt` | ✔ | Same record as LAN; costs another handover the operator watches |
+| `printReceipt` | ✔ | Intent `com.amwalpay.pos.ecr.PRINT` with a required image (width **384 px**, size **≤ 15 MB**). Returns `EcrPrintOutcome` (`status` + `message` separate). Not on Wi‑Fi / USB / Web Service |
 | `signOn` | ✘ | Deliberately excluded — a handover only to learn the next refusal |
 | `closeReceipt` | ✘ | Receipt already dismissed when the answer arrives |
 | `cancel` | ✔ | Stops waiting. It cannot dismiss the payment app's screen — see §6.4 |
@@ -294,6 +296,11 @@ Two answers look alike from the till's side and mean opposite things:
   `EcrFailed` whose `outcomeIsUnknown` is set and whose `nextStep` is
   `inquireByMerchantReference`. **The money may have moved.** Inquire; never
   retry the sale.
+
+The same rule applies on **Web Service**: a synthesised `NO_RESPONSE` /
+timeout envelope with `nextStep: INQUIRE_BY_MERCHANT_REFERENCE` is
+`EcrFailed` (`EcrTimeout` / `EcrConnectionLost`), never `EcrDeclined`. Default
+Web Service read timeout is **130s** (`EcrConfig.webServiceResponseTimeout`).
 
 This is why a `merchantReference` is not optional on this transport in
 practice: it is the only handle that survives the round trip being cut, and
