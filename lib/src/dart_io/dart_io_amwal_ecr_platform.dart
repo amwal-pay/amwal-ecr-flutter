@@ -3,6 +3,7 @@ import 'dart:async';
 import '../model/ecr_errors.dart';
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
@@ -247,6 +248,16 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
           lan.closeReceipt(merchantReference: request.merchantReference),
       onFailure: (EcrFailure failure) =>
           EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+    );
+  }
+
+  @override
+  Future<EcrPrintOutcome> printReceipt(EcrRequest request) {
+    // PRINT is an Android intent to the payment app. Windows has neither.
+    return Future<EcrPrintOutcome>.value(
+      EcrPrintOutcome.failed(
+        'Print is only available over app to app on Android. Nothing was sent.',
+      ),
     );
   }
 

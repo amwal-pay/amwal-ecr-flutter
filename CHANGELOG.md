@@ -5,9 +5,84 @@ with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## 0.4.0
+
+Port of iOS `AmwalECR` **0.3.0** and Android `ecr-sdk` **1.0.8** Web Service
+contract changes (CocoaPods / SPM working tree + Kotlin package).
+
+### Changed (breaking)
+
+- **Web Service inquiry transport failure** — when an inquiry (`inquire` /
+  `inquireByReference`) gets no usable answer (timeout, socket error, empty or
+  invalid body, HTTP 5xx), the result is now `EcrInquiryFailed` with
+  `EcrConnectionLost` instead of `EcrInquiryNotFound`. "Not found" now means
+  the terminal answered and has no such transaction; a transport failure means
+  the outcome is still unknown. Reconcile, do not retry.
+- **Sale / void / refund unknown outcomes are `EcrFailed`, not `EcrDeclined`.**
+  A `success: false` envelope with `nextStep: INQUIRE_BY_MERCHANT_REFERENCE`
+  (typically `NO_RESPONSE` / timeout wording) is `EcrFailed` with `EcrTimeout`
+  or `EcrConnectionLost`. An ordinary decline without that next step is
+  unchanged. Money may have moved — inquire by reference; do not treat it as
+  "no money taken" and retry the sale. Applies on the Dart Windows host and
+  matches native AmwalECR / ecr-sdk readers.
+
+### Added
+
+- **iOS `AmwalECR` 0.3.0** — plugin pins (`ecrSdkVersion=0.3.0`; podspec
+  `~> 0.3.0`, SwiftPM `.upToNextMinor(from: "0.3.0")`). Android `ecr-sdk` is
+  pinned to **1.0.8**; the Gradle fallback version is raised from 1.0.5 to 1.0.8.
+- **Web Service default read timeout is 130s**
+  (`EcrConfig.webServiceResponseTimeout`). `EcrTerminal` / `EcrSessions.open`
+  apply it when the config still has the LAN default of 120s; an explicit
+  override is kept. Passed to native hosts via `responseTimeoutMs`.
+- **Dart Web Service parity** (Windows host) with iOS 0.3.0 / Android 1.0.8:
+  - `requestDateTime` always equals `transactionDateTime` in request bodies.
+  - Void / refund send `originalMerchantReference` + `originalTerminalId`;
+    inquiry-by-reference sends `originalMerchantReference` with empty `stan`.
+  - Inquiry path is `/Ecr/Inquiry`.
+  - Synthesized failures (timeout, socket error, empty / invalid body, HTTP
+    5xx) carry `nextStep: INQUIRE_BY_MERCHANT_REFERENCE`; 4xx synthesized
+    errors do not.
+  - Inquiry answers may be flat or nested: the transaction is read from
+    `data` only when it carries transaction fields, otherwise from the
+    response root; a bare correlation echo is `EcrInquiryNotFound`. The
+    reference resolves from the transaction payload, then the envelope, then
+    the request.
+  - Environment endpoints updated for the UAT environment (`:25453`).
+
+## 0.3.4
+
+### Fixed
+
+- **Web Service `inquireByReference`** — no longer refused at the Dart API
+  because Web Service has no reachability probe. Matches Kotlin
+  `EcrWebServiceTerminal.inquireByReference`.
+- **Web Service wire bodies** — inquiry / void / refund now carry
+  `originalMerchantReference`, `originalTerminalId`, and
+  `requestDateTime` like `ecr-sdk` `EcrWebServiceMessage` (inquiry by
+  reference sets `originalMerchantReference`; STAN inquiry leaves it empty).
+
+## 0.3.3
+
+### Added
+
+- **App-to-app `printReceipt`** — Android only. Sends `com.amwalpay.pos.ecr.PRINT`
+  with a required receipt image (width **384 px**, size **≤ 15 MB**). Returns
+  `EcrPrintOutcome` with **status and message as separate fields**. Wi‑Fi, USB
+  cable and Web Service refuse before the host is called; iOS / Windows answer
+  the same way. Channel method `printReceipt`; plugin `<queries>` includes PRINT.
+- Example till shows **Print receipt** on approved app-to-app results only
+  (`example/lib/print/` builds the bilingual 384 px PNG).
+- Pins Android host to `com.amwal-pay:ecr-sdk` **1.0.7** (app-to-app PRINT
+  contract documented with the SDK).
+
+### Still platform-limited
+
+- USB cable and app to app remain **Android-only**. Print is app to app only.
+
 ## 0.3.2
 
-### Added / fixed (working tree)
+### Added / fixed
 
 - **iOS `signOn`** — the bridge calls native `AmwalECR` sign-on over Wi‑Fi and
   USB cable (same transports as Android). Published `0.3.1` on pub.dev still

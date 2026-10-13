@@ -42,6 +42,9 @@ class AmwalEcrPlugin :
     /** Where an Activity result is handed to the exchange waiting on it. */
     private val paymentAppResults = PaymentAppResults()
 
+    /** Where a PRINT Activity result is handed to the exchange waiting on it. */
+    private val paymentAppPrintResults = PaymentAppPrintResults()
+
     /**
      * SupervisorJob so one failed operation cannot take down the others: a
      * till may have a sale in flight and an inquiry beside it, and the inquiry
@@ -92,11 +95,14 @@ class AmwalEcrPlugin :
                 paymentAppResults = paymentAppResults,
             )
         },
+        activities = { activityBinding?.activity },
+        printResults = paymentAppPrintResults,
     )
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activityBinding = binding
         binding.addActivityResultListener(paymentAppResults)
+        binding.addActivityResultListener(paymentAppPrintResults)
     }
 
     /**
@@ -108,6 +114,7 @@ class AmwalEcrPlugin :
      */
     override fun onDetachedFromActivityForConfigChanges() {
         activityBinding?.removeActivityResultListener(paymentAppResults)
+        activityBinding?.removeActivityResultListener(paymentAppPrintResults)
         activityBinding = null
     }
 
@@ -117,6 +124,7 @@ class AmwalEcrPlugin :
 
     override fun onDetachedFromActivity() {
         activityBinding?.removeActivityResultListener(paymentAppResults)
+        activityBinding?.removeActivityResultListener(paymentAppPrintResults)
         activityBinding = null
     }
 

@@ -28,6 +28,7 @@ class EcrChannelContractTest {
         assertEquals("inquire", EcrMethods.INQUIRE)
         assertEquals("inquireByReference", EcrMethods.INQUIRE_BY_REFERENCE)
         assertEquals("receipt", EcrMethods.RECEIPT)
+        assertEquals("printReceipt", EcrMethods.PRINT_RECEIPT)
         assertEquals("cancel", EcrMethods.CANCEL)
     }
 
@@ -44,6 +45,10 @@ class EcrChannelContractTest {
         assertEquals("originalTerminalId", EcrArgs.ORIGINAL_TERMINAL_ID)
         assertEquals("merchantReference", EcrArgs.MERCHANT_REFERENCE)
         assertEquals("originalMerchantReference", EcrArgs.ORIGINAL_MERCHANT_REFERENCE)
+        assertEquals("receiptImage", EcrArgs.RECEIPT_IMAGE)
+        assertEquals("status", EcrPrintKeys.STATUS)
+        assertEquals("message", EcrPrintKeys.MESSAGE)
+        assertEquals("ok", EcrPrintKeys.OK)
     }
 
     @Test

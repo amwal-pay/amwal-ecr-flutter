@@ -159,24 +159,73 @@ final class WebServiceEcrClient {
       EcrWebServiceOperation.transactionStatus,
       body,
     );
-    return EcrWireReaders.toInquiry(
-      response,
-      merchantReference: reference,
-      minorUnitDigits: config.minorUnitDigits,
-    );
+    return _readInquiry(response, reference);
   }
 
-  /// Inquiry by reference — matches native Web Service behaviour.
+  /// Inquiry by reference — matches Kotlin `EcrWebServiceTerminal.inquireByReference`.
   Future<EcrInquiry> inquireByReference({
     required String originalReference,
     String transactionDate = '',
     String merchantReference = '',
-  }) {
-    return inquire(
-      receiptNumber: '',
-      transactionDate: transactionDate,
-      merchantReference:
-          merchantReference.isEmpty ? originalReference : merchantReference,
+  }) async {
+    if (originalReference.trim().isEmpty) {
+      return EcrInquiryFailed(
+        merchantReference: merchantReference,
+        failure: const EcrMalformed(
+          "An inquiry by reference needs the original's reference",
+        ),
+      );
+    }
+
+    final (int, int)? ids = _backendIds();
+    if (ids == null) {
+      return EcrInquiryFailed(
+        merchantReference: merchantReference,
+        failure: const EcrMalformed(
+          'merchantId and terminalId are required for Web Service ECR',
+        ),
+      );
+    }
+
+    final (String reference, Map<String, Object?> body) =
+        EcrWebServiceMessage.build(
+      type: EcrTransactionType.inquiry,
+      merchantId: ids.$1,
+      terminalId: ids.$2,
+      terminalSerial: terminalSerial,
+      secureHashKey: config.secureHashKey,
+      currencyCode: config.currencyCode,
+      ecrId: config.ecrId,
+      stan: '',
+      originalTransactionDate: transactionDate,
+      originalMerchantReference: originalReference,
+      merchantReference: merchantReference,
+    );
+
+    final Map<String, Object?> response = await _api.postJson(
+      EcrWebServiceOperation.transactionStatus,
+      body,
+    );
+    return _readInquiry(response, reference);
+  }
+
+  /// Reads an inquiry answer; a synthesized unknown-outcome body (no `data`
+  /// object) means the inquiry itself got no answer, not "not found".
+  EcrInquiry _readInquiry(Map<String, Object?> response, String reference) {
+    if (response['nextStep'] == unknownOutcomeStep &&
+        response['data'] is! Map) {
+      final String message = response['message']?.toString() ?? '';
+      return EcrInquiryFailed(
+        merchantReference: reference,
+        failure: EcrConnectionLost(
+          message.isEmpty ? 'The Web Service did not answer' : message,
+        ),
+      );
+    }
+    return EcrWireReaders.toInquiry(
+      response,
+      merchantReference: reference,
+      minorUnitDigits: config.minorUnitDigits,
     );
   }
 

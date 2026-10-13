@@ -71,6 +71,9 @@ final class EcrResponseEnvelope {
     );
   }
 
+  /// Root object of [json]: [json] itself, or its nested `ecrResponse`.
+  static Map<String, Object?> root(Map<String, Object?> json) => _root(json);
+
   static Map<String, Object?> _root(Map<String, Object?> json) {
     if (json.containsKey('success') || json.containsKey('data')) {
       return json;

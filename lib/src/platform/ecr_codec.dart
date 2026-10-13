@@ -1,6 +1,7 @@
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_next_step.dart';
+import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
@@ -343,6 +344,26 @@ abstract final class EcrCodec {
           failure: EcrMalformed(_unknownOutcome(unknown, 'a closed receipt')),
         );
     }
+  }
+
+  /// Reads the answer to [EcrMethods.printReceipt].
+  ///
+  /// [EcrPrintKeys.status] and [EcrPrintKeys.message] stay separate — a
+  /// missing status falls back to [EcrPrintKeys.ok], never to text in the
+  /// message.
+  static EcrPrintOutcome printOutcome(Object? payload) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return EcrPrintOutcome.failed(_notAMap(payload, 'a print outcome'));
+    }
+    final bool? ok = map[EcrPrintKeys.ok] as bool?;
+    final String statusWire = _string(map, EcrPrintKeys.status);
+    final String message = _string(map, EcrPrintKeys.message);
+    return EcrPrintOutcome.from(
+      ok: ok ?? false,
+      message: message,
+      statusWire: statusWire.isEmpty ? null : statusWire,
+    );
   }
 
   /// Reads the `recovered` sub-map of a failed result.

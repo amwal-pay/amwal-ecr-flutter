@@ -17,6 +17,7 @@ enum EcrMethods {
     static let receipt = "receipt"
     static let signOn = "signOn"
     static let closeReceipt = "closeReceipt"
+    static let printReceipt = "printReceipt"
     static let cancel = "cancel"
 }
 
@@ -32,6 +33,16 @@ enum EcrArgs {
     static let originalTerminalId = "originalTerminalId"
     static let merchantReference = "merchantReference"
     static let originalMerchantReference = "originalMerchantReference"
+    static let receiptImage = "receiptImage"
+}
+
+/// Keys in the map returned by `printReceipt`.
+///
+/// `status` and `message` stay separate — never a combined "FAILED: …" string.
+enum EcrPrintKeys {
+    static let status = "status"
+    static let message = "message"
+    static let ok = "ok"
 }
 
 enum EcrConfigKeys {

@@ -76,6 +76,8 @@ final class EcrCallHandler {
                 try signOn(Call(arguments), once)
             case EcrMethods.closeReceipt:
                 try closeReceipt(Call(arguments), once)
+            case EcrMethods.printReceipt:
+                printReceipt(once)
             default:
                 once.notImplemented()
             }
@@ -244,6 +246,16 @@ final class EcrCallHandler {
         try run(call, reply, EcrMapping.receiptClosed) {
             try $0.closeReceipt(merchantReference: call.merchantReference)
         }
+    }
+
+    /// PRINT is Android app-to-app only. iOS always answers failed unsupported.
+    private func printReceipt(_ reply: OneShotReply) {
+        reply.success([
+            EcrPrintKeys.status: "FAILED",
+            EcrPrintKeys.message:
+                "Print is only available over app to app on Android. Nothing was sent.",
+            EcrPrintKeys.ok: false,
+        ])
     }
 
     /// Runs one operation, registers it so it can be cancelled, and replies

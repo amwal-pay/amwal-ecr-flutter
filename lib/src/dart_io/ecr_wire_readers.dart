@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_next_step.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
-import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
+import '../model/ecr_sign_on.dart';
 import '../model/ecr_transaction.dart';
 import '../platform/ecr_codec.dart';
 import 'ecr_response_envelope.dart';
@@ -28,13 +30,34 @@ abstract final class EcrWireReaders {
     final String raw = jsonEncode(json);
 
     if (!envelope.success) {
+      final EcrNextStep nextStep = wireNextStep(json['nextStep']);
+      // Web Service / Hub synthesise timeouts as a false envelope with
+      // nextStep INQUIRE_BY_MERCHANT_REFERENCE (and often responseCode
+      // NO_RESPONSE). That is not a decline — money may have moved — so it
+      // must surface as Failed and push the till to inquire by reference.
+      if (nextStep == EcrNextStep.inquireByMerchantReference) {
+        final String reason = envelope.displayMessage.isEmpty
+            ? 'timeout'
+            : envelope.displayMessage;
+        final String code = envelope.responseCode.trim().toUpperCase();
+        final EcrFailure failure =
+            (code == 'NO_RESPONSE' ||
+                    reason.toLowerCase().contains('timeout'))
+                ? EcrTimeout(reason)
+                : EcrConnectionLost(reason);
+        return EcrFailed(
+          merchantReference: resolvedReference,
+          failure: failure,
+        );
+      }
+
       return EcrDeclined(
         merchantReference: resolvedReference,
         responseCode: envelope.responseCode,
         reason: envelope.displayMessage.isEmpty
             ? 'Declined'
             : envelope.displayMessage,
-        nextStep: wireNextStep(json['nextStep']),
+        nextStep: nextStep,
         raw: raw,
       );
     }
@@ -71,18 +94,51 @@ abstract final class EcrWireReaders {
     );
   }
 
+  /// Wire keys that mark an object as carrying a transaction.
+  static const List<String> _transactionMarkers = <String>[
+    'systemTraceNr',
+    'stan',
+    'transactionId',
+    'status',
+    'rrn',
+    'authCode',
+    'amount',
+    'authorizeAmount',
+    'transactionType',
+    'transactionTypeDisplayName',
+  ];
+
+  static bool _hasTransactionMarkers(Map<String, Object?>? map) {
+    if (map == null) return false;
+    for (final String key in _transactionMarkers) {
+      if (wireString(map[key]).isNotEmpty) return true;
+    }
+    return false;
+  }
+
   /// Reads an inquiry answer.
+  ///
+  /// The transaction is read from nested `data` only when that object carries
+  /// transaction markers; otherwise from the flat root (inquiry answers may be
+  /// flat). An answer with neither is [EcrInquiryNotFound] — a bare
+  /// correlation echo (`merchantReference`, `requestId`, …) is not a
+  /// transaction.
   static EcrInquiry toInquiry(
     Map<String, Object?> json, {
     required String merchantReference,
     required int minorUnitDigits,
   }) {
     final EcrResponseEnvelope envelope = EcrResponseEnvelope.parse(json);
-    final Map<String, Object?>? data = envelope.data;
-    final String resolvedReference =
-        envelope.merchantReference.isEmpty
-            ? merchantReference
-            : envelope.merchantReference;
+    final Map<String, Object?> root = EcrResponseEnvelope.root(json);
+    final Map<String, Object?>? nested = envelope.data;
+    final Map<String, Object?>? data = _hasTransactionMarkers(nested)
+        ? nested
+        : (_hasTransactionMarkers(root) ? root : null);
+    final String resolvedReference = _firstNonEmpty(
+      wireString(data?['merchantReference']),
+      envelope.merchantReference,
+      merchantReference,
+    );
     final String raw = jsonEncode(json);
 
     if (data == null) {

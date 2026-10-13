@@ -1,12 +1,15 @@
 package com.amwalpay.ecr.flutter
 
+import android.app.Activity
 import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Where a channel call becomes an ECR operation.
@@ -26,6 +29,8 @@ import kotlinx.coroutines.launch
 internal class EcrCallHandler(
     private val scope: CoroutineScope,
     private val terminals: EcrTerminalFactory,
+    private val activities: () -> Activity? = { null },
+    private val printResults: PaymentAppPrintResults = PaymentAppPrintResults(),
 ) {
 
     /**
@@ -55,6 +60,7 @@ internal class EcrCallHandler(
                 EcrMethods.RECEIPT -> receipt(Call(arguments), once)
                 EcrMethods.SIGN_ON -> signOn(Call(arguments), once)
                 EcrMethods.CLOSE_RECEIPT -> closeReceipt(Call(arguments), once)
+                EcrMethods.PRINT_RECEIPT -> printReceipt(Call(arguments), once)
                 else -> once.notImplemented()
             }
         } catch (e: EcrInvalidArgument) {
@@ -221,6 +227,85 @@ internal class EcrCallHandler(
     }
 
     /**
+     * Asks the payment app to print a receipt image.
+     *
+     * App to app only. Wi‑Fi / USB / Web Service answer unsupported and
+     * never start PRINT — those transports have no payment-app intent path.
+     */
+    private fun printReceipt(call: Call, reply: EcrReply) {
+        if (!call.isPaymentApp) {
+            reply.success(
+                EcrPrintOutcome.failed(
+                    "Print is only available over app to app. Nothing was sent.",
+                ).toChannelMap(),
+            )
+            return
+        }
+
+        val image = call.receiptImage
+        val imageError = PaymentAppPrint.validatePrintImage(image)
+        if (imageError != null) {
+            reply.success(EcrPrintOutcome.failed(imageError).toChannelMap())
+            return
+        }
+
+        val activity = activities()
+        if (activity == null) {
+            reply.success(
+                EcrPrintOutcome.failed(
+                    "There is no foreground Activity to start the payment app from",
+                ).toChannelMap(),
+            )
+            return
+        }
+
+        val timeout = call.config.responseTimeout
+        val imageBytes = image!!
+        val work: Deferred<Attempt<EcrPrintOutcome>> = scope.async {
+            try {
+                Attempt.Done(
+                    withContext(Dispatchers.IO) {
+                        PaymentAppPrint.exchange(
+                            activity = activity,
+                            results = printResults,
+                            merchantReference = call.merchantReference,
+                            imagePng = imageBytes,
+                            timeout = timeout,
+                        )
+                    },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Attempt.Broke(t)
+            }
+        }
+        running[call.operationId] = work
+
+        scope.launch {
+            try {
+                when (val attempt = work.await()) {
+                    is Attempt.Done -> reply.success(attempt.value.toChannelMap())
+                    is Attempt.Broke -> reply.error(
+                        EcrErrorCodes.INTERNAL,
+                        attempt.error.message ?: attempt.error::class.java.simpleName,
+                    )
+                }
+            } catch (e: CancellationException) {
+                reply.success(
+                    EcrPrintOutcome.failed(
+                        "The caller cancelled while the payment app had the print request.",
+                    ).toChannelMap(),
+                )
+            } catch (e: Throwable) {
+                reply.error(EcrErrorCodes.INTERNAL, e.message ?: e::class.java.simpleName)
+            } finally {
+                running.remove(call.operationId, work)
+            }
+        }
+    }
+
+    /**
      * Runs one operation, registers it so it can be cancelled, and replies
      * exactly once with [encode]'s map.
      */
@@ -330,6 +415,8 @@ internal class EcrCallHandler(
 
         val isUsbCable: Boolean get() = EcrTransports.isUsbCable(transport)
 
+        val isPaymentApp: Boolean get() = EcrTransports.isPaymentApp(transport)
+
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
         val supportsSignOn: Boolean get() = EcrTransports.supportsSignOn(transport)
         val supportsCloseReceipt: Boolean get() = EcrTransports.supportsCloseReceipt(transport)
@@ -342,6 +429,15 @@ internal class EcrCallHandler(
         val isWebServiceTransport: Boolean get() = EcrTransports.isWebService(transport)
 
         val config = EcrMapping.config(map[EcrArgs.CONFIG] as? Map<*, *>)
+
+        /**
+         * PNG/JPEG bytes for [EcrMethods.PRINT_RECEIPT]. Flutter sends a
+         * `Uint8List`; the engine delivers it as [ByteArray].
+         */
+        val receiptImage: ByteArray? = when (val raw = map[EcrArgs.RECEIPT_IMAGE]) {
+            is ByteArray -> raw
+            else -> null
+        }
 
         fun terminal(factory: EcrTerminalFactory): EcrTerminalPort =
             factory.create(host, serialNumber, transport, config)

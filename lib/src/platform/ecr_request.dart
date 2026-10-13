@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../model/ecr_amount.dart';
 import '../model/ecr_config.dart';
 import '../model/ecr_transport.dart';
@@ -22,6 +24,7 @@ final class EcrRequest {
     this.originalTerminalId = '',
     this.merchantReference = '',
     this.originalMerchantReference = '',
+    this.receiptImage,
   });
 
   /// Client-generated handle, so a cancel can name this call.
@@ -66,6 +69,9 @@ final class EcrRequest {
   /// reference. Empty for every other call.
   final String originalMerchantReference;
 
+  /// PNG/JPEG bytes for [EcrMethods.printReceipt]. Null on every other call.
+  final Uint8List? receiptImage;
+
   /// The argument map as it crosses the channel.
   ///
   /// Amounts go as a decimal string in major units. The host converts to minor
@@ -96,6 +102,7 @@ final class EcrRequest {
         EcrArgs.originalTerminalId: originalTerminalId,
         EcrArgs.merchantReference: merchantReference,
         EcrArgs.originalMerchantReference: originalMerchantReference,
+        EcrArgs.receiptImage: receiptImage,
       };
 
   @override

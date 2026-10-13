@@ -46,7 +46,8 @@ void main() {
       );
     });
 
-    test('inquiry by reference copies input onto merchantReference', () {
+    test('inquiry by reference keeps merchantReference blank for this inquiry',
+        () {
       final (TransactionFormState form, TransactionRequest? request) =
           TransactionFormState(
         type: EcrTransactionType.inquiry,
@@ -56,7 +57,9 @@ void main() {
 
       expect(form.errors.any, isFalse);
       expect(request?.originalReference, 'ORD-88231');
-      expect(request?.merchantReference, 'ORD-88231');
+      // Blank → SDK generates this inquiry's own id. Copying the original
+      // broke Hub correlation (both wire fields identical).
+      expect(request?.merchantReference, '');
     });
   });
 }

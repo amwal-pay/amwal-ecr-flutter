@@ -54,6 +54,9 @@ abstract final class EcrMethods {
   /// `closeReceipt(args) -> receipt-closed map`
   static const String closeReceipt = 'closeReceipt';
 
+  /// `printReceipt(args) -> print outcome map` — app-to-app Android only.
+  static const String printReceipt = 'printReceipt';
+
   /// `cancel({operationId}) -> bool`, true when an operation was still running.
   static const String cancel = 'cancel';
 
@@ -69,6 +72,7 @@ abstract final class EcrMethods {
     receipt,
     signOn,
     closeReceipt,
+    printReceipt,
     cancel,
   ];
 }
@@ -111,6 +115,10 @@ abstract final class EcrArgs {
   /// [merchantReference].
   static const String originalMerchantReference = 'originalMerchantReference';
 
+  /// PNG/JPEG bytes for [EcrMethods.printReceipt]. Required on that call;
+  /// width must be exactly 384 px.
+  static const String receiptImage = 'receiptImage';
+
   static const List<String> all = <String>[
     operationId,
     host,
@@ -123,7 +131,19 @@ abstract final class EcrArgs {
     originalTerminalId,
     merchantReference,
     originalMerchantReference,
+    receiptImage,
   ];
+}
+
+/// Keys in the map returned by [EcrMethods.printReceipt].
+///
+/// [status] and [message] stay separate — never a combined "FAILED: …" string.
+abstract final class EcrPrintKeys {
+  static const String status = 'status';
+  static const String message = 'message';
+  static const String ok = 'ok';
+
+  static const List<String> all = <String>[status, message, ok];
 }
 
 /// Keys inside the `config` sub-map.
