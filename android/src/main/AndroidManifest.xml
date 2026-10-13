@@ -23,5 +23,8 @@
         <intent>
             <action android:name="com.amwalpay.pos.ecr.TRANSACTION" />
         </intent>
+        <intent>
+            <action android:name="com.amwalpay.pos.ecr.PRINT" />
+        </intent>
     </queries>
 </manifest>

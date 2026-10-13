@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'ecr_operation.dart';
 import 'model/ecr_amount.dart';
@@ -7,6 +8,7 @@ import 'model/ecr_errors.dart';
 import 'model/ecr_failure.dart';
 import 'model/ecr_inquiry.dart';
 import 'model/ecr_payment_app.dart';
+import 'model/ecr_print_outcome.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
 import 'model/ecr_receipt_closed.dart';
@@ -67,7 +69,7 @@ final class EcrTerminal {
     this.transport = EcrTransport.wifi,
     AmwalEcrPlatform? platform,
     Random? random,
-  })  : config = config ?? EcrConfig(),
+  })  : config = resolveConfigForTransport(config ?? EcrConfig(), transport),
         _platform = platform ?? AmwalEcrPlatform.instance,
         _random = random ?? Random() {
     if (transport.isIpTransport && host.trim().isEmpty) {
@@ -79,6 +81,22 @@ final class EcrTerminal {
         'EcrTerminal.appToApp rather than naming an application to pay into.',
       );
     }
+  }
+
+  /// Web Service uses a longer default read timeout (130s) unless the caller
+  /// already overrode the LAN default (120s). Mirrors native
+  /// `EcrSessions.plan` / `EcrConfig.webServiceResponseTimeout`.
+  static EcrConfig resolveConfigForTransport(
+    EcrConfig config,
+    EcrTransport transport,
+  ) {
+    if (transport != EcrTransport.webService) return config;
+    if (config.responseTimeout == EcrConfig.defaultResponseTimeout) {
+      return config.copyWith(
+        responseTimeout: EcrConfig.webServiceResponseTimeout,
+      );
+    }
+    return config;
   }
 
   /// The Amwal payment app installed on this same device.
@@ -495,10 +513,11 @@ final class EcrTerminal {
     _checkReference(merchantReference);
 
     final String id = operationId ?? _newOperationId();
-    // Never refused for app to app: this is how a till settles a transaction
-    // whose answer went missing, and refusing it here would close the only
-    // route out of an unknown outcome.
-    if (!transport.hasReachabilityProbe) {
+    // App to app and Web Service both need this path for unknown outcomes.
+    // Reachability probes cover Wi‑Fi / USB / app to app only — Web Service
+    // has none, but the Hub still answers TransactionStatus by reference.
+    if (!transport.hasReachabilityProbe &&
+        transport != EcrTransport.webService) {
       return _refusedInquiry(id, 'Inquiry by reference');
     }
 
@@ -664,6 +683,63 @@ final class EcrTerminal {
         _request(operationId: id, merchantReference: merchantReference),
       ),
     ).result;
+  }
+
+  /// Asks the Amwal payment app to print a receipt image.
+  ///
+  /// **App to app only** ([EcrTransport.appToApp] / `ecrMode` 5). Wi‑Fi, USB
+  /// cable and Web Service return a failed outcome without calling the host —
+  /// those transports have no PRINT intent path.
+  ///
+  /// [imagePng] is required: width must be [EcrPrintOutcome.printerWidth]
+  /// (384), encoded size at most [EcrPrintOutcome.printerMaxBytes] (15 MB),
+  /// height may be any positive value. Always send the image built from the
+  /// operation result — do not rely on the payment app reprinting its last
+  /// stored transaction.
+  ///
+  /// [EcrPrintOutcome.status] and [EcrPrintOutcome.message] stay separate;
+  /// show them on separate lines in the till UI.
+  Future<EcrPrintOutcome> printReceipt({
+    required Uint8List imagePng,
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    if (!transport.isAppToApp) {
+      return Future<EcrPrintOutcome>.value(
+        EcrPrintOutcome.failed(
+          'Print is only available over app to app. Nothing was sent.',
+        ),
+      );
+    }
+    if (!transport.isSupportedByPlugin) {
+      return Future<EcrPrintOutcome>.value(
+        EcrPrintOutcome.failed(
+          'Print could not be started. The Amwal payment app is driven by '
+          'an Android intent, so this platform cannot start it and nothing '
+          'was sent.',
+        ),
+      );
+    }
+
+    final String? imageError = EcrPrintOutcome.validatePrintImage(imagePng);
+    if (imageError != null) {
+      return Future<EcrPrintOutcome>.value(EcrPrintOutcome.failed(imageError));
+    }
+
+    final String id = operationId ?? _newOperationId();
+    return _platform.printReceipt(
+      EcrRequest(
+        operationId: id,
+        host: host,
+        serialNumber: serialNumber,
+        transport: transport,
+        config: config,
+        merchantReference: merchantReference,
+        receiptImage: imagePng,
+      ),
+    );
   }
 
   /// Asks the host to abandon the operation with [operationId].

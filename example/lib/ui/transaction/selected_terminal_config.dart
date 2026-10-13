@@ -112,14 +112,22 @@ class SelectedTerminalConfig {
         : EcrConfig.defaultPort;
 
     // Preserve EcrConfig defaults (including autoInquireOnFailure) — same as
-    // ecr_sdk app SelectedTerminalConfig.resolve.
-    final EcrConfig config = EcrConfig(
+    // ecr_sdk app SelectedTerminalConfig.resolve. Web Service upgrades the
+    // default read timeout 120 → 130 via the same helper EcrSessions uses, so
+    // the countdown matches the wait the SDK actually applies.
+    final EcrConfig requested = EcrConfig(
       secureHashKey: sanitizedKey,
       merchantId: terminal.merchantId,
       terminalId: terminal.terminalId,
       environment: environment,
       port: port,
     );
+    final EcrConfig config = usesWebService
+        ? EcrTerminal.resolveConfigForTransport(
+            requested,
+            EcrTransport.webService,
+          )
+        : requested;
 
     final String summary = usesWebService
         ? () {

@@ -10,7 +10,7 @@ abstract final class EcrWebServiceEndpoints {
   static const String refund = '/Ecr/Refund';
 
   /// Transaction status / inquiry path.
-  static const String transactionStatus = '/Ecr/TransactionStatus';
+  static const String transactionStatus = '/Ecr/Inquiry';
 }
 
 /// Web Service ECR operations exposed as REST endpoints.

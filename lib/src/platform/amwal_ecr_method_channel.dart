@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../model/ecr_errors.dart';
 import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
+import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
@@ -144,6 +145,16 @@ base class MethodChannelAmwalEcr extends AmwalEcrPlatform {
             EcrCodec.receiptClosed(payload, operationId: request.operationId),
         onHostError: (EcrFailure failure) =>
             EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+      );
+
+  @override
+  Future<EcrPrintOutcome> printReceipt(EcrRequest request) =>
+      _invoke<EcrPrintOutcome>(
+        method: EcrMethods.printReceipt,
+        request: request,
+        decode: EcrCodec.printOutcome,
+        onHostError: (EcrFailure failure) =>
+            EcrPrintOutcome.failed(failure.message),
       );
 
   Future<EcrResult> _invokeResult(String method, EcrRequest request) =>

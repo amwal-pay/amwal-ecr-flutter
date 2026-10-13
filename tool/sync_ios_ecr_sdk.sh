@@ -52,7 +52,7 @@ if [[ -f "$example_props" ]]; then
 fi
 
 MODE="${ECR_SDK_DEPENDENCY:-${PROP_ecrSdkDependency:-cocoapods}}"
-VERSION="${PROP_ecrSdkVersion:-0.2.1}"
+VERSION="${PROP_ecrSdkVersion:-0.3.0}"
 COCOA_ROOT_REL="${ECR_SDK_ROOT:-${PROP_ecrSdkCocoaPodsRoot:-../../AmwalECR-iOS-CocoaPods}}"
 SPM_ROOT_REL="${PROP_ecrSdkSpmRoot:-../../AmwalECR-iOS-SPM}"
 
@@ -90,7 +90,7 @@ import PackageDescription
 let package = Package(
     name: "amwal_ecr",
     platforms: [
-        .iOS("12.0"),
+        .iOS("17.0"),
     ],
     products: [
         .library(name: "amwal-ecr", targets: ["amwal_ecr"]),

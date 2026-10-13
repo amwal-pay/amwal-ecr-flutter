@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:amwal_ecr/amwal_ecr.dart';
@@ -280,11 +281,12 @@ void main() {
       expect(find.text('Insufficient funds'), findsOneWidget);
     });
 
-    testWidgets('a lost answer reads as "Outcome unknown", not as a decline',
+    testWidgets('a lost answer reads as "Not completed", not as a decline',
         (WidgetTester tester) async {
       // The request went out and nothing came back, so the sale may well have
       // completed. Calling that a decline is how a cardholder gets charged
-      // twice.
+      // twice. The operator looks the transaction up from the form (by
+      // reference) — the failure dialog itself only dismisses.
       platform.result = const EcrFailed(
         merchantReference: 'A1',
         failure: EcrTimeout('The terminal did not answer within 120s.'),
@@ -294,18 +296,14 @@ void main() {
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      expect(find.text('Outcome unknown'), findsOneWidget);
+      expect(find.text('Not completed'), findsOneWidget);
       expect(find.text('Declined'), findsNothing);
-      expect(find.text('Not completed'), findsNothing);
-      // The only action offered, and the reference it will ask about.
-      expect(find.byKey(const Key('inquireByReference')), findsOneWidget);
-      expect(find.text('A1'), findsOneWidget);
+      expect(find.text('Outcome unknown'), findsNothing);
+      expect(find.byKey(const Key('inquireByReference')), findsNothing);
     });
 
     testWidgets('an unreachable terminal reads as "Not completed"',
         (WidgetTester tester) async {
-      // Nothing was ever sent, so there is nothing to ask about and no
-      // reference to ask with.
       platform.reachable = false;
 
       await pumpTill(tester);
@@ -334,7 +332,7 @@ void main() {
 
       expect(find.text('Approved'), findsOneWidget);
       expect(find.text('Outcome unknown'), findsNothing);
-      expect(find.byKey(const Key('inquireByReference')), findsNothing);
+      expect(find.text('Not completed'), findsNothing);
     });
 
     testWidgets('a receipt after a lookup by reference asks by the found stan',
@@ -395,7 +393,8 @@ void main() {
 
       expect(platform.sent, <String>['probeReachability', 'inquireByReference']);
       expect(platform.lastInquiredReference, 'ORD-88231');
-      expect(platform.lastInquiryMerchantReference, 'ORD-88231');
+      // This inquiry's own merchantReference stays blank (SDK generates).
+      expect(platform.lastInquiryMerchantReference, '');
     });
 
     testWidgets('an inquiry by reference with no reference is not sent',
@@ -454,25 +453,37 @@ void main() {
       expect(platform.lastSaleMerchantReference, '');
     });
 
-    testWidgets('inquiring by reference looks the transaction up by it',
+    testWidgets('cancel abandons an in-flight operation',
         (WidgetTester tester) async {
-      platform.result = const EcrFailed(
-        merchantReference: 'A1',
-        failure: EcrTimeout('The terminal did not answer within 120s.'),
-      );
-      platform.inquiry = _found('Approved');
+      platform.holdSale = true;
 
       await pumpTill(tester);
       await keyAmount(tester, '1234');
-      await tapStart(tester);
+      await scrollTo(tester, const Key('start'));
+      await tester.tap(find.byKey(const Key('start')));
+      // Sale is held open — do not settle, or the test waits forever.
+      Finder cancel = find.byKey(
+        const Key('cancelOperation'),
+        skipOffstage: false,
+      );
+      for (int i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (cancel.evaluate().isNotEmpty) break;
+      }
 
-      await tester.tap(find.byKey(const Key('inquireByReference')));
+      expect(cancel, findsOneWidget);
+      expect(
+        find.byKey(const Key('operationCountdown'), skipOffstage: false),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(cancel);
+      await tester.pump();
+      await tester.tap(cancel);
       await tester.pumpAndSettle();
 
-      // Asked by reference, which is the only identifier a till that lost the
-      // answer still holds — a receipt number arrives *in* the answer.
-      expect(platform.lastInquiredReference, 'A1');
-      expect(find.text('Approved'), findsOneWidget);
+      expect(find.text('Not completed'), findsOneWidget);
+      expect(find.text('Operation cancelled'), findsOneWidget);
     });
 
     testWidgets('a void hides the auth code, which it does not have',
@@ -904,6 +915,10 @@ Future<void> _chooseType(WidgetTester tester, String label) async {
 final class FakeEcrPlatform extends AmwalEcrPlatform {
   bool reachable = true;
 
+  /// When true, [sale] never completes until the Completer is completed.
+  bool holdSale = false;
+  Completer<EcrResult>? heldSale;
+
   EcrResult result = const EcrFailed(
     merchantReference: '',
     failure: EcrUnreachable('nothing configured'),
@@ -976,6 +991,10 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
     calls.add('sale');
     lastAmount = request.amount;
     lastSaleMerchantReference = request.merchantReference;
+    if (holdSale) {
+      heldSale = Completer<EcrResult>();
+      return heldSale!.future;
+    }
     return result;
   }
 
@@ -1026,6 +1045,12 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
       merchantReference: request.merchantReference,
       raw: '{}',
     );
+  }
+
+  @override
+  Future<EcrPrintOutcome> printReceipt(EcrRequest request) async {
+    calls.add('printReceipt');
+    return EcrPrintOutcome.failed('not configured');
   }
 
   @override

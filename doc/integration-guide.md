@@ -191,9 +191,43 @@ is put in front of the operator. Show that reason: opening the Amwal app once
 and signing in is the whole fix.
 
 The payment app must also be visible to yours. The plugin declares it in
-`<queries>`, so you get that from the manifest merge — but if you see "not
-installed" on a device where it plainly is, that declaration is the first thing
-to check.
+`<queries>` (TRANSACTION and PRINT), so you get that from the manifest merge —
+but if you see "not installed" on a device where it plainly is, that
+declaration is the first thing to check.
+
+### Printing on the terminal (PRINT)
+
+A second intent — not a signed envelope — asks the payment app to run its
+printer after your till already has a result. **App to app only**
+(`EcrTerminal.appToApp` / `ecrMode` 5). Wi‑Fi, USB cable and Web Service have
+no PRINT path: `EcrTerminal.printReceipt` returns a failed
+`EcrPrintOutcome` without calling the host, and the example till never shows
+the button for those transports. On iOS and Windows, app to app itself is
+typed unsupported, so print is Android-only.
+
+| | |
+|---|---|
+| Action | `com.amwalpay.pos.ecr.PRINT` |
+| Request | `amwal.ecr.receiptImage` (`byte[]`, PNG or JPEG) — **required**; `amwal.ecr.merchantReference` (optional) |
+| Answer | `amwal.ecr.printStatus` (`SUCCESSFUL` \| `FAILED`), `amwal.ecr.printMessage` (separate), `amwal.ecr.printOk` (bool mirror) |
+| Image limits | width **384 px** (`EcrPrintOutcome.printerWidth`); encoded size **≤ 15 MB** (`EcrPrintOutcome.printerMaxBytes`) |
+
+```dart
+final EcrPrintOutcome outcome = await terminal.printReceipt(
+  imagePng: receiptPngBytes, // width 384; size ≤ 15 MB
+  merchantReference: approved.merchantReference,
+);
+// Status and message stay separate — never merge into "FAILED: …".
+showSnackBar('${outcome.status.wire}\n${outcome.message}');
+```
+
+Validation order before anything is sent: non-empty → size ≤ 15 MB → PNG
+width exactly 384 (height may be any positive value). Failures → PRINT is not
+started. Always send the image built from the operation result; do not rely on
+the payment app reprinting its last stored transaction.
+
+The example till shows **Print receipt** on an approved app-to-app result only
+(`example/lib/print/` builds the bilingual 384 px PNG).
 
 ### `minorUnitDigits` is the setting to get right
 
@@ -281,7 +315,8 @@ final EcrResult result = await terminal.sale(amount);
 
 The call takes as long as the cardholder takes: presenting a card, entering a
 PIN, the backend authorising. Ninety seconds is not unusual, and the default
-read timeout is 120 seconds for that reason. Show a spinner, not a countdown.
+read timeout is 120 seconds on LAN (and **130 seconds** on Web Service) for that
+reason. Show a spinner, not a countdown.
 
 ### Void
 
@@ -580,10 +615,13 @@ keys out of the repository entirely.
       mid-transaction can reconcile on next launch.
 - [ ] On Windows, use Wi‑Fi or Web Service only (USB cable and app to app are
       Android-only), and confirm the PC can route to the terminal / Hub.
-- [ ] On iOS, set the deployment target to **17.0** (AmwalECR 0.2.3) and ship
+- [ ] On iOS, set the deployment target to **17.0** (AmwalECR 0.3.0) and ship
       `NSLocalNetworkUsageDescription`.
 - [ ] Sign-on over Wi‑Fi (and USB on Android) before enabling money-moving
       buttons when the till needs a live picture of permitted operations.
 - [ ] After a successful sale, call `closeReceipt()` when the outcome dialog
       closes so the terminal returns to idle (Wi‑Fi / USB cable; skipped
       automatically over Web Service and app to app).
+- [ ] If you use PRINT (app to app): the receipt image is **384 px** wide and
+      **≤ 15 MB**; you send an image built from the operation result; you read
+      `EcrPrintOutcome.status` and `message` as separate fields.

@@ -57,10 +57,38 @@ void main() {
       expect(EcrConfig.defaultPort, 9100);
       // Generous on purpose: the cardholder has to present a card and may be
       // asked for a PIN.
-      expect(config.responseTimeout, const Duration(seconds: 120));
+      expect(config.responseTimeout, EcrConfig.defaultResponseTimeout);
+      expect(EcrConfig.defaultResponseTimeout, const Duration(seconds: 120));
+      expect(EcrConfig.webServiceResponseTimeout, const Duration(seconds: 130));
       // Short on purpose: a terminal on the same network answers at once or is
       // not there at all.
       expect(config.probeTimeout, const Duration(seconds: 3));
+    });
+
+    test('Web Service bumps the default response timeout to 130s', () {
+      final EcrTerminal web = EcrTerminal(
+        host: '',
+        config: EcrConfig(merchantId: '13593', terminalId: '742001'),
+        transport: EcrTransport.webService,
+      );
+      expect(web.config.responseTimeout, EcrConfig.webServiceResponseTimeout);
+
+      final EcrTerminal lan = EcrTerminal(
+        host: '127.0.0.1',
+        config: EcrConfig(),
+      );
+      expect(lan.config.responseTimeout, EcrConfig.defaultResponseTimeout);
+
+      final EcrTerminal overridden = EcrTerminal(
+        host: '',
+        config: EcrConfig(
+          merchantId: '13593',
+          terminalId: '742001',
+          responseTimeout: const Duration(seconds: 90),
+        ),
+        transport: EcrTransport.webService,
+      );
+      expect(overridden.config.responseTimeout, const Duration(seconds: 90));
     });
 
     test('copyWith replaces only what it names', () {
@@ -196,6 +224,39 @@ void main() {
       );
       await terminal.sale(EcrAmount.parse('1.234'));
       expect(host.methods, <String>['sale']);
+    });
+
+    test('webService inquireByReference reaches the host', () async {
+      host.answer(EcrMethods.inquireByReference, <String, Object?>{
+        EcrResultKeys.outcome: EcrOutcomes.notFound,
+        EcrResultKeys.merchantReference: 'LOOKUP-1',
+        EcrResultKeys.responseMessage: 'No matching transaction',
+        EcrResultKeys.raw: '{}',
+      });
+      final EcrTerminal terminal = EcrTerminal(
+        host: '',
+        serialNumber: 'P653200085189',
+        transport: EcrTransport.webService,
+        config: EcrConfig(
+          merchantId: '13593',
+          terminalId: '1',
+          secureHashKey: EcrTestConfigs.lan.secureHashKey,
+        ),
+        platform: MethodChannelAmwalEcr(channel: FakeEcrHost.channel),
+      );
+
+      final EcrInquiry inquiry = await terminal.inquireByReference(
+        'ORDER-4471',
+        merchantReference: 'LOOKUP-1',
+      );
+
+      expect(inquiry, isA<EcrInquiryNotFound>());
+      expect(host.methods, <String>['inquireByReference']);
+      expect(
+        host.argumentsOf(EcrMethods.inquireByReference)[
+            EcrArgs.originalMerchantReference],
+        'ORDER-4471',
+      );
     });
 
     test('and reaches the host not at all for bluetooth', () async {

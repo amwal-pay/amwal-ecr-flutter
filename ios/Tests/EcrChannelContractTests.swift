@@ -22,6 +22,7 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("inquire", EcrMethods.inquire)
         XCTAssertEqual("inquireByReference", EcrMethods.inquireByReference)
         XCTAssertEqual("receipt", EcrMethods.receipt)
+        XCTAssertEqual("printReceipt", EcrMethods.printReceipt)
         XCTAssertEqual("cancel", EcrMethods.cancel)
     }
 
@@ -37,6 +38,10 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("originalTerminalId", EcrArgs.originalTerminalId)
         XCTAssertEqual("merchantReference", EcrArgs.merchantReference)
         XCTAssertEqual("originalMerchantReference", EcrArgs.originalMerchantReference)
+        XCTAssertEqual("receiptImage", EcrArgs.receiptImage)
+        XCTAssertEqual("status", EcrPrintKeys.status)
+        XCTAssertEqual("message", EcrPrintKeys.message)
+        XCTAssertEqual("ok", EcrPrintKeys.ok)
     }
 
     func testConfigKeysNameTheirUnit() {

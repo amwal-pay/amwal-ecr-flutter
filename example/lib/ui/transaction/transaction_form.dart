@@ -165,10 +165,14 @@ class TransactionFormState {
         receiptNumber: looksUpByReference ? '' : receiptNumber,
         originalTerminalId: showOriginalTerminal ? originalTerminalId : '',
         transactionDate: showOriginalDate ? originalDateOnWire : '',
+        // By-reference inquiry: originalMerchantReference = what to look up;
+        // merchantReference = this inquiry's own id (blank → SDK generates).
+        // Never copy the original into merchantReference — that made both
+        // wire fields the same and broke Hub correlation.
         originalReference:
             looksUpByReference ? originalReference.trim() : '',
         merchantReference: looksUpByReference
-            ? originalReference.trim()
+            ? ''
             : (showMerchantReference ? merchantReference.trim() : ''),
       ),
     );

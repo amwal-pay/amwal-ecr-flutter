@@ -21,11 +21,16 @@ class TransactionResultDialog extends StatelessWidget {
     required this.result,
     required this.type,
     required this.onDismiss,
+    this.onPrintReceipt,
   });
 
   final EcrResult result;
   final EcrTransactionType type;
   final VoidCallback onDismiss;
+
+  /// App-to-app only: ask the payment app to print an image built from this
+  /// operation's result. Null hides the button.
+  final VoidCallback? onPrintReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +39,7 @@ class TransactionResultDialog extends StatelessWidget {
           result: approved,
           type: type,
           onDismiss: onDismiss,
+          onPrintReceipt: onPrintReceipt,
         ),
       final EcrDeclined declined =>
         _DeclinedDialog(result: declined, onDismiss: onDismiss),
@@ -53,11 +59,13 @@ class _ApprovedDialog extends StatelessWidget {
     required this.result,
     required this.type,
     required this.onDismiss,
+    this.onPrintReceipt,
   });
 
   final EcrApproved result;
   final EcrTransactionType type;
   final VoidCallback onDismiss;
+  final VoidCallback? onPrintReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +92,14 @@ class _ApprovedDialog extends StatelessWidget {
       ].where(((String, String) field) => field.$2.isNotEmpty).toList(),
       rawPayload: result.raw,
       onDismiss: onDismiss,
+      extra: onPrintReceipt == null
+          ? null
+          : OutlinedButton.icon(
+              key: const Key('printReceipt'),
+              onPressed: onPrintReceipt,
+              icon: const Icon(Icons.print),
+              label: const Text('Print receipt'),
+            ),
     );
   }
 }
@@ -122,11 +138,15 @@ class InquiryResultDialog extends StatelessWidget {
     required this.state,
     required this.onRequestReceipt,
     required this.onDismiss,
+    this.operationTimer,
+    this.onCancelFetch,
   });
 
   final TransactionInquired state;
   final VoidCallback onRequestReceipt;
   final VoidCallback onDismiss;
+  final OperationTimer? operationTimer;
+  final VoidCallback? onCancelFetch;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +211,9 @@ class InquiryResultDialog extends StatelessWidget {
           extra: _ReceiptSection(
             receipt: state.receipt,
             fetching: state.fetchingReceipt,
+            operationTimer: operationTimer,
             onRequestReceipt: onRequestReceipt,
+            onCancelFetch: onCancelFetch,
           ),
         );
     }
@@ -207,20 +229,34 @@ class _ReceiptSection extends StatelessWidget {
     required this.receipt,
     required this.fetching,
     required this.onRequestReceipt,
+    this.operationTimer,
+    this.onCancelFetch,
   });
 
   final EcrReceipt? receipt;
   final bool fetching;
+  final OperationTimer? operationTimer;
   final VoidCallback onRequestReceipt;
+  final VoidCallback? onCancelFetch;
 
   @override
   Widget build(BuildContext context) {
     if (fetching) {
-      return const Row(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 12),
-          Text('Fetching the receipt…'),
+          OperationCountdownBanner(
+            status: 'Fetching the receipt…',
+            timer: operationTimer,
+          ),
+          if (onCancelFetch != null) ...<Widget>[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('cancelOperation'),
+              onPressed: onCancelFetch,
+              child: const Text('Cancel operation'),
+            ),
+          ],
         ],
       );
     }
@@ -274,28 +310,17 @@ class TransactionFailureDialog extends StatelessWidget {
     super.key,
     required this.reason,
     required this.onDismiss,
-    this.inquirableReference,
-    this.onInquire,
   });
 
   final String reason;
   final VoidCallback onDismiss;
 
-  /// The reference to look the transaction up by, when the outcome is unknown
-  /// rather than known not to have happened. Null hides the action.
-  final String? inquirableReference;
-  final void Function(String reference)? onInquire;
-
   @override
   Widget build(BuildContext context) {
-    final String? reference = inquirableReference;
-    final void Function(String)? inquire = onInquire;
-    final bool canInquire = reference != null && inquire != null;
-
     return ResultDialog(
       // Not "Declined": no answer came back, so nobody knows yet. The wording
       // has to stop an operator concluding the payment did not happen.
-      headline: reference == null ? 'Not completed' : 'Outcome unknown',
+      headline: 'Not completed',
       icon: Icons.cancel,
       tint: declinedRed,
       amount: '',
@@ -303,42 +328,67 @@ class TransactionFailureDialog extends StatelessWidget {
       fields: const <(String, String)>[],
       rawPayload: null,
       onDismiss: onDismiss,
-      extra: canInquire ? _InquireSection(reference, inquire) : null,
     );
   }
 }
 
-/// Offered when the outcome is unknown: the one action that is not a second
-/// charge.
-class _InquireSection extends StatelessWidget {
-  const _InquireSection(this.reference, this.onInquire);
+/// Spinner + countdown while a sale / void / inquiry / receipt fetch is running.
+class OperationCountdownBanner extends StatelessWidget {
+  const OperationCountdownBanner({
+    super.key,
+    required this.status,
+    required this.timer,
+  });
 
-  final String reference;
-  final void Function(String reference) onInquire;
+  final String status;
+  final OperationTimer? timer;
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final OperationTimer? current = timer;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(
-          'The transaction may have completed. Check before taking payment '
-          'again — sending it a second time would charge the cardholder twice.',
-          style: Theme.of(context).textTheme.bodySmall,
+        Row(
+          children: <Widget>[
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(status, key: const Key('busyLabel')),
+                  if (current != null) ...<Widget>[
+                    Text(
+                      current.label,
+                      key: const Key('operationCountdown'),
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    Text(
+                      'remaining of ${current.totalSeconds} s timeout',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          key: const Key('inquireByReference'),
-          onPressed: () => onInquire(reference),
-          child: const Text('Inquire by reference'),
-        ),
-        Text(
-          reference,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(fontFamily: 'monospace'),
-        ),
+        if (current != null) ...<Widget>[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: current.progress),
+        ],
       ],
     );
   }

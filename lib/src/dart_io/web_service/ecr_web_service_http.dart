@@ -6,6 +6,11 @@ import '../../model/ecr_config.dart';
 import 'ecr_web_service_message.dart';
 import 'ecr_web_service_operation.dart';
 
+/// `nextStep` the Hub-less transport attaches when the outcome is unknown.
+///
+/// Matches `EcrNextStep.inquireByMerchantReference` on the wire.
+const String unknownOutcomeStep = 'INQUIRE_BY_MERCHANT_REFERENCE';
+
 /// POSTs signed JSON bodies to the Web Service ECR REST endpoints.
 final class HttpEcrWebServiceApi {
   /// Uses [config] for Hub URLs and timeouts.
@@ -87,6 +92,7 @@ final class HttpEcrWebServiceApi {
           message: response.reasonPhrase.isEmpty
               ? 'HTTP ${response.statusCode}'
               : response.reasonPhrase,
+          outcomeUnknown: response.statusCode >= 500,
         );
       }
 
@@ -121,13 +127,30 @@ final class HttpEcrWebServiceApi {
     }
   }
 
+  /// Builds a synthesized failure body.
+  ///
+  /// [outcomeUnknown] adds `nextStep: INQUIRE_BY_MERCHANT_REFERENCE`.
   Map<String, Object?> _errorBody({
     required String responseCode,
     required String message,
+    bool outcomeUnknown = true,
+  }) =>
+      errorBody(
+        responseCode: responseCode,
+        message: message,
+        outcomeUnknown: outcomeUnknown,
+      );
+
+  /// Synthesized failure body (package-internal; exercised by tests).
+  static Map<String, Object?> errorBody({
+    required String responseCode,
+    required String message,
+    bool outcomeUnknown = true,
   }) =>
       <String, Object?>{
         'success': false,
         'responseCode': responseCode,
         'message': message,
+        if (outcomeUnknown) 'nextStep': unknownOutcomeStep,
       };
 }

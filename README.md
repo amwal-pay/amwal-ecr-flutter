@@ -19,9 +19,10 @@ switch (await terminal.sale(EcrAmount.parse('1.234'))) {
 }
 ```
 
-Sale, void, refund, inquiry, sign-on, e-receipt and close-receipt, with the
-same types, the same units and the same outcomes on every host that supports
-the transport. See the [compatibility matrix](doc/compatibility-matrix.md)
+Sale, void, refund, inquiry, sign-on, e-receipt, close-receipt, and — over
+Android app to app — `printReceipt` to print a receipt image on the payment
+app's printer. Same types, same units and the same outcomes on every host that
+supports the transport. See the [compatibility matrix](doc/compatibility-matrix.md)
 for the few places Android, iOS and Windows still differ.
 
 ---
@@ -83,17 +84,17 @@ either.
 
 ```yaml
 dependencies:
-  amwal_ecr: ^0.3.2
+  amwal_ecr: ^0.4.0
 ```
 
-The native SDKs come with it: `com.amwal-pay:ecr-sdk` **1.0.6** from Maven
-Central on Android, and `AmwalECR` **0.2.3** from CocoaPods trunk — or Swift
+The native SDKs come with it: `com.amwal-pay:ecr-sdk` **1.0.8** from Maven
+Central on Android, and `AmwalECR` **0.3.0** from CocoaPods trunk — or Swift
 Package Manager, if the project is built with
 `flutter config --enable-swift-package-manager` — on iOS. Both are published
 SDKs in their own right, so a native module in the same app can use the same
 terminal without going through Flutter.
 
-**AmwalECR 0.2.3 requires iOS 17.** Raise the Runner deployment target to match
+**AmwalECR 0.3.0 requires iOS 17.** Raise the Runner deployment target to match
 (the example apps use `17.0`).
 
 **On Windows** there is no native ECR binary. The same Dart API is served by a
@@ -136,6 +137,9 @@ A terminal does not listen on port 9100 by default. Its TMS profile decides:
 cable (Android only, no IP). Web Service (`ecrMode` 4) uses REST. `ecrMode` 5
 is app to app (Android only): the till hands the request to the Amwal payment
 app on the same device — use `EcrTerminal.appToApp`, not an address.**
+Over app to app, `printReceipt` can ask the payment app to print a receipt
+image (width **384 px**, size **≤ 15 MB**; `EcrPrintOutcome` keeps status and
+message separate). Wi‑Fi, USB and Web Service do not expose print.
 
 ```dart
 EcrTerminal(
@@ -190,7 +194,10 @@ final EcrResult result = await terminal.sale(EcrAmount.parse('1.234'));
 ```
 
 The call takes as long as the cardholder takes. Ninety seconds is not unusual;
-the default read timeout is 120 seconds for that reason.
+the default LAN read timeout is 120 seconds for that reason. Over **Web Service**
+the default is **130 seconds** (`EcrConfig.webServiceResponseTimeout`) so Hub
+card-present + PIN waits are not cut off early — an explicit
+`responseTimeout` override is kept.
 
 ---
 
@@ -206,12 +213,15 @@ the default read timeout is 120 seconds for that reason.
 | `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day | Android, iOS, Windows (not over Web Service) |
 | `signOn()` | Asks what the terminal is and which operations it permits. Reads only. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
 | `closeReceipt()` | Asks the terminal to dismiss its on-screen receipt and return to idle. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
+| `printReceipt(imagePng: …)` | Asks the Amwal payment app to print a receipt image. | PNG/JPEG bytes | **Android app to app only** |
 | `isReachable()` / `probeReachability()` | Whether the link (or payment app) is there. | — | Android, iOS, Windows |
 
 USB cable and app to app are **Android-only**; on iOS and Windows those
 transports return `EcrUnsupported` before anything is sent. Sign-on and
 close-receipt are refused over Web Service and app to app on every host
-(`EcrTransport.supportsSignOn` / `supportsCloseReceipt`).
+(`EcrTransport.supportsSignOn` / `supportsCloseReceipt`). `printReceipt` is
+refused on every transport except app to app — and on iOS / Windows even app
+to app is unsupported.
 
 Every money-moving call also takes `merchantReference`: your own name for the
 transaction — an order number, a basket id. Pass it and the same string
@@ -234,6 +244,43 @@ final EcrResult result = await sale.result;
 **Cancelling does not undo a payment.** Closing the socket tells the terminal
 nothing; a cardholder mid-PIN carries on. A cancelled sale is an unknown
 outcome, exactly like a timeout.
+
+### Printing a receipt (app to app)
+
+After an approved sale (or void / refund) over `EcrTerminal.appToApp`, you can
+ask the payment app to run its printer. Build the image yourself from the
+operation result — do not rely on a reprint of the payment app's last stored
+transaction.
+
+```dart
+final EcrTerminal terminal = EcrTerminal.appToApp(
+  serialNumber: 'P653200085189',
+);
+
+final EcrPrintOutcome outcome = await terminal.printReceipt(
+  imagePng: receiptPngBytes, // width 384 px; size ≤ 15 MB
+  merchantReference: approved.merchantReference,
+);
+
+// Status and message stay separate — never merge into "FAILED: …".
+switch (outcome.status) {
+  case EcrPrintStatus.successful:
+    // Printed.
+  case EcrPrintStatus.failed:
+    showSnackBar(outcome.message);
+}
+```
+
+| Limit | Value |
+|---|---|
+| Width | exactly **384 px** (height may be any positive value) |
+| Encoded size | at most **15 MB** |
+| Transports | `appToApp` only; Wi‑Fi / USB / Web Service refuse before the host is called |
+
+Wrong width or an oversized payload → PRINT never starts. Constants live on
+`EcrPrintOutcome.printerWidth` and `EcrPrintOutcome.printerMaxBytes`. The
+example till shows **Print receipt** on approved app-to-app results only and
+builds a bilingual 384 px PNG in `example/lib/print/`.
 
 ### Inquiry is the safe one
 
@@ -391,7 +438,9 @@ screens, the same settings, the same order of checks, the same dialogs.
 - **Transaction** — type, amount, receipt number, the original's date, and which
   terminal. Before a money-moving request it signs on over Wi‑Fi / USB (Android
   and iOS) and shows **Terminal ready** with permitted operations. Outcomes use
-  the same dialogs as the Android sample.
+  the same dialogs as the Android sample. On an approved **app-to-app** result
+  the dialog offers **Print receipt**, which builds a 384 px / ≤15 MB image
+  from the operation and calls `printReceipt`.
 
 Where the two apps differ, the Android one is right and this is a bug. It is
 deliberately *not* a showcase of every package API: cancellation is available

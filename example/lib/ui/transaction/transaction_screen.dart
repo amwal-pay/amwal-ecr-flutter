@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
+import '../../print/print_outcome_dialog.dart';
 import '../components/amount_field.dart';
 import '../components/dropdown.dart';
 import '../status/sign_on_status.dart';
@@ -117,23 +118,19 @@ class _TransactionScreenState extends State<TransactionScreen> {
           result: result,
           type: type,
           onDismiss: _dismissResult,
+          onPrintReceipt: _printCallback(result, type),
         ),
       final TransactionInquired inquired => InquiryResultDialog(
           state: inquired,
+          operationTimer: _controller.operationTimer,
           onRequestReceipt: _controller.requestReceipt,
+          onCancelFetch: inquired.fetchingReceipt
+              ? _controller.cancelOperation
+              : null,
           onDismiss: _dismissResult,
         ),
-      TransactionFailed(
-        :final String message,
-        :final String? inquirableReference
-      ) =>
-        TransactionFailureDialog(
+      TransactionFailed(:final String message) => TransactionFailureDialog(
           reason: message,
-          // Offered only when the outcome is genuinely unknown. It is the one
-          // action that is not a second charge, and the operator has nothing
-          // else to type: the receipt number was in the answer that was lost.
-          inquirableReference: inquirableReference,
-          onInquire: _inquireAboutReference,
           onDismiss: _dismissResult,
         ),
       _ => null,
@@ -159,20 +156,20 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 result: result,
                 type: type,
                 onDismiss: _dismissResult,
+                onPrintReceipt: _printCallback(result, type),
               ),
             final TransactionInquired inquired => InquiryResultDialog(
                 state: inquired,
+                operationTimer: _controller.operationTimer,
                 onRequestReceipt: _controller.requestReceipt,
+                onCancelFetch: inquired.fetchingReceipt
+                    ? _controller.cancelOperation
+                    : null,
                 onDismiss: _dismissResult,
               ),
-            TransactionFailed(
-              :final String message,
-              :final String? inquirableReference
-            ) =>
+            TransactionFailed(:final String message) =>
               TransactionFailureDialog(
                 reason: message,
-                inquirableReference: inquirableReference,
-                onInquire: _inquireAboutReference,
                 onDismiss: _dismissResult,
               ),
             _ => const SizedBox.shrink(),
@@ -183,13 +180,21 @@ class _TransactionScreenState extends State<TransactionScreen> {
     _showingResult = false;
   }
 
-  /// Looks the transaction up by the reference this till named it with, from
-  /// inside the failure dialog. The dialog stays open: the inquiry replaces
-  /// what it shows, so the operator sees the answer where the question was.
-  void _inquireAboutReference(String reference) {
-    final String? serial = _terminal?.serialNumber;
-    if (serial == null) return;
-    _controller.inquireAboutReference(reference, serial);
+  /// App-to-app + approved only. Other transports keep the button hidden.
+  VoidCallback? _printCallback(EcrResult result, EcrTransactionType type) {
+    if (result is! EcrApproved) return null;
+    if (_controller.selectedConfig?.usesPaymentApp != true) return null;
+    return () => _printReceipt(result, type);
+  }
+
+  Future<void> _printReceipt(
+    EcrApproved result,
+    EcrTransactionType type,
+  ) async {
+    final EcrPrintOutcome? outcome =
+        await _controller.printReceiptOnPaymentApp(result, type);
+    if (outcome == null || !mounted) return;
+    await showPrintOutcomeDialog(context, outcome);
   }
 
   void _dismissResult() {
@@ -363,8 +368,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 onChanged: (String value) =>
                     _form = _form.copyWith(originalReference: value),
                 decoration: InputDecoration(
-                  labelText: 'Merchant reference',
-                  helperText: 'The reference the transaction was sent with',
+                  labelText: 'Original merchant reference',
+                  helperText:
+                      'Reference of the transaction to look up. '
+                      'This inquiry gets its own new merchant reference.',
                   border: const OutlineInputBorder(),
                   errorText: _form.errors.originalReference,
                 ),
@@ -487,21 +494,23 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
             if (busy) ...<Widget>[
               const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  const SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 3),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    state is TransactionChecking
-                        ? 'Checking the terminal…'
-                        : 'Waiting for the POS terminal…',
-                    key: const Key('busyLabel'),
-                  ),
-                ],
+              OperationCountdownBanner(
+                status: state is TransactionChecking
+                    ? 'Checking the terminal…'
+                    : 'Waiting for the POS terminal…',
+                timer: _controller.operationTimer,
+              ),
+            ],
+
+            if (_controller.isOperationCancellable) ...<Widget>[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  key: const Key('cancelOperation'),
+                  onPressed: _controller.cancelOperation,
+                  child: const Text('Cancel operation'),
+                ),
               ),
             ],
           ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/foundation.dart';
 
@@ -6,6 +8,7 @@ import '../../data/ecr_simulator_settings.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 import '../../data/terminal_sessions.dart';
+import '../../print/operation_receipt_image.dart';
 import '../status/terminal_sign_on_state.dart';
 import 'selected_terminal_config.dart';
 import 'transaction_state.dart';
@@ -21,6 +24,24 @@ class TransactionController extends ChangeNotifier {
 
   SelectedTerminalConfig? _selectedConfig;
   SelectedTerminalConfig? get selectedConfig => _selectedConfig;
+
+  OperationTimer? _operationTimer;
+  /// Countdown while a terminal operation is in flight; null when idle.
+  OperationTimer? get operationTimer => _operationTimer;
+
+  Timer? _countdownTicker;
+
+  /// Bumped on each new operation or cancel so a late await cannot overwrite
+  /// the cancelled / superseded outcome.
+  int _operationEpoch = 0;
+
+  static const String operationCancelledMessage = 'Operation cancelled';
+
+  bool get isOperationCancellable {
+    final TransactionState current = _state;
+    return current.isBusy ||
+        (current is TransactionInquired && current.fetchingReceipt);
+  }
 
   Future<void> _ensureSettings() async {
     _settings ??= await EcrSimulatorSettings.load();
@@ -73,7 +94,64 @@ class TransactionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _operationEpoch++;
+    _clearOperationCountdown();
     super.dispose();
+  }
+
+  int _responseTimeoutSeconds(SelectedTerminalConfig? config) {
+    final int? fromConfig = config?.ecrConfig.responseTimeout.inSeconds;
+    final int total = fromConfig ?? 120;
+    return total < 1 ? 1 : total;
+  }
+
+  void _startOperationCountdown(int totalSeconds) {
+    _countdownTicker?.cancel();
+    final int total = totalSeconds < 1 ? 1 : totalSeconds;
+    _operationTimer = OperationTimer(
+      remainingSeconds: total,
+      totalSeconds: total,
+    );
+    notifyListeners();
+    _countdownTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final OperationTimer? current = _operationTimer;
+      if (current == null) return;
+      final int left = current.remainingSeconds - 1;
+      _operationTimer = OperationTimer(
+        remainingSeconds: left < 0 ? 0 : left,
+        totalSeconds: current.totalSeconds,
+      );
+      notifyListeners();
+      if (left <= 0) _countdownTicker?.cancel();
+    });
+  }
+
+  void _clearOperationCountdown() {
+    _countdownTicker?.cancel();
+    _countdownTicker = null;
+    if (_operationTimer != null) {
+      _operationTimer = null;
+      notifyListeners();
+    }
+  }
+
+  /// Stops waiting on the in-flight operation and hides the Cancel button.
+  ///
+  /// This abandons the till's wait; the terminal / Hub may still finish the
+  /// payment — inquire by merchant reference if the outcome matters.
+  void cancelOperation() {
+    final TransactionState current = _state;
+    if (!isOperationCancellable) return;
+
+    _operationEpoch++;
+    _clearOperationCountdown();
+
+    if (current is TransactionInquired && current.fetchingReceipt) {
+      _emit(current.copyWith(fetchingReceipt: false));
+      return;
+    }
+
+    _emit(const TransactionFailed(operationCancelledMessage));
   }
 
   @override
@@ -167,6 +245,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   void resultAcknowledged() {
+    _clearOperationCountdown();
     _emit(const TransactionIdle());
     _closeTerminalReceipt();
   }
@@ -204,126 +283,152 @@ class TransactionController extends ChangeNotifier {
   Future<void> startTransaction(TransactionRequest request) async {
     if (_state.isBusy) return;
 
+    final int epoch = ++_operationEpoch;
+    _startOperationCountdown(_responseTimeoutSeconds(_selectedConfig));
     _emit(const TransactionChecking());
 
-    final Terminal? registered =
-        await _repository.findBySerial(request.terminalSerial);
-    if (registered == null) {
-      _emit(TransactionFailed(
-        'Terminal ${request.terminalSerial} is no longer registered',
-      ));
-      return;
-    }
-
-    final SelectedTerminalConfig active = await _resolveConfig(registered);
-    _selectedConfig = active;
-
-    if (!active.isReady) {
-      _emit(TransactionFailed(active.issues.join('\n')));
-      return;
-    }
-
-    final EcrTerminal terminal = _terminalFor(registered, active);
-
-    if (active.usesLocalTerminal) {
-      final EcrReachability probe = await terminal.probeReachability();
-      if (!probe.reachable) {
-        final String message = (StringBuffer()
-              ..write('${probe.endpoint} is not reachable')
-              ..write(probe.error == null ? '' : '\n(${probe.error})')
-              ..write('\n\n')
-              ..write(
-                active.usesPaymentApp
-                    ? 'Check:\n'
-                        '• The Amwal payment app is installed on this device\n'
-                        '• It is a build that accepts app-to-app requests\n'
-                        '• The merchant is signed in — open it once and sign in\n'
-                        '• The application ID matches (${probe.endpoint})\n'
-                        '• Serial number matches the terminal this app drives'
-                    : active.usesUsbCable
-                    ? 'Check:\n'
-                        '• The USB cable is connected to the terminal\n'
-                        '• POS app is in ECR mode (USB cable) and says it is waiting\n'
-                        '• Serial number matches the terminal you selected\n'
-                        '• This device can act as a USB host (OTG)'
-                    : 'Check:\n'
-                        '• POS app is in ECR mode (Wi‑Fi) and shows its IP under the card logos\n'
-                        '• Registered IP matches that address (port ${probe.port})\n'
-                        '• Serial number matches the terminal you selected\n'
-                        '• Both devices are on the same Wi‑Fi network\n'
-                        '• If testing on one phone, try IP 127.0.0.1',
-              ))
-            .toString();
-        _emit(TransactionFailed(message));
+    try {
+      final Terminal? registered =
+          await _repository.findBySerial(request.terminalSerial);
+      if (!_stillCurrent(epoch)) return;
+      if (registered == null) {
+        _emit(TransactionFailed(
+          'Terminal ${request.terminalSerial} is no longer registered',
+        ));
         return;
       }
-    }
 
-    // The terminal was not reachable when it was selected, or has not been
-    // asked since, so this is the first chance to learn what it permits. Asking
-    // here rather than refusing the request keeps selection independent of the
-    // network: a till picks a terminal it cannot see, and finds out what it
-    // will accept the first time it tries to use it.
-    //
-    // Skipped for the payment app on this device, where a sign-on is not free:
-    // it is a second handover, so the operator would watch that app open, close
-    // and open again for one sale.
-    if (_signOn.terminalCapabilities == null && TerminalSessions.asksSignOn(registered)) {
-      await _refreshCapabilities(registered, terminal);
-    }
+      final SelectedTerminalConfig active = await _resolveConfig(registered);
+      if (!_stillCurrent(epoch)) return;
+      _selectedConfig = active;
 
-    _emit(const TransactionInProgress());
+      if (!active.isReady) {
+        _emit(TransactionFailed(active.issues.join('\n')));
+        return;
+      }
 
-    if (request.type == EcrTransactionType.inquiry) {
-      final EcrInquiry inquiry = request.looksUpByReference
-          ? await terminal.inquireByReference(
-              request.originalReference,
-              transactionDate: request.transactionDate,
-              originalTerminalId: request.originalTerminalId,
-              merchantReference: request.merchantReference,
-            )
-          : await terminal.inquire(
-              receiptNumber: request.receiptNumber,
-              transactionDate: request.transactionDate,
-              originalTerminalId: request.originalTerminalId,
-            );
-      _emit(switch (inquiry) {
-        EcrInquiryFailed(:final EcrFailure failure) =>
-          TransactionFailed(failure.message),
-        _ => TransactionInquired(inquiry: inquiry, request: request),
+      // Align budget if Web Service (130s) differs from the first guess.
+      final int timeout = _responseTimeoutSeconds(active);
+      if (_operationTimer?.totalSeconds != timeout) {
+        _startOperationCountdown(timeout);
+      }
+
+      final EcrTerminal terminal = _terminalFor(registered, active);
+
+      if (active.usesLocalTerminal) {
+        final EcrReachability probe = await terminal.probeReachability();
+        if (!_stillCurrent(epoch)) return;
+        if (!probe.reachable) {
+          final String message = (StringBuffer()
+                ..write('${probe.endpoint} is not reachable')
+                ..write(probe.error == null ? '' : '\n(${probe.error})')
+                ..write('\n\n')
+                ..write(
+                  active.usesPaymentApp
+                      ? 'Check:\n'
+                          '• The Amwal payment app is installed on this device\n'
+                          '• It is a build that accepts app-to-app requests\n'
+                          '• The merchant is signed in — open it once and sign in\n'
+                          '• The application ID matches (${probe.endpoint})\n'
+                          '• Serial number matches the terminal this app drives'
+                      : active.usesUsbCable
+                      ? 'Check:\n'
+                          '• The USB cable is connected to the terminal\n'
+                          '• POS app is in ECR mode (USB cable) and says it is waiting\n'
+                          '• Serial number matches the terminal you selected\n'
+                          '• This device can act as a USB host (OTG)'
+                      : 'Check:\n'
+                          '• POS app is in ECR mode (Wi‑Fi) and shows its IP under the card logos\n'
+                          '• Registered IP matches that address (port ${probe.port})\n'
+                          '• Serial number matches the terminal you selected\n'
+                          '• Both devices are on the same Wi‑Fi network\n'
+                          '• If testing on one phone, try IP 127.0.0.1',
+                ))
+              .toString();
+          _emit(TransactionFailed(message));
+          return;
+        }
+      }
+
+      // The terminal was not reachable when it was selected, or has not been
+      // asked since, so this is the first chance to learn what it permits. Asking
+      // here rather than refusing the request keeps selection independent of the
+      // network: a till picks a terminal it cannot see, and finds out what it
+      // will accept the first time it tries to use it.
+      //
+      // Skipped for the payment app on this device, where a sign-on is not free:
+      // it is a second handover, so the operator would watch that app open, close
+      // and open again for one sale.
+      if (_signOn.terminalCapabilities == null &&
+          TerminalSessions.asksSignOn(registered)) {
+        await _refreshCapabilities(registered, terminal);
+        if (!_stillCurrent(epoch)) return;
+      }
+
+      _emit(const TransactionInProgress());
+
+      if (request.type == EcrTransactionType.inquiry) {
+        final EcrInquiry inquiry = request.looksUpByReference
+            ? await terminal.inquireByReference(
+                request.originalReference,
+                transactionDate: request.transactionDate,
+                originalTerminalId: request.originalTerminalId,
+                merchantReference: request.merchantReference,
+              )
+            : await terminal.inquire(
+                receiptNumber: request.receiptNumber,
+                transactionDate: request.transactionDate,
+                originalTerminalId: request.originalTerminalId,
+              );
+        if (!_stillCurrent(epoch)) return;
+        _emit(switch (inquiry) {
+          EcrInquiryFailed(:final EcrFailure failure) =>
+            TransactionFailed(failure.message),
+          _ => TransactionInquired(inquiry: inquiry, request: request),
+        });
+        return;
+      }
+
+      final EcrResult result = switch (request.type) {
+        EcrTransactionType.sale => await terminal.sale(
+            request.amount!,
+            merchantReference: request.merchantReference,
+          ),
+        EcrTransactionType.voidTransaction => await terminal.voidTransaction(
+            request.receiptNumber,
+            originalTerminalId: request.originalTerminalId,
+            merchantReference: request.merchantReference,
+          ),
+        EcrTransactionType.refund => await terminal.refund(
+            request.amount!,
+            receiptNumber: request.receiptNumber,
+            transactionDate: request.transactionDate,
+            originalTerminalId: request.originalTerminalId,
+            merchantReference: request.merchantReference,
+          ),
+        EcrTransactionType.inquiry ||
+        EcrTransactionType.receipt ||
+        EcrTransactionType.signOn ||
+        EcrTransactionType.closeReceipt =>
+          throw StateError('${request.type.displayName} is not run from here'),
+      };
+
+      if (!_stillCurrent(epoch)) return;
+      _emit(switch (result) {
+        EcrFailed() => _failureOf(result, request),
+        // Timeout / unknown-outcome envelopes map to Failed so they are not
+        // shown as a plain decline.
+        EcrDeclined(:final EcrNextStep nextStep, :final String reason)
+            when nextStep == EcrNextStep.inquireByMerchantReference =>
+          TransactionFailed(reason),
+        _ => TransactionCompleted(result, request.type),
       });
-      return;
+    } finally {
+      if (!_state.isBusy) _clearOperationCountdown();
     }
-
-    final EcrResult result = switch (request.type) {
-      EcrTransactionType.sale => await terminal.sale(
-          request.amount!,
-          merchantReference: request.merchantReference,
-        ),
-      EcrTransactionType.voidTransaction => await terminal.voidTransaction(
-          request.receiptNumber,
-          originalTerminalId: request.originalTerminalId,
-          merchantReference: request.merchantReference,
-        ),
-      EcrTransactionType.refund => await terminal.refund(
-          request.amount!,
-          receiptNumber: request.receiptNumber,
-          transactionDate: request.transactionDate,
-          originalTerminalId: request.originalTerminalId,
-          merchantReference: request.merchantReference,
-        ),
-      EcrTransactionType.inquiry ||
-      EcrTransactionType.receipt ||
-      EcrTransactionType.signOn ||
-      EcrTransactionType.closeReceipt =>
-        throw StateError('${request.type.displayName} is not run from here'),
-    };
-
-    _emit(switch (result) {
-      EcrFailed() => _failureOf(result, request),
-      _ => TransactionCompleted(result, request.type),
-    });
   }
+
+  bool _stillCurrent(int epoch) => epoch == _operationEpoch;
 
   TransactionState _failureOf(EcrFailed result, TransactionRequest request) {
     final EcrInquiry? recovered = result.recovered;
@@ -333,103 +438,128 @@ class TransactionController extends ChangeNotifier {
         request: request.copyWith(
           type: EcrTransactionType.inquiry,
           originalReference: result.merchantReference,
+          merchantReference: '',
         ),
       );
     }
 
-    return TransactionFailed(
-      result.failure.message,
-      inquirableReference: result.merchantReference,
-    );
-  }
-
-  void inquireAboutReference(String reference, String terminalSerial) {
-    if (_state.isBusy) return;
-
-    startTransaction(TransactionRequest(
-      type: EcrTransactionType.inquiry,
-      terminalSerial: terminalSerial,
-      amount: null,
-      originalReference: reference,
-      merchantReference: reference,
-    ));
+    return TransactionFailed(result.failure.message);
   }
 
   Future<void> requestReceipt() async {
     final TransactionState current = _state;
     if (current is! TransactionInquired || current.fetchingReceipt) return;
 
+    final int epoch = ++_operationEpoch;
+    _startOperationCountdown(_responseTimeoutSeconds(_selectedConfig));
     _emit(current.copyWith(fetchingReceipt: true));
 
-    final Terminal? registered =
-        await _repository.findBySerial(current.request.terminalSerial);
-    if (registered == null) {
-      _emit(current.copyWith(
-        fetchingReceipt: false,
-        receipt: EcrReceiptUnavailable(
-          merchantReference: '',
-          reason: 'Terminal ${current.request.terminalSerial} '
-              'is no longer registered',
-          raw: '',
-        ),
-      ));
-      return;
+    try {
+      final Terminal? registered =
+          await _repository.findBySerial(current.request.terminalSerial);
+      if (!_stillCurrent(epoch)) return;
+      if (registered == null) {
+        _emit(current.copyWith(
+          fetchingReceipt: false,
+          receipt: EcrReceiptUnavailable(
+            merchantReference: '',
+            reason: 'Terminal ${current.request.terminalSerial} '
+                'is no longer registered',
+            raw: '',
+          ),
+        ));
+        return;
+      }
+
+      final SelectedTerminalConfig active = await _resolveConfig(registered);
+      if (!_stillCurrent(epoch)) return;
+      if (!active.usesLocalTerminal) {
+        _emit(current.copyWith(
+          fetchingReceipt: false,
+          receipt: const EcrReceiptUnavailable(
+            merchantReference: '',
+            reason: 'Receipt fetch is only supported over Wi‑Fi / USB cable ECR',
+            raw: '',
+          ),
+        ));
+        return;
+      }
+
+      _startOperationCountdown(_responseTimeoutSeconds(active));
+
+      final EcrInquiry inquiry = current.inquiry;
+      final EcrTransaction? found =
+          inquiry is EcrInquiryFound ? inquiry.transaction : null;
+
+      final String receiptNumber = switch (found?.stan) {
+        final String stan when stan.trim().isNotEmpty => stan,
+        _ => current.request.receiptNumber,
+      };
+
+      if (receiptNumber.trim().isEmpty) {
+        _emit(current.copyWith(
+          fetchingReceipt: false,
+          receipt: const EcrReceiptUnavailable(
+            merchantReference: '',
+            reason:
+                'This transaction has no receipt number to fetch a receipt by',
+            raw: '',
+          ),
+        ));
+        return;
+      }
+
+      final String transactionDate = switch (_dayOf(found?.transactionTime)) {
+        final String day when day.isNotEmpty => day,
+        _ => current.request.transactionDate,
+      };
+
+      final EcrReceipt receipt = await _terminalFor(registered, active).receipt(
+        receiptNumber: receiptNumber,
+        transactionDate: transactionDate,
+        originalTerminalId: current.request.originalTerminalId,
+      );
+
+      if (!_stillCurrent(epoch)) return;
+      final TransactionState latest = _state;
+      if (latest is! TransactionInquired) return;
+      _emit(latest.copyWith(receipt: receipt, fetchingReceipt: false));
+    } finally {
+      _clearOperationCountdown();
     }
-
-    final SelectedTerminalConfig active = await _resolveConfig(registered);
-    if (!active.usesLocalTerminal) {
-      _emit(current.copyWith(
-        fetchingReceipt: false,
-        receipt: const EcrReceiptUnavailable(
-          merchantReference: '',
-          reason: 'Receipt fetch is only supported over Wi‑Fi / USB cable ECR',
-          raw: '',
-        ),
-      ));
-      return;
-    }
-
-    final EcrInquiry inquiry = current.inquiry;
-    final EcrTransaction? found =
-        inquiry is EcrInquiryFound ? inquiry.transaction : null;
-
-    final String receiptNumber = switch (found?.stan) {
-      final String stan when stan.trim().isNotEmpty => stan,
-      _ => current.request.receiptNumber,
-    };
-
-    if (receiptNumber.trim().isEmpty) {
-      _emit(current.copyWith(
-        fetchingReceipt: false,
-        receipt: const EcrReceiptUnavailable(
-          merchantReference: '',
-          reason: 'This transaction has no receipt number to fetch a receipt by',
-          raw: '',
-        ),
-      ));
-      return;
-    }
-
-    final String transactionDate = switch (_dayOf(found?.transactionTime)) {
-      final String day when day.isNotEmpty => day,
-      _ => current.request.transactionDate,
-    };
-
-    final EcrReceipt receipt = await _terminalFor(registered, active).receipt(
-      receiptNumber: receiptNumber,
-      transactionDate: transactionDate,
-      originalTerminalId: current.request.originalTerminalId,
-    );
-
-    final TransactionState latest = _state;
-    if (latest is! TransactionInquired) return;
-    _emit(latest.copyWith(receipt: receipt, fetchingReceipt: false));
   }
 
   static String _dayOf(String? transactionTime) {
     final String digits =
         (transactionTime ?? '').replaceAll(RegExp('[^0-9]'), '');
     return digits.length >= 8 ? digits.substring(0, 8) : '';
+  }
+
+  /// Asks the payment app to print a receipt image built from this operation's
+  /// result (not a reprint of the payment app's last stored transaction).
+  ///
+  /// Only for app-to-app. Other transports return null without calling the
+  /// host — the Print button is not shown for them either.
+  Future<EcrPrintOutcome?> printReceiptOnPaymentApp(
+    EcrApproved result,
+    EcrTransactionType type,
+  ) async {
+    final SelectedTerminalConfig? active = _selectedConfig;
+    if (active == null || !active.usesPaymentApp) return null;
+
+    final String? serial = _selectedSerial;
+    if (serial == null) return null;
+    final Terminal? registered = await _repository.findBySerial(serial);
+    if (registered == null || registered.mode != EcrMode.appToApp) {
+      return null;
+    }
+
+    final Uint8List imagePng =
+        await OperationReceiptImage.png(result, type);
+    return _terminalFor(registered, active).printReceipt(
+      imagePng: imagePng,
+      merchantReference: result.merchantReference,
+    );
   }
 
   EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) =>

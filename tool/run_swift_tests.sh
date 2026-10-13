@@ -56,7 +56,7 @@ mode="${mode:-$(load_prop "$root/ios/ecr_sdk.properties" ecrSdkDependency)}"
 mode="${mode:-cocoapods}"
 version="$(load_prop "$root/example/ios/ecr_sdk.properties" ecrSdkVersion)"
 version="${version:-$(load_prop "$root/ios/ecr_sdk.properties" ecrSdkVersion)}"
-version="${version:-0.2.1}"
+version="${version:-0.3.0}"
 spm_rel="$(load_prop "$root/example/ios/ecr_sdk.properties" ecrSdkSpmRoot)"
 spm_base="$root/example/ios"
 if [[ -z "$spm_rel" ]]; then
