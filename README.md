@@ -363,7 +363,10 @@ is collected by other means.
 Response codes worth knowing (`EcrResponseCode`), all readable off `EcrDeclined`:
 
 - `96` `isTerminalBusy` — a transaction is already running. Nothing was
-  attempted; safe to send again once the terminal is free.
+  attempted; safe to send again once the terminal is free. Not returned just
+  because the last receipt is still on screen.
+- `51` with message `"Card read timeout"` — no card was presented within 15
+  seconds. Nothing was charged.
 - `17` `isCancelledAtTerminal` — the operator or cardholder cancelled.
 - `25` `isOriginalNotFound` — no such receipt number for that day.
 - `91` — `outcomeIsUnknown` is `true`. The one decline that is not a decision.
@@ -643,8 +646,15 @@ Two things on the terminal produce it, and the second is almost always the one:
    opened" — and clears it in `close()`, when the screen is disposed.
 
 So the flag is set for as long as that screen exists: while a card is being
-read, while a status screen is up, while a **receipt is still showing**, and for
-as long as anyone leaves it open. It is in-memory on the POS app; a socket
+read, while a status screen is up, while a receipt is still showing, and for
+as long as anyone leaves it open.
+
+**A receipt still showing no longer causes `96`.** In ECR mode the terminal puts
+its receipt away by itself 15 seconds after it appears, and a sale, refund or
+void that arrives while it is still up is started after a 3-second "Another
+transaction loading" notice: the terminal closes the receipt, waits for the flag
+to clear, and runs the new request. A terminal that still answers `96` there is
+running an older POS app. It is in-memory on the POS app; a socket
 closing does not clear it, and neither does time.
 
 **Two ways to tell it is stuck.** The screen saver also refuses to appear while

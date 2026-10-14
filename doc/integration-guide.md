@@ -419,8 +419,16 @@ and the money-moving request share one transport.
 ### Close receipt
 
 When your till drove the sale, the operator is at the till — not at the
-terminal — so nobody dismisses the on-screen receipt. Ask the terminal to put
-it away when the cashier finishes with the outcome dialog:
+terminal — so nobody dismisses the on-screen receipt. Give the cashier a
+**Close receipt** button of its own, next to the one that closes your outcome
+dialog, and ask the terminal to put the receipt away from it. Not from
+dismissing the dialog: the cashier may still want the terminal's receipt after
+your dialog is gone.
+
+It clears the screen sooner; the next sale does not depend on it. In ECR mode the
+terminal puts its receipt away by itself 15 seconds after showing it, and a sale
+sent while the receipt is still up is started after a 3-second notice rather than
+refused with `96`.
 
 ```dart
 switch (await terminal.closeReceipt()) {
@@ -619,9 +627,10 @@ keys out of the repository entirely.
       `NSLocalNetworkUsageDescription`.
 - [ ] Sign-on over Wi‑Fi (and USB on Android) before enabling money-moving
       buttons when the till needs a live picture of permitted operations.
-- [ ] After a successful sale, call `closeReceipt()` when the outcome dialog
-      closes so the terminal returns to idle (Wi‑Fi / USB cable; skipped
-      automatically over Web Service and app to app).
+- [ ] Offer a **Close receipt** button beside the outcome dialog's Close, and
+      call `closeReceipt()` from it — not from dismissing the dialog (Wi‑Fi /
+      USB cable; refused before sending over Web Service and app to app). The
+      terminal also clears its receipt by itself after 15 seconds.
 - [ ] If you use PRINT (app to app): the receipt image is **384 px** wide and
       **≤ 15 MB**; you send an image built from the operation result; you read
       `EcrPrintOutcome.status` and `message` as separate fields.
