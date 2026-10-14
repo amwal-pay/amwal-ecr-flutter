@@ -22,11 +22,16 @@ class TransactionResultDialog extends StatelessWidget {
     required this.type,
     required this.onDismiss,
     this.onPrintReceipt,
+    this.onCloseReceipt,
   });
 
   final EcrResult result;
   final EcrTransactionType type;
   final VoidCallback onDismiss;
+
+  /// Asks the terminal to put its receipt away. Null hides the button: the
+  /// terminal cannot be asked over this transport.
+  final VoidCallback? onCloseReceipt;
 
   /// App-to-app only: ask the payment app to print an image built from this
   /// operation's result. Null hides the button.
@@ -40,9 +45,13 @@ class TransactionResultDialog extends StatelessWidget {
           type: type,
           onDismiss: onDismiss,
           onPrintReceipt: onPrintReceipt,
+          onCloseReceipt: onCloseReceipt,
         ),
-      final EcrDeclined declined =>
-        _DeclinedDialog(result: declined, onDismiss: onDismiss),
+      final EcrDeclined declined => _DeclinedDialog(
+          result: declined,
+          onDismiss: onDismiss,
+          onCloseReceipt: onCloseReceipt,
+        ),
       // No reference offered here: this route shows a result that already
       // arrived. The unknown-outcome case comes through TransactionFailed,
       // which carries the reference to ask about.
@@ -60,12 +69,14 @@ class _ApprovedDialog extends StatelessWidget {
     required this.type,
     required this.onDismiss,
     this.onPrintReceipt,
+    this.onCloseReceipt,
   });
 
   final EcrApproved result;
   final EcrTransactionType type;
   final VoidCallback onDismiss;
   final VoidCallback? onPrintReceipt;
+  final VoidCallback? onCloseReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +103,7 @@ class _ApprovedDialog extends StatelessWidget {
       ].where(((String, String) field) => field.$2.isNotEmpty).toList(),
       rawPayload: result.raw,
       onDismiss: onDismiss,
+      onCloseReceipt: onCloseReceipt,
       extra: onPrintReceipt == null
           ? null
           : OutlinedButton.icon(
@@ -105,10 +117,15 @@ class _ApprovedDialog extends StatelessWidget {
 }
 
 class _DeclinedDialog extends StatelessWidget {
-  const _DeclinedDialog({required this.result, required this.onDismiss});
+  const _DeclinedDialog({
+    required this.result,
+    required this.onDismiss,
+    this.onCloseReceipt,
+  });
 
   final EcrDeclined result;
   final VoidCallback onDismiss;
+  final VoidCallback? onCloseReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +141,7 @@ class _DeclinedDialog extends StatelessWidget {
       fields: const <(String, String)>[],
       rawPayload: result.raw.isNotEmpty ? result.raw : null,
       onDismiss: onDismiss,
+      onCloseReceipt: onCloseReceipt,
     );
   }
 }
@@ -406,6 +424,7 @@ class ResultDialog extends StatefulWidget {
     required this.fields,
     required this.rawPayload,
     required this.onDismiss,
+    this.onCloseReceipt,
     this.extra,
   });
 
@@ -423,6 +442,10 @@ class ResultDialog extends StatefulWidget {
   final String? rawPayload;
 
   final VoidCallback onDismiss;
+
+  /// Shown next to Close when set. Close only dismisses this dialog; this is
+  /// what clears the terminal's screen.
+  final VoidCallback? onCloseReceipt;
   final Widget? extra;
 
   @override
@@ -529,6 +552,12 @@ class _ResultDialogState extends State<ResultDialog> {
         ),
       ),
       actions: <Widget>[
+        if (widget.onCloseReceipt != null)
+          TextButton(
+            key: const Key('closeTerminalReceipt'),
+            onPressed: widget.onCloseReceipt,
+            child: const Text('Close receipt'),
+          ),
         TextButton(
           key: const Key('dismissResult'),
           onPressed: widget.onDismiss,

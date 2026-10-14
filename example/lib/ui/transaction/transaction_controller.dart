@@ -247,37 +247,37 @@ class TransactionController extends ChangeNotifier {
   void resultAcknowledged() {
     _clearOperationCountdown();
     _emit(const TransactionIdle());
-    _closeTerminalReceipt();
+  }
+
+  /// Whether the selected terminal can be asked to put its receipt away.
+  ///
+  /// Wi-Fi and USB cable only. Never for the payment app on this device, and
+  /// not because it would fail — because it has already happened: an
+  /// app-to-app answer is held until the operator closes the receipt. Never
+  /// over Web Service either, where the terminal is not on the till's counter.
+  bool get canCloseTerminalReceipt {
+    final SelectedTerminalConfig? config = _selectedConfig;
+    return config != null && (config.usesLan || config.usesUsbCable);
   }
 
   /// Tells the terminal the cashier has finished, so it can put its receipt
   /// away and be ready for the next transaction.
   ///
-  /// The terminal leaves its receipt up until somebody dismisses it, and when a
-  /// till drove the transaction nobody is standing there to do it. Closing the
-  /// result dialog is that moment, so this goes with acknowledging it.
+  /// Its own button, separate from closing the result dialog: the cashier
+  /// decides when the terminal's screen is cleared, and closing the dialog on
+  /// the till no longer does it as a side effect.
   ///
-  /// Deliberately silent. The dialog has already gone, and a till that cannot
-  /// tidy the terminal's screen has not failed at anything the cashier needs to
-  /// hear about: an older terminal, or a Web Service one, refuses and the
-  /// receipt stays up exactly as it always did.
-  Future<void> _closeTerminalReceipt() async {
+  /// Returns what the terminal answered, or null when there was no terminal to
+  /// ask.
+  Future<EcrReceiptClosed?> closeTerminalReceipt() async {
     final String? serial = _selectedSerial;
-    if (serial == null) return;
+    if (serial == null || !canCloseTerminalReceipt) return null;
 
     final Terminal? registered = await _repository.findBySerial(serial);
-    // Never for the payment app on this device, and not because it would fail
-    // — because it has already happened. An app-to-app answer is held until the
-    // operator closes the receipt, so by the time the till has a result the
-    // terminal is back on its idle screen.
-    if (registered == null || registered.mode == EcrMode.appToApp) return;
+    if (registered == null) return null;
 
-    try {
-      final SelectedTerminalConfig active = await _resolveConfig(registered);
-      await _terminalFor(registered, active).closeReceipt();
-    } catch (_) {
-      // Nothing the cashier needs to hear about; see above.
-    }
+    final SelectedTerminalConfig active = await _resolveConfig(registered);
+    return _terminalFor(registered, active).closeReceipt();
   }
 
   Future<void> startTransaction(TransactionRequest request) async {

@@ -119,6 +119,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
           type: type,
           onDismiss: _dismissResult,
           onPrintReceipt: _printCallback(result, type),
+          onCloseReceipt: _closeReceiptCallback(),
         ),
       final TransactionInquired inquired => InquiryResultDialog(
           state: inquired,
@@ -157,6 +158,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 type: type,
                 onDismiss: _dismissResult,
                 onPrintReceipt: _printCallback(result, type),
+                onCloseReceipt: _closeReceiptCallback(),
               ),
             final TransactionInquired inquired => InquiryResultDialog(
                 state: inquired,
@@ -195,6 +197,37 @@ class _TransactionScreenState extends State<TransactionScreen> {
         await _controller.printReceiptOnPaymentApp(result, type);
     if (outcome == null || !mounted) return;
     await showPrintOutcomeDialog(context, outcome);
+  }
+
+  /// Wi-Fi and USB cable only. Other transports keep the button hidden.
+  VoidCallback? _closeReceiptCallback() =>
+      _controller.canCloseTerminalReceipt ? _closeTerminalReceipt : null;
+
+  /// Asks the terminal to put its receipt away, and says what it answered.
+  ///
+  /// The result dialog stays open: the cashier may still be reading it.
+  Future<void> _closeTerminalReceipt() async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String message;
+    try {
+      final EcrReceiptClosed? closed = await _controller.closeTerminalReceipt();
+      message = switch (closed) {
+        null => 'No terminal selected',
+        EcrReceiptClosedIdle() => 'Terminal is back on its idle screen',
+        EcrReceiptClosedRefused(:final String reason) =>
+          'Terminal refused: $reason',
+        EcrReceiptClosedFailed(:final EcrFailure failure) =>
+          'Could not reach the terminal: ${failure.message}',
+      };
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not close the receipt: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _dismissResult() {
