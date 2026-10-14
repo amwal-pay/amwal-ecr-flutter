@@ -632,7 +632,21 @@ void main() {
       expect(find.text('Terminal is mid-transaction'), findsOneWidget);
     });
 
-    testWidgets('closing the result puts the terminal\'s receipt away',
+    testWidgets('closing the result leaves the terminal\'s receipt alone',
+        (WidgetTester tester) async {
+      platform.result = _approved;
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      await tester.tap(find.byKey(const Key('dismissResult')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, isNot(contains('closeReceipt')));
+    });
+
+    testWidgets('Close receipt puts the terminal\'s receipt away',
         (WidgetTester tester) async {
       platform.result = _approved;
 
@@ -641,10 +655,13 @@ void main() {
       await tapStart(tester);
       expect(platform.calls, isNot(contains('closeReceipt')));
 
-      await tester.tap(find.byKey(const Key('dismissResult')));
+      await tester.tap(find.byKey(const Key('closeTerminalReceipt')));
       await tester.pumpAndSettle();
 
       expect(platform.calls.last, 'closeReceipt');
+      expect(find.text('Terminal is back on its idle screen'), findsOneWidget);
+      // The result stays up for the cashier until they close it themselves.
+      expect(find.byKey(const Key('dismissResult')), findsOneWidget);
     });
 
     testWidgets('the terminals list shows nothing until Check is pressed',
