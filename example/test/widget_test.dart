@@ -598,7 +598,7 @@ void main() {
       ]);
 
       await pumpTill(tester);
-      await tester.tap(find.byKey(const Key('transactionType')));
+      await _openTypeMenu(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Void'), findsNothing);
@@ -609,7 +609,7 @@ void main() {
     testWidgets('a terminal that does not answer leaves the whole menu',
         (WidgetTester tester) async {
       await pumpTill(tester);
-      await tester.tap(find.byKey(const Key('transactionType')));
+      await _openTypeMenu(tester);
       await tester.pumpAndSettle();
 
       // Not a terminal that permits nothing — one that has not said.
@@ -662,6 +662,38 @@ void main() {
       expect(find.text('Terminal is back on its idle screen'), findsOneWidget);
       // The result stays up for the cashier until they close it themselves.
       expect(find.byKey(const Key('dismissResult')), findsOneWidget);
+    });
+
+    testWidgets('Manual settlement asks first, and Cancel sends nothing',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+
+      await tester.ensureVisible(find.byKey(const Key('manualSettlement')));
+      await tester.tap(find.byKey(const Key('manualSettlement')));
+      await tester.pumpAndSettle();
+      expect(find.text('Manual settlement'), findsWidgets);
+
+      await tester.tap(find.byKey(const Key('manualSettlementCancel')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, isNot(contains('settlement')));
+    });
+
+    testWidgets('a confirmed settlement shows the batch it closed',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+
+      await tester.ensureVisible(find.byKey(const Key('manualSettlement')));
+      await tester.tap(find.byKey(const Key('manualSettlement')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('manualSettlementConfirm')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls.last, 'settlement');
+      expect(find.text('Settled'), findsOneWidget);
+      expect(find.text('Batch 00000007 is closed'), findsOneWidget);
+      expect(find.text('Sales × 3'), findsOneWidget);
+      expect(find.text('14.750'), findsOneWidget);
     });
 
     testWidgets('the terminals list shows nothing until Check is pressed',
@@ -922,7 +954,7 @@ EcrInquiryFound _found(String status) => EcrInquiryFound(
 
 /// Picks a transaction type from the dropdown.
 Future<void> _chooseType(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const Key('transactionType')));
+  await _openTypeMenu(tester);
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -1065,6 +1097,28 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   }
 
   @override
+  Future<EcrSettlement> settlement(EcrRequest request) async {
+    calls.add('settlement');
+    return EcrSettlementSettled(
+      merchantReference: request.merchantReference,
+      batchId: '00000007',
+      currency: 'OMR',
+      startTime: '20261020080000',
+      endTime: '20261020130509',
+      totalTransactions: 4,
+      netAmount: '12.500',
+      totals: const <String, EcrSettlementTotal>{
+        'SALE': EcrSettlementTotal(count: 3, amount: '14.750'),
+        'REFUND': EcrSettlementTotal(count: 1, amount: '2.250'),
+        'VOID': EcrSettlementTotal(count: 0, amount: '0.000'),
+        'PRE_AUTH': EcrSettlementTotal(count: 0, amount: '0.000'),
+        'CAPTURE': EcrSettlementTotal(count: 0, amount: '0.000'),
+      },
+      raw: '{}',
+    );
+  }
+
+  @override
   Future<EcrPrintOutcome> printReceipt(EcrRequest request) async {
     calls.add('printReceipt');
     return EcrPrintOutcome.failed('not configured');
@@ -1072,4 +1126,18 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
 
   @override
   Future<bool> cancel(String operationId) async => false;
+}
+
+/// Opens the transaction type dropdown.
+///
+/// The form is a lazy list: once it is scrolled down — to Start, or by the
+/// terminal's status card growing — the dropdown at the top is no longer
+/// built, so it is scrolled back into view first.
+Future<void> _openTypeMenu(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.byKey(const Key('transactionType')),
+    -200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(find.byKey(const Key('transactionType')));
 }

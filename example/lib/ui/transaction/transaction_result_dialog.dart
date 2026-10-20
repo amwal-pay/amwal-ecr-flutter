@@ -322,6 +322,98 @@ class _ReceiptSection extends StatelessWidget {
   }
 }
 
+/// How a settlement ended: the batch closed with its totals, there was nothing
+/// to close, or it was left open.
+///
+/// [onCloseReceipt] puts the terminal's settlement summary away; it goes by
+/// itself after 15 seconds otherwise.
+class SettlementResultDialog extends StatelessWidget {
+  const SettlementResultDialog({
+    super.key,
+    required this.settlement,
+    required this.onDismiss,
+    this.onCloseReceipt,
+  });
+
+  final EcrSettlement settlement;
+  final VoidCallback onDismiss;
+  final VoidCallback? onCloseReceipt;
+
+  static const Map<String, String> _typeLabels = <String, String>{
+    'SALE': 'Sales',
+    'REFUND': 'Refunds',
+    'VOID': 'Voids',
+    'PRE_AUTH': 'Pre-auths',
+    'CAPTURE': 'Captures',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (settlement) {
+      final EcrSettlementSettled settled => ResultDialog(
+          headline: 'Settled',
+          icon: Icons.check_circle,
+          tint: approvedGreen,
+          amount: settled.netAmount,
+          message: 'Batch ${settled.batchId} is closed',
+          fields: <(String, String)>[
+            ('Transactions', '${settled.totalTransactions}'),
+            for (final MapEntry<String, EcrSettlementTotal> row
+                in settled.totals.entries)
+              (
+                '${_typeLabels[row.key] ?? row.key} × ${row.value.count}',
+                row.value.amount,
+              ),
+            if (settled.endTime.isNotEmpty)
+              ('Closed at', _readableWireTime(settled.endTime)),
+          ],
+          rawPayload: settled.raw,
+          onDismiss: onDismiss,
+          onCloseReceipt: onCloseReceipt,
+        ),
+      final EcrSettlementNothingToSettle nothing => ResultDialog(
+          headline: 'Nothing to settle',
+          icon: Icons.check_circle,
+          tint: approvedGreen,
+          amount: '',
+          message: nothing.message,
+          fields: const <(String, String)>[],
+          rawPayload: nothing.raw,
+          onDismiss: onDismiss,
+          onCloseReceipt: onCloseReceipt,
+        ),
+      final EcrSettlementNotSettled open => ResultDialog(
+          headline: 'Not settled',
+          icon: Icons.cancel,
+          tint: declinedRed,
+          amount: '',
+          message: open.reason,
+          fields: <(String, String)>[
+            if (open.status.isNotEmpty) ('Status', open.status),
+            if (open.responseCode.isNotEmpty) ('Code', open.responseCode),
+            if (open.uploadedTransactions != null)
+              ('Uploaded', '${open.uploadedTransactions}'),
+          ],
+          rawPayload: open.raw.isNotEmpty ? open.raw : null,
+          onDismiss: onDismiss,
+          onCloseReceipt: onCloseReceipt,
+        ),
+      // Shown as TransactionFailed instead; nothing reached the terminal.
+      EcrSettlementFailed(:final EcrFailure failure) =>
+        TransactionFailureDialog(reason: failure.message, onDismiss: onDismiss),
+    };
+  }
+
+  /// `yyyyMMddHHmmss`, as the terminal sends a settlement's times, as
+  /// `dd/MM/yyyy HH:mm`.
+  static String _readableWireTime(String value) {
+    if (value.length != 14) return value;
+    return '${value.substring(6, 8)}/${value.substring(4, 6)}/'
+        '${value.substring(0, 4)} ${value.substring(8, 10)}:'
+        '${value.substring(10, 12)}';
+  }
+}
+
 /// The exchange itself failed: unreachable, timed out, malformed.
 class TransactionFailureDialog extends StatelessWidget {
   const TransactionFailureDialog({

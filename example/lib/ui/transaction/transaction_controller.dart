@@ -280,6 +280,30 @@ class TransactionController extends ChangeNotifier {
     return _terminalFor(registered, active).closeReceipt();
   }
 
+  /// Whether the selected terminal can be asked to settle from here: Wi‑Fi,
+  /// USB cable and the payment app on this device. Not Web Service yet — the
+  /// relay has no settlement endpoint.
+  bool get canSettle {
+    final SelectedTerminalConfig? config = _selectedConfig;
+    return config != null &&
+        (config.usesLan || config.usesUsbCable || config.usesPaymentApp);
+  }
+
+  /// Settles the selected terminal's batch — its merchant menu's Manual
+  /// settlement. The terminal does not ask for confirmation, so the screen
+  /// asks the cashier before calling this.
+  Future<void> startSettlement() async {
+    final String? serial = _selectedSerial;
+    if (serial == null || !canSettle) return;
+    await startTransaction(
+      TransactionRequest(
+        type: EcrTransactionType.settlement,
+        terminalSerial: serial,
+        amount: null,
+      ),
+    );
+  }
+
   Future<void> startTransaction(TransactionRequest request) async {
     if (_state.isBusy) return;
 
@@ -367,6 +391,17 @@ class TransactionController extends ChangeNotifier {
 
       _emit(const TransactionInProgress());
 
+      if (request.type == EcrTransactionType.settlement) {
+        final EcrSettlement settlement = await terminal.settlement();
+        if (!_stillCurrent(epoch)) return;
+        _emit(switch (settlement) {
+          EcrSettlementFailed(:final EcrFailure failure) =>
+            TransactionFailed(failure.message),
+          _ => TransactionSettled(settlement),
+        });
+        return;
+      }
+
       if (request.type == EcrTransactionType.inquiry) {
         final EcrInquiry inquiry = request.looksUpByReference
             ? await terminal.inquireByReference(
@@ -409,7 +444,8 @@ class TransactionController extends ChangeNotifier {
         EcrTransactionType.inquiry ||
         EcrTransactionType.receipt ||
         EcrTransactionType.signOn ||
-        EcrTransactionType.closeReceipt =>
+        EcrTransactionType.closeReceipt ||
+        EcrTransactionType.settlement =>
           throw StateError('${request.type.displayName} is not run from here'),
       };
 

@@ -130,6 +130,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
               : null,
           onDismiss: _dismissResult,
         ),
+      TransactionSettled(:final EcrSettlement settlement) =>
+        SettlementResultDialog(
+          settlement: settlement,
+          onDismiss: _dismissResult,
+          onCloseReceipt: _closeReceiptCallback(),
+        ),
       TransactionFailed(:final String message) => TransactionFailureDialog(
           reason: message,
           onDismiss: _dismissResult,
@@ -168,6 +174,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     ? _controller.cancelOperation
                     : null,
                 onDismiss: _dismissResult,
+              ),
+            TransactionSettled(:final EcrSettlement settlement) =>
+              SettlementResultDialog(
+                settlement: settlement,
+                onDismiss: _dismissResult,
+                onCloseReceipt: _closeReceiptCallback(),
               ),
             TransactionFailed(:final String message) =>
               TransactionFailureDialog(
@@ -228,6 +240,35 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Asks the cashier before settling: the terminal starts as soon as it is
+  /// asked and does not ask again.
+  Future<void> _confirmSettlement() async {
+    final String name = _terminal?.name ?? 'the terminal';
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Manual settlement'),
+        content: Text(
+          'Settle $name now? It closes the current batch and prints the '
+          'settlement receipt.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('manualSettlementCancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('manualSettlementConfirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Settle'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _controller.startSettlement();
   }
 
   void _dismissResult() {
@@ -524,6 +565,25 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 ),
               ),
             ),
+
+            // The terminal settles as soon as it is asked, so the cashier
+            // confirms here first — the till's part of the merchant menu's
+            // Yes/No.
+            if (_controller.canSettle) ...<Widget>[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  key: const Key('manualSettlement'),
+                  onPressed: (!busy &&
+                          _terminal != null &&
+                          (_controller.selectedConfig?.isReady ?? false))
+                      ? _confirmSettlement
+                      : null,
+                  child: const Text('Manual settlement'),
+                ),
+              ),
+            ],
 
             if (busy) ...<Widget>[
               const SizedBox(height: 16),
