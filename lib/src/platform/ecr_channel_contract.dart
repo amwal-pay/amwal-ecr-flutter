@@ -54,6 +54,9 @@ abstract final class EcrMethods {
   /// `closeReceipt(args) -> receipt-closed map`
   static const String closeReceipt = 'closeReceipt';
 
+  /// `settlement(args) -> settlement map`
+  static const String settlement = 'settlement';
+
   /// `printReceipt(args) -> print outcome map` — app-to-app Android only.
   static const String printReceipt = 'printReceipt';
 
@@ -72,6 +75,7 @@ abstract final class EcrMethods {
     receipt,
     signOn,
     closeReceipt,
+    settlement,
     printReceipt,
     cancel,
   ];
@@ -353,6 +357,10 @@ abstract final class EcrOutcomes {
   /// [unavailable] — it is the same statement about the same thing.
   static const String available = 'available';
 
+  /// Settlement outcomes. A batch left open reuses [declined].
+  static const String settled = 'settled';
+  static const String nothingToSettle = 'nothingToSettle';
+
   static const List<String> all = <String>[
     approved,
     declined,
@@ -363,6 +371,43 @@ abstract final class EcrOutcomes {
     unavailable,
     idle,
     available,
+    settled,
+    nothingToSettle,
+  ];
+}
+
+/// Keys in a settlement map, beside the shared [EcrResultKeys].
+abstract final class EcrSettlementKeys {
+  static const String batchId = 'batchId';
+  static const String currency = 'currency';
+  static const String startTime = 'startTime';
+  static const String endTime = 'endTime';
+  static const String totalTransactions = 'totalTransactions';
+  static const String netAmount = 'netAmount';
+
+  /// A map of type (`SALE`, `REFUND`, …) to `{count, amount}`.
+  static const String totals = 'totals';
+  static const String count = 'count';
+  static const String amount = 'amount';
+
+  /// The terminal's `settlementStatus` on a batch left open.
+  static const String status = 'status';
+  static const String uploadedTransactions = 'uploadedTransactions';
+  static const String message = 'message';
+
+  static const List<String> all = <String>[
+    batchId,
+    currency,
+    startTime,
+    endTime,
+    totalTransactions,
+    netAmount,
+    totals,
+    count,
+    amount,
+    status,
+    uploadedTransactions,
+    message,
   ];
 }
 

@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the reverse, stops working.
 void main() {
   group('method names', () {
-    test('are exactly these twelve, spelled exactly this way', () {
+    test('are exactly these thirteen, spelled exactly this way', () {
       expect(EcrMethods.isReachable, 'isReachable');
       expect(EcrMethods.probeReachability, 'probeReachability');
       expect(EcrMethods.sale, 'sale');
@@ -28,6 +28,7 @@ void main() {
       expect(EcrMethods.receipt, 'receipt');
       expect(EcrMethods.signOn, 'signOn');
       expect(EcrMethods.closeReceipt, 'closeReceipt');
+      expect(EcrMethods.settlement, 'settlement');
       expect(EcrMethods.printReceipt, 'printReceipt');
       expect(EcrMethods.cancel, 'cancel');
     });
@@ -44,6 +45,7 @@ void main() {
         'receipt',
         'signOn',
         'closeReceipt',
+        'settlement',
         'printReceipt',
         'cancel',
       ]);
@@ -181,10 +183,31 @@ void main() {
       expect(EcrOutcomes.notFound, 'notFound');
       expect(EcrOutcomes.ready, 'ready');
       expect(EcrOutcomes.unavailable, 'unavailable');
+      expect(EcrOutcomes.settled, 'settled');
+      expect(EcrOutcomes.nothingToSettle, 'nothingToSettle');
     });
 
     test('no two outcomes share a name', () {
       expect(EcrOutcomes.all.toSet().length, EcrOutcomes.all.length);
+    });
+  });
+
+  group('settlement keys', () {
+    test('are spelled exactly this way, the same as the terminal sends them', () {
+      expect(EcrSettlementKeys.all, <String>[
+        'batchId',
+        'currency',
+        'startTime',
+        'endTime',
+        'totalTransactions',
+        'netAmount',
+        'totals',
+        'count',
+        'amount',
+        'status',
+        'uploadedTransactions',
+        'message',
+      ]);
     });
   });
 

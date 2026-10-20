@@ -9,6 +9,7 @@ import com.amwalpay.ecr.EcrOpenedSession
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrReceiptClosed
+import com.amwalpay.ecr.EcrSettlement
 import com.amwalpay.ecr.EcrSignOn
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSessions
@@ -187,6 +188,9 @@ internal class SdkOpenedSessionPort(
 
     override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
         session.closeReceipt(merchantReference = merchantReference)
+
+    override suspend fun settlement(merchantReference: String): EcrSettlement =
+        session.settlement(merchantReference = merchantReference)
 }
 
 /**
@@ -273,6 +277,9 @@ internal class PaymentAppTerminalPort(
 
     override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
         terminal.closeReceipt(merchantReference = merchantReference)
+
+    override suspend fun settlement(merchantReference: String): EcrSettlement =
+        terminal.settlement(merchantReference = merchantReference)
 }
 
 internal class UnsupportedEcrTerminalPort(
@@ -335,6 +342,9 @@ internal class UnsupportedEcrTerminalPort(
         throw UnsupportedOperationException(message)
 
     override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+        throw UnsupportedOperationException(message)
+
+    override suspend fun settlement(merchantReference: String): EcrSettlement =
         throw UnsupportedOperationException(message)
 
     private fun unsupported(): Nothing =
@@ -412,6 +422,9 @@ internal class InvalidPlanTerminalPort(
 
     override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
         EcrReceiptClosed.Failed(merchantReference, Failure.Malformed(message))
+
+    override suspend fun settlement(merchantReference: String): EcrSettlement =
+        EcrSettlement.Failed(merchantReference, Failure.Malformed(message))
 
     private fun configFailed(merchantReference: String): EcrResult =
         EcrResult.Failed(merchantReference, Failure.Malformed(message))

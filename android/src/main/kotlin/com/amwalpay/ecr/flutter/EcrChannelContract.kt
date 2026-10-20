@@ -21,6 +21,7 @@ internal object EcrMethods {
     const val RECEIPT = "receipt"
     const val SIGN_ON = "signOn"
     const val CLOSE_RECEIPT = "closeReceipt"
+    const val SETTLEMENT = "settlement"
     const val PRINT_RECEIPT = "printReceipt"
     const val CANCEL = "cancel"
 }
@@ -108,6 +109,10 @@ internal object EcrOutcomes {
 
     /** Sign-on outcome. A terminal that cannot serve reuses [UNAVAILABLE]. */
     const val AVAILABLE = "available"
+
+    /** Settlement outcomes. A batch left open reuses [DECLINED]. */
+    const val SETTLED = "settled"
+    const val NOTHING_TO_SETTLE = "nothingToSettle"
 }
 
 internal object EcrFailureKeys {
@@ -219,6 +224,14 @@ internal object EcrTransports {
         isIpTransport(name) || isUsbCable(name)
 
     /**
+     * Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable
+     * and app to app. Not Web Service yet — Amwal's relay has no settlement
+     * endpoint.
+     */
+    fun supportsSettlement(name: String?): Boolean =
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
+
+    /**
      * Whether the terminal can be asked if it is there without sending a
      * transaction.
      *
@@ -255,4 +268,24 @@ internal object EcrCapabilityKeys {
     const val MESSAGE_TYPE = "messageType"
     const val MIN_AMOUNT = "minAmount"
     const val MAX_AMOUNT = "maxAmount"
+}
+
+/** Keys in a settlement map, beside the shared [EcrResultKeys]. */
+internal object EcrSettlementKeys {
+    const val BATCH_ID = "batchId"
+    const val CURRENCY = "currency"
+    const val START_TIME = "startTime"
+    const val END_TIME = "endTime"
+    const val TOTAL_TRANSACTIONS = "totalTransactions"
+    const val NET_AMOUNT = "netAmount"
+
+    /** A map of type (`SALE`, `REFUND`, …) to `{count, amount}`. */
+    const val TOTALS = "totals"
+    const val COUNT = "count"
+    const val AMOUNT = "amount"
+
+    /** The terminal's `settlementStatus` on a batch left open. */
+    const val STATUS = "status"
+    const val UPLOADED_TRANSACTIONS = "uploadedTransactions"
+    const val MESSAGE = "message"
 }

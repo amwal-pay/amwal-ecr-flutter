@@ -92,6 +92,11 @@ enum EcrTransport {
   /// not on the till's counter, so its screen is not the till's to tidy.
   bool get supportsCloseReceipt => isIpTransport || isUsbCable;
 
+  /// Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable
+  /// and app to app. Not Web Service yet — Amwal's relay has no settlement
+  /// endpoint to carry it.
+  bool get supportsSettlement => isIpTransport || isUsbCable || isAppToApp;
+
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///
   /// [usbCable] is implemented on Android only; on iOS and Windows the host

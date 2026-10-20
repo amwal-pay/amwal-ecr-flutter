@@ -7,6 +7,7 @@ import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_settlement.dart';
 import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
@@ -248,6 +249,29 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
           lan.closeReceipt(merchantReference: request.merchantReference),
       onFailure: (EcrFailure failure) =>
           EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+    );
+  }
+
+  @override
+  Future<EcrSettlement> settlement(EcrRequest request) {
+    // Wi-Fi only, as everything here is: this host speaks TCP. The Hub has no
+    // settlement route yet.
+    if (request.transport != EcrTransport.wifi) {
+      return Future<EcrSettlement>.value(
+        EcrSettlementFailed(
+          merchantReference: '',
+          failure: EcrUnsupported(
+            'Settlement is not available over ${request.transport.name}',
+          ),
+        ),
+      );
+    }
+    return _invoke<EcrSettlement>(
+      request: request,
+      run: (LanEcrClient lan, WebServiceEcrClient? web) =>
+          lan.settlement(merchantReference: request.merchantReference),
+      onFailure: (EcrFailure failure) =>
+          EcrSettlementFailed(merchantReference: '', failure: failure),
     );
   }
 

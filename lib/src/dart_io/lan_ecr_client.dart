@@ -6,6 +6,7 @@ import '../model/ecr_failure.dart';
 import '../model/ecr_inquiry.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_settlement.dart';
 import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
@@ -221,6 +222,29 @@ final class LanEcrClient {
       _Ok(:final Map<String, Object?> json) => EcrWireReaders.toReceiptClosed(
         json,
         merchantReference: message.merchantReference,
+      ),
+    };
+  }
+
+  /// Asks the terminal to settle its current batch and answers with its totals.
+  Future<EcrSettlement> settlement({String merchantReference = ''}) async {
+    final EcrMessage message = EcrMessage.build(
+      type: EcrTransactionType.settlement,
+      config: config,
+      terminalSerial: serialNumber,
+      merchantReference: merchantReference,
+    );
+
+    final _Answer answer = await _exchange(message);
+    return switch (answer) {
+      _Broken(:final EcrFailure failure) => EcrSettlementFailed(
+        merchantReference: message.merchantReference,
+        failure: failure,
+      ),
+      _Ok(:final Map<String, Object?> json) => EcrWireReaders.toSettlement(
+        json,
+        merchantReference: message.merchantReference,
+        minorUnitDigits: config.minorUnitDigits,
       ),
     };
   }

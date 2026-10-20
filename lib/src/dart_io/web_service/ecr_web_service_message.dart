@@ -92,6 +92,10 @@ abstract final class EcrWebServiceMessage {
       // knows what a sign-on would tell it about the link.
       case EcrTransactionType.signOn:
         break;
+      // Nor, yet, a settlement route. Refused before reaching here, in the
+      // platform.
+      case EcrTransactionType.settlement:
+        break;
     }
 
     final Map<String, Object?> json = secureHashKey.isEmpty
