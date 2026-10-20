@@ -76,6 +76,8 @@ final class EcrCallHandler {
                 try signOn(Call(arguments), once)
             case EcrMethods.closeReceipt:
                 try closeReceipt(Call(arguments), once)
+            case EcrMethods.settlement:
+                settlement(once)
             case EcrMethods.printReceipt:
                 printReceipt(once)
             default:
@@ -246,6 +248,17 @@ final class EcrCallHandler {
         try run(call, reply, EcrMapping.receiptClosed) {
             try $0.closeReceipt(merchantReference: call.merchantReference)
         }
+    }
+
+    /// Not in the iOS SDK yet. Answers failed unsupported, as for the other
+    /// operations iOS does not carry, rather than leaving the call unanswered.
+    private func settlement(_ reply: OneShotReply) {
+        reply.success(
+            EcrMapping.failedResult(
+                kind: EcrFailureKinds.unsupported,
+                message: "Settlement is not available on iOS yet"
+            )
+        )
     }
 
     /// PRINT is Android app-to-app only. iOS always answers failed unsupported.

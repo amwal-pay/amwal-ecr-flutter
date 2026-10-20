@@ -17,6 +17,7 @@ enum EcrMethods {
     static let receipt = "receipt"
     static let signOn = "signOn"
     static let closeReceipt = "closeReceipt"
+    static let settlement = "settlement"
     static let printReceipt = "printReceipt"
     static let cancel = "cancel"
 }

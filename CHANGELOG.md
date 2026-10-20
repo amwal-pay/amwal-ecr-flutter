@@ -5,6 +5,32 @@ with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome *means* is breaking, however small the diff.
 
+## 0.5.0
+
+Needs Android `ecr-sdk` **1.0.11** (the plugin's default `ecrSdkVersion`).
+
+### Added
+
+- **Manual settlement — `EcrTerminal.settlement()`.** Asks the terminal to
+  settle its current batch (its merchant menu's Manual settlement) and answers
+  `EcrSettlement`: `EcrSettlementSettled` with the batch totals in major units
+  (`batchId`, `netAmount`, `totals` per type), `EcrSettlementNothingToSettle`,
+  `EcrSettlementNotSettled` with the terminal's `status` (`MISMATCH`,
+  `SESSION_EXPIRED`, `FAILED`, or empty for a refusal before it started), or
+  `EcrSettlementFailed`. Ask the cashier to confirm first: the terminal starts
+  at once. Wi‑Fi, USB cable and app to app (`EcrTransport.supportsSettlement`);
+  Web Service is refused before anything is sent until the relay has a
+  settlement endpoint. Android and Windows (Wi‑Fi); iOS answers
+  `EcrUnsupported`.
+- `EcrTransactionType.settlement`. Not in `menuOptions`.
+
+### Changed (breaking)
+
+- **Platform channel:** new method `settlement` with outcomes `settled` /
+  `nothingToSettle` (a batch left open reuses `declined`) and the
+  `EcrSettlementKeys`. Per the release policy a channel change is breaking: the
+  Dart side and the host must come from the same release.
+
 ## 0.4.0
 
 Port of iOS `AmwalECR` **0.3.0** and Android `ecr-sdk` **1.0.8** Web Service

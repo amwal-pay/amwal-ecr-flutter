@@ -22,6 +22,7 @@ final class EcrChannelContractTests: XCTestCase {
         XCTAssertEqual("inquire", EcrMethods.inquire)
         XCTAssertEqual("inquireByReference", EcrMethods.inquireByReference)
         XCTAssertEqual("receipt", EcrMethods.receipt)
+        XCTAssertEqual("settlement", EcrMethods.settlement)
         XCTAssertEqual("printReceipt", EcrMethods.printReceipt)
         XCTAssertEqual("cancel", EcrMethods.cancel)
     }

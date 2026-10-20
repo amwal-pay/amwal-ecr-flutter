@@ -645,12 +645,12 @@ final class EcrTerminal {
   /// A receipt waits for the operator, and when your till drove the
   /// transaction the operator is at the till, not at the terminal. Nobody is
   /// going to dismiss it, and the terminal refuses the next transaction until
-  /// somebody does. Send this when the cashier has finished with the sale —
-  /// closing the outcome dialog is the natural moment.
+  /// somebody does. Send this when the cashier has finished with the sale,
+  /// from a Close receipt button of its own rather than on closing your dialog.
   ///
-  /// **Only you know when that is.** The terminal deliberately does not put
-  /// its own receipt away on a timer: an earlier version did, and took
-  /// receipts off merchants who were still reading them.
+  /// In ECR mode the terminal also puts its receipt away by itself 15 seconds
+  /// after showing it, so this is how a till clears the screen sooner, not
+  /// something the next sale depends on.
   ///
   /// Moves no money and names no transaction, so it is safe to repeat — an
   /// already-idle terminal answers [EcrReceiptClosedIdle] just the same.

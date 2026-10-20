@@ -148,6 +148,7 @@ checkable claim rather than an assurance.
 | `receipt` | ✔ | ✔ | ✔ | Not over Web Service (`supportsReceipt`) |
 | `signOn` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app |
 | `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsCloseReceipt`); not Web Service or app to app |
+| `settlement` | ✔ | ✘ | ✔ | Wi‑Fi / USB cable / app to app (`supportsSettlement`); not Web Service. Windows over Wi‑Fi only. iOS answers `EcrUnsupported` |
 | `printReceipt` | ✔ | ✘ | ✘ | **App to app only** (Android). Image width **384 px**, size **≤ 15 MB**. Wi‑Fi / USB / Web Service refuse before the host; iOS / Windows answer the same way |
 | `cancel` | ✔ | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
 
@@ -170,6 +171,7 @@ checkable claim rather than an assurance.
 | `nextStep` on a decline | ✔ | ✔ | ✔ |
 | Sign-on available / unavailable | ✔ | ✔ | ✔ |
 | Close-receipt closed / idle / refused | ✔ | ✔ | ✔ |
+| Settlement settled / nothing to settle / not settled | ✔ | ✘ | ✔ |
 | Print `SUCCESSFUL` / `FAILED` (`EcrPrintOutcome`) | ✔ | ✘ | ✘ | App to app only; status and message stay separate |
 
 USB cable operations apply on Android only; on iOS / Windows they fail as
@@ -186,6 +188,7 @@ implied:
 | `printReceipt` | ✔ | Intent `com.amwalpay.pos.ecr.PRINT` with a required image (width **384 px**, size **≤ 15 MB**). Returns `EcrPrintOutcome` (`status` + `message` separate). Not on Wi‑Fi / USB / Web Service |
 | `signOn` | ✘ | Deliberately excluded — a handover only to learn the next refusal |
 | `closeReceipt` | ✘ | Receipt already dismissed when the answer arrives |
+| `settlement` | ✔ | The payment app settles and shows the summary; the answer comes back when it closes (≤ 15 s) |
 | `cancel` | ✔ | Stops waiting. It cannot dismiss the payment app's screen — see §6.4 |
 
 ---
