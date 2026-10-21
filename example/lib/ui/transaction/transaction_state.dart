@@ -71,6 +71,14 @@ final class TransactionInquired extends TransactionState {
       );
 }
 
+/// The terminal answered a settlement: the batch closed with its totals, had
+/// nothing to close, or was left open.
+final class TransactionSettled extends TransactionState {
+  const TransactionSettled(this.settlement);
+
+  final EcrSettlement settlement;
+}
+
 /// The exchange itself failed: unreachable, timed out, malformed, or an answer
 /// that could not be trusted.
 final class TransactionFailed extends TransactionState {

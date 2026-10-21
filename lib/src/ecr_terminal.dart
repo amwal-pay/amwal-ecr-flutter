@@ -12,6 +12,7 @@ import 'model/ecr_print_outcome.dart';
 import 'model/ecr_reachability.dart';
 import 'model/ecr_receipt.dart';
 import 'model/ecr_receipt_closed.dart';
+import 'model/ecr_settlement.dart';
 import 'model/ecr_sign_on.dart';
 import 'model/ecr_result.dart';
 import 'model/ecr_transaction_type.dart';
@@ -383,7 +384,8 @@ final class EcrTerminal {
         EcrTransactionType.inquiry ||
         EcrTransactionType.receipt ||
         EcrTransactionType.signOn ||
-        EcrTransactionType.closeReceipt =>
+        EcrTransactionType.closeReceipt ||
+        EcrTransactionType.settlement =>
           throw EcrArgumentError('${type.displayName} does not move money'),
       },
     );
@@ -643,12 +645,12 @@ final class EcrTerminal {
   /// A receipt waits for the operator, and when your till drove the
   /// transaction the operator is at the till, not at the terminal. Nobody is
   /// going to dismiss it, and the terminal refuses the next transaction until
-  /// somebody does. Send this when the cashier has finished with the sale —
-  /// closing the outcome dialog is the natural moment.
+  /// somebody does. Send this when the cashier has finished with the sale,
+  /// from a Close receipt button of its own rather than on closing your dialog.
   ///
-  /// **Only you know when that is.** The terminal deliberately does not put
-  /// its own receipt away on a timer: an earlier version did, and took
-  /// receipts off merchants who were still reading them.
+  /// In ECR mode the terminal also puts its receipt away by itself 15 seconds
+  /// after showing it, so this is how a till clears the screen sooner, not
+  /// something the next sale depends on.
   ///
   /// Moves no money and names no transaction, so it is safe to repeat — an
   /// already-idle terminal answers [EcrReceiptClosedIdle] just the same.
@@ -680,6 +682,47 @@ final class EcrTerminal {
     return _operation<EcrReceiptClosed>(
       id,
       _platform.closeReceipt(
+        _request(operationId: id, merchantReference: merchantReference),
+      ),
+    ).result;
+  }
+
+  /// Asks the terminal to settle its current batch — the same Manual
+  /// settlement its merchant menu offers — and answers with the totals the
+  /// batch closed with.
+  ///
+  /// **Ask the cashier to confirm first.** The terminal does not: it starts as
+  /// soon as the request arrives, exactly as it does for a sale.
+  ///
+  /// The terminal must be free. While a transaction is running it answers
+  /// [EcrSettlementNotSettled] with `96`, and from anywhere other than its
+  /// idle screen or a receipt with `91`. It shows the settlement summary,
+  /// prints the settlement receipt when it prints at all, and puts the summary
+  /// away 15 seconds later; [closeReceipt] puts it away sooner.
+  ///
+  /// Wi‑Fi, USB cable and app to app. On Web Service this answers
+  /// [EcrSettlementFailed] without sending anything, until Amwal's relay can
+  /// carry it. A terminal too old to know the request answers
+  /// [EcrSettlementNotSettled] with `12`.
+  Future<EcrSettlement> settlement({
+    String merchantReference = '',
+    String? operationId,
+  }) {
+    _checkReference(merchantReference);
+
+    final String id = operationId ?? _newOperationId();
+    if (!transport.supportsSettlement) {
+      return _refusedWith<EcrSettlement>(
+        id,
+        (EcrFailure failure) =>
+            EcrSettlementFailed(merchantReference: '', failure: failure),
+        _unsupportedTransport('Settlement'),
+      ).result;
+    }
+
+    return _operation<EcrSettlement>(
+      id,
+      _platform.settlement(
         _request(operationId: id, merchantReference: merchantReference),
       ),
     ).result;

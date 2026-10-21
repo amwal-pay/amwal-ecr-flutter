@@ -19,7 +19,7 @@ switch (await terminal.sale(EcrAmount.parse('1.234'))) {
 }
 ```
 
-Sale, void, refund, inquiry, sign-on, e-receipt, close-receipt, and — over
+Sale, void, refund, inquiry, sign-on, e-receipt, close-receipt, manual settlement, and — over
 Android app to app — `printReceipt` to print a receipt image on the payment
 app's printer. Same types, same units and the same outcomes on every host that
 supports the transport. See the [compatibility matrix](doc/compatibility-matrix.md)
@@ -213,6 +213,7 @@ card-present + PIN waits are not cut off early — an explicit
 | `receipt(…)` | Fetches the e-receipt as a URL, to show as a QR code. | receipt number, the original's day | Android, iOS, Windows (not over Web Service) |
 | `signOn()` | Asks what the terminal is and which operations it permits. Reads only. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
 | `closeReceipt()` | Asks the terminal to dismiss its on-screen receipt and return to idle. | — | Android, iOS, Windows over **Wi‑Fi / USB cable** only |
+| `settlement()` | Asks the terminal to settle its current batch (its Manual settlement) and answers with the totals. Confirm with the cashier first. | — | Android over **Wi‑Fi / USB cable / app to app**, Windows over Wi‑Fi; not iOS yet, not Web Service |
 | `printReceipt(imagePng: …)` | Asks the Amwal payment app to print a receipt image. | PNG/JPEG bytes | **Android app to app only** |
 | `isReachable()` / `probeReachability()` | Whether the link (or payment app) is there. | — | Android, iOS, Windows |
 
@@ -221,7 +222,7 @@ transports return `EcrUnsupported` before anything is sent. Sign-on and
 close-receipt are refused over Web Service and app to app on every host
 (`EcrTransport.supportsSignOn` / `supportsCloseReceipt`). `printReceipt` is
 refused on every transport except app to app — and on iOS / Windows even app
-to app is unsupported.
+to app is unsupported. `settlement` is refused over Web Service (`supportsSettlement`), but unlike sign-on and close-receipt it is sent over app to app.
 
 Every money-moving call also takes `merchantReference`: your own name for the
 transaction — an order number, a basket id. Pass it and the same string

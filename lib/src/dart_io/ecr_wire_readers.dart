@@ -5,6 +5,7 @@ import '../model/ecr_inquiry.dart';
 import '../model/ecr_next_step.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_settlement.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_sign_on.dart';
 import '../model/ecr_transaction.dart';
@@ -266,6 +267,81 @@ abstract final class EcrWireReaders {
     return EcrReceiptClosedIdle(
       merchantReference: resolvedReference,
       raw: raw,
+    );
+  }
+
+  /// Reads a settlement answer.
+  ///
+  /// `settlementStatus` decides the branch, not the envelope alone: an empty
+  /// batch is a success with nothing in it, and a refusal before the
+  /// settlement started — busy, not idle, a terminal too old to know it —
+  /// carries no status at all.
+  static EcrSettlement toSettlement(
+    Map<String, Object?> json, {
+    required String merchantReference,
+    required int minorUnitDigits,
+  }) {
+    final EcrResponseEnvelope envelope = EcrResponseEnvelope.parse(json);
+    final Map<String, Object?>? data = envelope.data;
+    final String resolvedReference = envelope.merchantReference.isEmpty
+        ? merchantReference
+        : envelope.merchantReference;
+    final String raw = jsonEncode(json);
+    final String status = wireString(data?['settlementStatus']);
+
+    if (envelope.success && status == 'NO_TRANSACTIONS') {
+      return EcrSettlementNothingToSettle(
+        merchantReference: resolvedReference,
+        message: envelope.displayMessage.isEmpty
+            ? 'There are no transactions to settle'
+            : envelope.displayMessage,
+        raw: raw,
+      );
+    }
+
+    if (!envelope.success || data == null || status != 'SETTLED') {
+      return EcrSettlementNotSettled(
+        merchantReference: resolvedReference,
+        responseCode: envelope.responseCode,
+        status: status,
+        reason: envelope.displayMessage.isEmpty
+            ? 'The batch was not settled'
+            : envelope.displayMessage,
+        uploadedTransactions:
+            int.tryParse(wireString(data?['uploadedTransactions'])),
+        raw: raw,
+      );
+    }
+
+    final Object? totals = data['totals'];
+    return EcrSettlementSettled(
+      merchantReference: resolvedReference,
+      batchId: wireString(data['batchId']),
+      currency: wireString(data['currency']),
+      startTime: wireString(data['startTime']),
+      endTime: wireString(data['endTime']),
+      totalTransactions:
+          int.tryParse(wireString(data['totalTransactions'])) ?? 0,
+      netAmount: majorUnits(wireString(data['netAmount']), minorUnitDigits),
+      totals: <String, EcrSettlementTotal>{
+        for (final String type in EcrSettlementSettled.totalTypes)
+          type: _settlementTotal(
+            totals is Map ? totals[type] : null,
+            minorUnitDigits,
+          ),
+      },
+      raw: raw,
+    );
+  }
+
+  static EcrSettlementTotal _settlementTotal(Object? row, int digits) {
+    if (row is! Map) {
+      return EcrSettlementTotal(count: 0, amount: majorUnits('0', digits));
+    }
+    final String amount = wireString(row['amount']);
+    return EcrSettlementTotal(
+      count: int.tryParse(wireString(row['count'])) ?? 0,
+      amount: majorUnits(amount.isEmpty ? '0' : amount, digits),
     );
   }
 

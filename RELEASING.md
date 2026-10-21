@@ -298,6 +298,7 @@ integrators while remaining perfectly visible to the SDK's own tests.
 
 | Release | `amwal_ecr` | `ecr-sdk` | `AmwalECR` | Notes                                                                                                                                              |
 | ------- | ----------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.5.0   | 0.5.0       | 1.0.11    | 0.3.0      | Manual settlement (`settlement()`): Android Wi‑Fi / USB / app to app, Windows Wi‑Fi; iOS unsupported; not Web Service. Needs ecr-sdk 1.0.11 published |
 | 0.4.0   | 0.4.0       | 1.0.8     | 0.3.0      | AmwalECR 0.3.0 pin; ecr-sdk 1.0.8; Web Service inquiry transport failure → `EcrInquiryFailed` App-to-app `printReceipt` (Android; 384 px / ≤15 MB) |
 | 0.3.2   | 0.3.2       | 1.0.6     | 0.2.3      | iOS `signOn` + `closeReceipt`                                                                                                                      |
 | 0.3.0   | 0.3.0       | 1.0.5     | 0.2.1      | Windows pure-Dart host (LAN + Web Service)                                                                                                         |
