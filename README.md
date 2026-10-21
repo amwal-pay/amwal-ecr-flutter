@@ -62,7 +62,7 @@ if (result.outcomeIsUnknown) {
 Most of the time the package has already asked for you: a money-moving request
 whose answer never arrived is followed by one inquiry, and what it found is on
 `EcrFailed.recovered`. When `settled` is set the delivery failed but the outcome
-is *known*, and `outcomeIsUnknown` is `false`:
+is _known_, and `outcomeIsUnknown` is `false`:
 
 ```dart
 if (result case EcrFailed(:final EcrTransaction? recoveredTransaction)
@@ -98,7 +98,7 @@ terminal without going through Flutter.
 (the example apps use `17.0`).
 
 **On Windows** there is no native ECR binary. The same Dart API is served by a
-pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`) that speaks LAN
+pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`) that speaks Wi-Fi
 TCP and Web Service Hub REST over `dart:io`. Add the dependency as usual — no
 extra Windows plugin registration is required. USB cable is not supported on
 Windows (typed `EcrUnsupported`).
@@ -194,7 +194,7 @@ final EcrResult result = await terminal.sale(EcrAmount.parse('1.234'));
 ```
 
 The call takes as long as the cardholder takes. Ninety seconds is not unusual;
-the default LAN read timeout is 120 seconds for that reason. Over **Web Service**
+the default Wi-Fi read timeout is 120 seconds for that reason. Over **Web Service**
 the default is **130 seconds** (`EcrConfig.webServiceResponseTimeout`) so Hub
 card-present + PIN waits are not cut off early — an explicit
 `responseTimeout` override is kept.
@@ -272,11 +272,11 @@ switch (outcome.status) {
 }
 ```
 
-| Limit | Value |
-|---|---|
-| Width | exactly **384 px** (height may be any positive value) |
-| Encoded size | at most **15 MB** |
-| Transports | `appToApp` only; Wi‑Fi / USB / Web Service refuse before the host is called |
+| Limit        | Value                                                                       |
+| ------------ | --------------------------------------------------------------------------- |
+| Width        | exactly **384 px** (height may be any positive value)                       |
+| Encoded size | at most **15 MB**                                                           |
+| Transports   | `appToApp` only; Wi‑Fi / USB / Web Service refuse before the host is called |
 
 Wrong width or an oversized payload → PRINT never starts. Constants live on
 `EcrPrintOutcome.printerWidth` and `EcrPrintOutcome.printerMaxBytes`. The
@@ -325,16 +325,16 @@ The wire carries minor units — 1.234 OMR goes out as `000000001234` — and th
 conversion happens once, in the native host, using `EcrConfig.minorUnitDigits`.
 Set that to match your currency:
 
-| Currency | `minorUnitDigits` |
-|---|---|
-| OMR — 1 rial = 1000 baisa | `3` (default) |
-| USD, EUR, SAR | `2` |
-| JPY | `0` |
+| Currency                  | `minorUnitDigits` |
+| ------------------------- | ----------------- |
+| OMR — 1 rial = 1000 baisa | `3` (default)     |
+| USD, EUR, SAR             | `2`               |
+| JPY                       | `0`               |
 
 **Nothing cross-checks it against `currencyCode`.** Getting it wrong sends every
 amount off by a factor of ten and neither side will object.
 
-Amounts come *back* as strings in major units (`'1.234'`) — the terminal's own
+Amounts come _back_ as strings in major units (`'1.234'`) — the terminal's own
 figure, reprinted rather than recomputed.
 
 ---
@@ -347,15 +347,15 @@ EcrResult ── EcrApproved   money moved
           └─ EcrFailed     no answer — see EcrFailure
 ```
 
-| `EcrFailure` | Outcome known? | Means |
-|---|---|---|
-| `EcrUnreachable` | ✔ nothing happened | Nothing is listening |
-| `EcrTimeout` | ✘ **unknown** | Accepted, never answered |
-| `EcrMalformed` | ✘ **unknown** | Answered, illegibly |
-| `EcrConnectionLost` | ✘ **unknown** | Broke part way through |
-| `EcrUnauthenticated` | ✘ **unknown** | The answer could not be shown to have come from the terminal |
-| `EcrCancelled` | ✘ **unknown** | You gave up waiting |
-| `EcrUnsupported` | ✔ nothing happened | This platform cannot do it |
+| `EcrFailure`         | Outcome known?     | Means                                                        |
+| -------------------- | ------------------ | ------------------------------------------------------------ |
+| `EcrUnreachable`     | ✔ nothing happened | Nothing is listening                                         |
+| `EcrTimeout`         | ✘ **unknown**      | Accepted, never answered                                     |
+| `EcrMalformed`       | ✘ **unknown**      | Answered, illegibly                                          |
+| `EcrConnectionLost`  | ✘ **unknown**      | Broke part way through                                       |
+| `EcrUnauthenticated` | ✘ **unknown**      | The answer could not be shown to have come from the terminal |
+| `EcrCancelled`       | ✘ **unknown**      | You gave up waiting                                          |
+| `EcrUnsupported`     | ✔ nothing happened | This platform cannot do it                                   |
 
 A partial approval is an **approval**: `EcrApproved.partialApproval` is set, and
 `requestedAmount` says what was asked for. The goods go out once the difference
@@ -383,7 +383,7 @@ inquiry rather than a retry.
 
 A terminal refuses what it cannot verify, so in practice a till needs the secret
 Amwal issues for it. **The app owns persistence** and passes **one** value on
-`EcrConfig.secureHashKey` for the selected mode — LAN (Wi‑Fi / USB cable) and
+`EcrConfig.secureHashKey` for the selected mode — (Wi‑Fi / USB cable) and
 Web Service use different secrets, but the plugin only consumes the field you
 assign (see the example app's `secureHashKeyFor`):
 
@@ -404,7 +404,7 @@ SharedPreferences). Prefer **`EcrSessions.open`** so the same transport is used
 for sale, inquiry, and receipt.
 
 Every request is then signed and every answer checked — both that it is signed
-with this terminal's key, and that it answers *this* request. An answer that
+with this terminal's key, and that it answers _this_ request. An answer that
 fails either check is `EcrUnauthenticated`: the outcome is unknown, never a
 decline, and never to be retried.
 
@@ -434,7 +434,7 @@ shop floor.
 screens, the same settings, the same order of checks, the same dialogs.
 
 - **Terminals** — register POS terminals by ECR mode (Wi‑Fi, USB cable on
-  Android, or Web Service), with separate LAN and Web Service signing keys and
+  Android, or Web Service), with separate Wi-Fi and Web Service signing keys and
   environment (SIT/UAT/PROD), matching the Android simulator app. On **Windows**
   the same UI runs over the pure-Dart host (Wi‑Fi + Web Service; USB is marked
   unsupported). Optional `--dart-define` live seeds are documented in
@@ -447,7 +447,7 @@ screens, the same settings, the same order of checks, the same dialogs.
   from the operation and calls `printReceipt`.
 
 Where the two apps differ, the Android one is right and this is a bug. It is
-deliberately *not* a showcase of every package API: cancellation is available
+deliberately _not_ a showcase of every package API: cancellation is available
 on the package and unused in the example for the same reason the Android sample
 keeps buttons disabled until an answer arrives — see
 [response code 96](#a-sale-comes-back-96).
@@ -455,7 +455,7 @@ keeps buttons disabled until an answer arrives — see
 ```bash
 cd example
 flutter run                 # default device
-flutter run -d windows      # desktop till (LAN / Web Service)
+flutter run -d windows      # desktop till (Wi-Fi / Web Service)
 ```
 
 **Windows builds must run on a Windows host** (or Codemagic `example-windows`).
@@ -480,18 +480,18 @@ Android and iOS both select the native ECR SDK via properties files. The example
 app always loads the **local plugin** (`amwal_ecr: path: ../`); the properties
 only choose how that plugin resolves **AmwalECR / ecr-sdk**.
 
-| Platform | Plugin config | Example override |
-|---|---|---|
-| Android | `android/gradle.properties` | `example/android/gradle.properties` |
-| iOS | `ios/ecr_sdk.properties` | `example/ios/ecr_sdk.properties` |
+| Platform | Plugin config               | Example override                    |
+| -------- | --------------------------- | ----------------------------------- |
+| Android  | `android/gradle.properties` | `example/android/gradle.properties` |
+| iOS      | `ios/ecr_sdk.properties`    | `example/ios/ecr_sdk.properties`    |
 
 **Android** — Gradle includes `:ecr-sdk` automatically. Modes:
 
-| `ecrSdkDependency` | Use when |
-|---|---|
-| `project` (default here) | Live Gradle module from sibling `ecr_sdk` |
-| `jar` | Built JAR — `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
-| `maven` | Published `com.amwal-pay:ecr-sdk` from Maven Central |
+| `ecrSdkDependency`       | Use when                                                 |
+| ------------------------ | -------------------------------------------------------- |
+| `project` (default here) | Live Gradle module from sibling `ecr_sdk`                |
+| `jar`                    | Built JAR — `cd ../../ecr_sdk && ./gradlew :ecr-sdk:jar` |
+| `maven`                  | Published `com.amwal-pay:ecr-sdk` from Maven Central     |
 
 **iOS** — one setting syncs **both** faces of the plugin (`amwal_ecr.podspec` and
 `amwal_ecr/Package.swift`), then the example loads that plugin:
@@ -502,11 +502,11 @@ only choose how that plugin resolves **AmwalECR / ecr-sdk**.
 cd example && flutter run
 ```
 
-| `ecrSdkDependency` | CocoaPods face (example) | SwiftPM face (`Package.swift`) |
-|---|---|---|
-| `project` (default here) | Sibling `AmwalECR-iOS-CocoaPods` | Sibling `AmwalECR-iOS-SPM` |
-| `cocoapods` | CocoaPods trunk | GitHub tags (published) |
-| `spm` | No path override; Flutter SPM on | GitHub tags (published) |
+| `ecrSdkDependency`       | CocoaPods face (example)         | SwiftPM face (`Package.swift`) |
+| ------------------------ | -------------------------------- | ------------------------------ |
+| `project` (default here) | Sibling `AmwalECR-iOS-CocoaPods` | Sibling `AmwalECR-iOS-SPM`     |
+| `cocoapods`              | CocoaPods trunk                  | GitHub tags (published)        |
+| `spm`                    | No path override; Flutter SPM on | GitHub tags (published)        |
 
 One-off overrides:
 
@@ -517,7 +517,6 @@ ECR_SDK_ROOT=/path/to/AmwalECR-iOS-CocoaPods ./tool/prepare_ios_example.sh
 
 Paths assume `amwal-ecr-flutter`, `ecr_sdk`, `AmwalECR-iOS-CocoaPods`, and
 `AmwalECR-iOS-SPM` sit under the same parent directory.
-
 
 Without hardware, run the stand-in listener that ships with the reference
 implementation and point the app at the machine running it:
@@ -661,7 +660,7 @@ closing does not clear it, and neither does time.
 **Two ways to tell it is stuck.** The screen saver also refuses to appear while
 the flag is set (`ScreenSaverManager._showScreenSaver`), so a terminal that
 never goes to its screen saver has it set. And an **inquiry still works**:
-`EcrTransactionService.handle` answers inquiries and receipts *before* it checks
+`EcrTransactionService.handle` answers inquiries and receipts _before_ it checks
 the flag. Run one from the example — an inquiry that succeeds while a sale is
 refused proves the network, the plugin and the protocol are all fine and the
 terminal is simply busy.
@@ -721,7 +720,7 @@ Release builds stay quiet. To make one talk for a session:
 - the terminal must be on its idle screen;
 - the till and the terminal must be able to route to each other. A guest
   network with client isolation will not work, and an **Android emulator cannot
-  reach a device on your LAN** without port forwarding — use a real phone on the
+  reach a device on your Wi-Fi** without port forwarding — use a real phone on the
   same Wi-Fi;
 - on **Windows**, confirm Windows Firewall allowed the app, the project sits on
   local NTFS (plugin symlinks), and you are not targeting USB cable (unsupported).

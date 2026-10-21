@@ -40,7 +40,7 @@ class SelectedTerminalConfig {
   bool get hashKeyConfigured => ecrConfig.secureHashKey.isNotEmpty;
 
   /// Wi‑Fi, USB cable or the payment app on this device — all three use the
-  /// LAN signing key and the same protocol.
+  /// signing key and the same protocol.
   bool get usesLocalTerminal => usesLan || usesUsbCable || usesPaymentApp;
 
   static SelectedTerminalConfig resolve({
@@ -72,10 +72,12 @@ class SelectedTerminalConfig {
 
     if (usesLan) {
       if (terminal.ipAddress.trim().isEmpty) {
-        issues.add('IP address is required for LAN ECR');
+        issues.add('IP address is required for Wi-Fi ECR');
       }
       if (terminal.port < 1 || terminal.port > 65535) {
-        issues.add('Port must be between 1 and 65535 (default ${EcrConfig.defaultPort})');
+        issues.add(
+          'Port must be between 1 and 65535 (default ${EcrConfig.defaultPort})',
+        );
       }
     }
 
@@ -96,8 +98,9 @@ class SelectedTerminalConfig {
       }
     }
 
-    final String sanitizedKey =
-        trimmedKey.isNotEmpty && validKey ? trimmedKey : '';
+    final String sanitizedKey = trimmedKey.isNotEmpty && validKey
+        ? trimmedKey
+        : '';
 
     if (sanitizedKey.isEmpty) {
       issues.add(
@@ -141,10 +144,10 @@ class SelectedTerminalConfig {
             return buffer.toString();
           }()
         : usesUsbCable
-            ? 'USB cable'
-            : usesPaymentApp
-                ? 'On this device · ${EcrPaymentApp.packageName}'
-                : '${terminal.ipAddress}:$port';
+        ? 'USB cable'
+        : usesPaymentApp
+        ? 'On this device · ${EcrPaymentApp.packageName}'
+        : '${terminal.ipAddress}:$port';
 
     return SelectedTerminalConfig(
       terminal: terminal,

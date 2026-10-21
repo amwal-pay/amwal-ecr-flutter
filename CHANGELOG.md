@@ -3,7 +3,7 @@
 All notable changes to `amwal_ecr`. This project follows semantic versioning,
 with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
-outcome *means* is breaking, however small the diff.
+outcome _means_ is breaking, however small the diff.
 
 ## 0.5.0
 
@@ -59,7 +59,7 @@ contract changes (CocoaPods / SPM working tree + Kotlin package).
   pinned to **1.0.8**; the Gradle fallback version is raised from 1.0.5 to 1.0.8.
 - **Web Service default read timeout is 130s**
   (`EcrConfig.webServiceResponseTimeout`). `EcrTerminal` / `EcrSessions.open`
-  apply it when the config still has the LAN default of 120s; an explicit
+  apply it when the config still has the Wifi default of 120s; an explicit
   override is kept. Passed to native hosts via `responseTimeoutMs`.
 - **Dart Web Service parity** (Windows host) with iOS 0.3.0 / Android 1.0.8:
   - `requestDateTime` always equals `transactionDateTime` in request bodies.
@@ -153,10 +153,10 @@ on Android, iOS, and Windows. USB cable and app to app remain Android-only.
 - The Android host is now `ActivityAware`, and the plugin's manifest declares
   the payment app in `<queries>`.
 - **Windows** support via a pure-Dart `AmwalEcrPlatform` (`DartIoAmwalEcrPlatform`):
-  LAN TCP (Wi‑Fi) and Web Service Hub REST, registered with
+  TCP (Wi‑Fi) and Web Service Hub REST, registered with
   `dartPluginClass: AmwalEcrWindows`. USB cable and app to app return a typed
   unsupported failure on Windows.
-- Protocol engine under `lib/src/dart_io/` — framing, LAN / Web Service HMAC
+- Protocol engine under `lib/src/dart_io/` — framing, Wifi / Web Service HMAC
   signing, message build, response parse, auto-inquire-on-failure, and cancel
   by closing the socket / aborting HTTP.
 - Example app **Windows** runner + Codemagic `example-windows` workflow; optional
@@ -191,7 +191,7 @@ session path.
 - **`EcrOpenedSession` / `EcrSessions.open`** (Dart) — names the same
   session-open intent as native `ecr_sdk` / AmwalECR; wraps a transport-aware
   `EcrTerminal`.
-- Android / iOS hosts open sessions via native **`EcrSessions.open`** so LAN,
+- Android / iOS hosts open sessions via native **`EcrSessions.open`** so Wifi,
   USB cable, and Web Service share one dispatch path.
 - Example apps store signing secrets with **`flutter_secure_storage`**
   (Keychain / Keystore), with one-shot migration from plaintext
@@ -251,11 +251,11 @@ upgraded together — an old host does not lose a field, it stops being understo
   hold if the answer never arrives.
 - **`EcrTerminal.inquireByReference`.** The answer to an outcome you never
   received: looks a transaction up by the reference it was sent with, rather than
-  by a receipt number that only arrives *in* the answer.
+  by a receipt number that only arrives _in_ the answer.
 - **`EcrFailed.recovered`, `.recoveredTransaction` and `.settled`.** The host now
   follows a lost money-moving request with one inquiry and attaches what it
   found. A `settled` failure is a delivery that failed and an outcome that is
-  *known*, so `outcomeIsUnknown` is false and the till books the transaction
+  _known_, so `outcomeIsUnknown` is false and the till books the transaction
   instead of reconciling it. Turn the follow-up off with
   `EcrConfig.autoInquireOnFailure`. Nothing is ever re-sent.
 - **`EcrConfig.secureHashKey`.** The secret this till shares with the terminal.
@@ -322,15 +322,15 @@ First release.
   in Dart, Kotlin and Swift — the only thing keeping three hand-written copies
   of the same document in step.
 - **An example till** demonstrating every operation, and in particular an
-  outcome card that offers *Ask the terminal* and never *Retry* when the outcome
+  outcome card that offers _Ask the terminal_ and never _Retry_ when the outcome
   is unknown.
 
 ### Compatibility
 
-| | |
-|---|---|
-| Dart | `^3.5.0` |
-| Flutter | `>=3.22.0` |
-| Android | API 21+, `com.amwal-pay:ecr-sdk:1.0.3` |
-| iOS | 12.0+, Swift 5.5, `AmwalECR ~> 0.1.0` |
-| ECR protocol | version `1` |
+|              |                                        |
+| ------------ | -------------------------------------- |
+| Dart         | `^3.5.0`                               |
+| Flutter      | `>=3.22.0`                             |
+| Android      | API 21+, `com.amwal-pay:ecr-sdk:1.0.3` |
+| iOS          | 12.0+, Swift 5.5, `AmwalECR ~> 0.1.0`  |
+| ECR protocol | version `1`                            |

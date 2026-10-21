@@ -17,7 +17,7 @@ import '../platform/ecr_request.dart';
 import 'lan_ecr_client.dart';
 import 'web_service/web_service_ecr_client.dart';
 
-/// Pure-Dart [AmwalEcrPlatform] for desktop (Windows) — LAN TCP + Web Service.
+/// Pure-Dart [AmwalEcrPlatform] for desktop (Windows) — Wi-Fi TCP + Web Service.
 ///
 /// Holds the same one-completion / no-retry / cancel semantics as
 /// `MethodChannelAmwalEcr`. USB cable and Bluetooth are unsupported here.
@@ -45,7 +45,7 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
         port: request.transport.isIpTransport ? request.config.port : 0,
         error: request.transport == EcrTransport.webService
             ? null
-            : 'Transport ${request.transport.name} has no LAN probe',
+            : 'Transport ${request.transport.name} has no Wi-Fi probe',
         endpoint: request.transport == EcrTransport.webService
             ? 'webService'
             : (request.host.isEmpty

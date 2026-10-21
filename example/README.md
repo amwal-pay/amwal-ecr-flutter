@@ -8,7 +8,7 @@ amwal_ecr:
   path: ../
 ```
 
-Platforms: **Android**, **iOS**, and **Windows** (LAN Wi‑Fi + Web Service; USB
+Platforms: **Android**, **iOS**, and **Windows** (Wi‑Fi + Web Service; USB
 cable and app to app are Android-only).
 
 On an approved **app-to-app** result the outcome dialog offers **Print
@@ -45,13 +45,13 @@ machine** (or Codemagic). They cannot run on macOS or Linux.
 
 ### What Windows supports
 
-| Mode | Windows |
-|------|---------|
-| App to app | ✘ — Android only |
-| Wi‑Fi (LAN TCP, port 9100) | ✔ |
-| Web Service (Hub REST) | ✔ |
-| USB cable | ✘ — typed unsupported (Android only) |
-| Bluetooth | ✘ |
+| Mode                   | Windows                              |
+| ---------------------- | ------------------------------------ |
+| App to app             | ✘ — Android only                     |
+| Wi‑Fi (TCP, port 9100) | ✔                                    |
+| Web Service (Hub REST) | ✔                                    |
+| USB cable              | ✘ — typed unsupported (Android only) |
+| Bluetooth              | ✘                                    |
 
 `amwal_ecr` itself uses a pure-Dart Windows host — no extra ECR native plugin.
 The example still depends on `flutter_secure_storage`, which **does** build a
@@ -104,16 +104,16 @@ not work).
 Seeds fill **empty** secure-storage / preference slots and can register one
 terminal when the list is empty — they never overwrite saved values.
 
-| Define | Purpose |
-|--------|---------|
-| `ECR_ENVIRONMENT` | `SIT` / `UAT` / `PROD` |
-| `ECR_WIFI_SECURE_HASH_KEY` | LAN signing secret (hex) |
-| `ECR_WS_SECURE_HASH_KEY` | Web Service signing secret (hex) |
-| `ECR_LIVE_MODE` | `wifi` (default) or `webService` |
-| `ECR_LIVE_SERIAL` | Serial for the seeded terminal (required to seed) |
-| `ECR_LIVE_TERMINAL_NAME` | Display name (default `Live terminal`) |
-| `ECR_LIVE_IP` / `ECR_LIVE_PORT` | LAN address (port default `9100`) |
-| `ECR_LIVE_MERCHANT_ID` / `ECR_LIVE_TERMINAL_ID` | Web Service ids |
+| Define                                          | Purpose                                           |
+| ----------------------------------------------- | ------------------------------------------------- |
+| `ECR_ENVIRONMENT`                               | `SIT` / `UAT` / `PROD`                            |
+| `ECR_WIFI_SECURE_HASH_KEY`                      | Wi-Fi signing secret (hex)                        |
+| `ECR_WS_SECURE_HASH_KEY`                        | Web Service signing secret (hex)                  |
+| `ECR_LIVE_MODE`                                 | `wifi` (default) or `webService`                  |
+| `ECR_LIVE_SERIAL`                               | Serial for the seeded terminal (required to seed) |
+| `ECR_LIVE_TERMINAL_NAME`                        | Display name (default `Live terminal`)            |
+| `ECR_LIVE_IP` / `ECR_LIVE_PORT`                 | Wi-Fi address (port default `9100`)               |
+| `ECR_LIVE_MERCHANT_ID` / `ECR_LIVE_TERMINAL_ID` | Web Service ids                                   |
 
 ```bash
 flutter run -d windows \

@@ -13,12 +13,12 @@ discovered.
 
 ### This package
 
-| | |
-|---|---|
-| `amwal_ecr` | 0.4.0 (see [CHANGELOG](../CHANGELOG.md) — AmwalECR 0.3.0 / ecr-sdk 1.0.8: unknown outcomes → `EcrFailed`, Web Service 130s timeout) |
-| Dart SDK | `>=3.5.0 <4.0.0` — the API uses sealed classes and pattern matching |
-| Flutter | `>=3.22.0` |
-| Protocol version | `1` (the `version` field in every request) |
+|                  |                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `amwal_ecr`      | 0.4.0 (see [CHANGELOG](../CHANGELOG.md) — AmwalECR 0.3.0 / ecr-sdk 1.0.8: unknown outcomes → `EcrFailed`, Web Service 130s timeout) |
+| Dart SDK         | `>=3.5.0 <4.0.0` — the API uses sealed classes and pattern matching                                                                 |
+| Flutter          | `>=3.22.0`                                                                                                                          |
+| Protocol version | `1` (the `version` field in every request)                                                                                          |
 
 The two native providers must be upgraded **together**. They speak the same wire
 format, and the 1.0.4 / 0.2.0 line renamed the field naming a transaction from
@@ -27,21 +27,21 @@ field, it fails to be understood by a current terminal.
 
 ### Native providers
 
-| Platform | Provider | Version | Source |
-|---|---|---|---|
-| Android | `com.amwal-pay:ecr-sdk` | **1.0.8** (plugin `android/gradle.properties`) | Maven Central / sibling `:ecr-sdk` / JAR |
-| iOS | `AmwalECR` | **`0.3.0`** (`~> 0.3.0` range in podspec / Package.swift) | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
-| Windows | Pure-Dart `DartIoAmwalEcrPlatform` | ships in this package | No separate native artifact |
+| Platform | Provider                           | Version                                                   | Source                                                                                                                     |
+| -------- | ---------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Android  | `com.amwal-pay:ecr-sdk`            | **1.0.8** (plugin `android/gradle.properties`)            | Maven Central / sibling `:ecr-sdk` / JAR                                                                                   |
+| iOS      | `AmwalECR`                         | **`0.3.0`** (`~> 0.3.0` range in podspec / Package.swift) | [CocoaPods](https://github.com/amwal-pay/AmwalECR-iOS-CocoaPods), [SwiftPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) |
+| Windows  | Pure-Dart `DartIoAmwalEcrPlatform` | ships in this package                                     | No separate native artifact                                                                                                |
 
 Android and iOS providers expose **`EcrSessions.open` / `EcrOpenedSession`**, plus
 **sign-on** and (where the SDK allows) **close receipt**. The Flutter hosts call
-those APIs so LAN, USB cable, and Web Service share one dispatch path. Windows
+those APIs so Wi-Fi, USB cable, and Web Service share one dispatch path. Windows
 implements the same Dart session API without a native SDK binary.
 
 Both mobile providers are published SDKs that native apps use directly, without
 Flutter. On Android and iOS this package is a bridge over them. On Windows the
 same Dart API is backed by a pure-Dart protocol engine (`lib/src/dart_io/`)
-that mirrors those SDKs' LAN and Web Service behaviour.
+that mirrors those SDKs' Wi-Fi and Web Service behaviour.
 
 **The Android version is pinned, not ranged.** An ECR SDK that changes how an
 outcome is reported changes what a till books, and that is not something to pick
@@ -72,21 +72,21 @@ change, and the Dart tests will not notice it happened.
 
 ## 2. Platforms
 
-| | Minimum | Notes |
-|---|---|---|
-| Android | API 21 | Plain TCP on the local network; nothing needs newer |
-| Android compile SDK | 34 | |
-| Android/Kotlin JVM target | 17 | The ECR SDK is a Java 17 library |
-| iOS (plugin podspec / Package.swift) | **17.0** | Matches AmwalECR **0.3.0**; example apps use `17.0` |
-| Swift | 5.5 | |
-| Windows | Windows 10 | Pure-Dart `dart:io` TCP + HTTPS; no native ECR plugin binary. Build only on a Windows host (Visual Studio + Desktop C++). |
+|                                      | Minimum    | Notes                                                                                                                     |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Android                              | API 21     | Plain TCP on the local network; nothing needs newer                                                                       |
+| Android compile SDK                  | 34         |                                                                                                                           |
+| Android/Kotlin JVM target            | 17         | The ECR SDK is a Java 17 library                                                                                          |
+| iOS (plugin podspec / Package.swift) | **17.0**   | Matches AmwalECR **0.3.0**; example apps use `17.0`                                                                       |
+| Swift                                | 5.5        |                                                                                                                           |
+| Windows                              | Windows 10 | Pure-Dart `dart:io` TCP + HTTPS; no native ECR plugin binary. Build only on a Windows host (Visual Studio + Desktop C++). |
 
-| Platform | Supported |
-|---|---|
-| Android | ✔ |
-| iOS | ✔ |
-| Windows | ✔ — pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`): Wi‑Fi TCP + Web Service. USB cable ✘, app to app ✘ |
-| macOS, Linux, Web | ✘ — no host is registered, so every call answers `EcrUnsupported` |
+| Platform          | Supported                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Android           | ✔                                                                                                                     |
+| iOS               | ✔                                                                                                                     |
+| Windows           | ✔ — pure-Dart host (`AmwalEcrWindows` / `DartIoAmwalEcrPlatform`): Wi‑Fi TCP + Web Service. USB cable ✘, app to app ✘ |
+| macOS, Linux, Web | ✘ — no host is registered, so every call answers `EcrUnsupported`                                                     |
 
 A missing host is reported as `EcrUnsupported` with the message naming a
 rebuild, rather than as a thrown `MissingPluginException`, so an app running on
@@ -102,13 +102,13 @@ Studio **C++ ATL** (that plugin's native requirement — not part of
 
 `EcrTransport` mirrors the `ecrMode` a terminal's TMS profile carries.
 
-| `EcrTransport` | `ecrMode` | Android | iOS | Windows | Behaviour |
-|---|---|---|---|---|---|
-| `usbCable` (`usb_cable`) | 1 | ✔ | ✘ | ✘ | USB AOA cable; typed unsupported on iOS / Windows |
-| `wifi` | 2 | ✔ | ✔ | ✔ | TCP to the terminal |
-| `bluetooth` | 3 | ✘ | ✘ | ✘ | `EcrUnsupported`, nothing sent |
-| `webService` | 4 | ✔ | ✔ | ✔ | REST / Hub |
-| `appToApp` (`app_to_app`) | 5 | ✔ | ✘ | ✘ | The Amwal payment app on this device; typed unsupported on iOS / Windows |
+| `EcrTransport`            | `ecrMode` | Android | iOS | Windows | Behaviour                                                                |
+| ------------------------- | --------- | ------- | --- | ------- | ------------------------------------------------------------------------ |
+| `usbCable` (`usb_cable`)  | 1         | ✔       | ✘   | ✘       | USB AOA cable; typed unsupported on iOS / Windows                        |
+| `wifi`                    | 2         | ✔       | ✔   | ✔       | TCP to the terminal                                                      |
+| `bluetooth`               | 3         | ✘       | ✘   | ✘       | `EcrUnsupported`, nothing sent                                           |
+| `webService`              | 4         | ✔       | ✔   | ✔       | REST / Hub                                                               |
+| `appToApp` (`app_to_app`) | 5         | ✔       | ✘   | ✘       | The Amwal payment app on this device; typed unsupported on iOS / Windows |
 
 `ecrMode` `1` is USB cable on the channel (`"usb_cable"`). Wire value `1` is
 unchanged. There is no Ethernet transport.
@@ -120,8 +120,8 @@ mobile; pure Dart `dart:io` HTTP on Windows).
 `appToApp` is the only transport whose `host` is **not an address**: it is the
 payment app's application id, and `EcrTerminal.appToApp` is the readable way to
 say so. An address passed there is refused at construction. It is also the only
-one where "reachable" means *installed and willing to accept a request* rather
-than *something answered on a socket* — whether a merchant is signed in, and
+one where "reachable" means _installed and willing to accept a request_ rather
+than _something answered on a socket_ — whether a merchant is signed in, and
 what the TMS profile permits, are answered by the payment app itself, in a
 refusal or a sign-on.
 
@@ -184,7 +184,7 @@ implied:
 | `isReachable` / `probeReachability` | ✔ | Resolves the payment app. Launches nothing |
 | `sale` / `voidTransaction` / `refund` | ✔ | The payment app comes to the front and answers |
 | `inquire` / `inquireByReference` | ✔ | Never refused locally: the only way out of an unknown outcome |
-| `receipt` | ✔ | Same record as LAN; costs another handover the operator watches |
+| `receipt` | ✔ | Same record as Wi‑Fi; costs another handover the operator watches |
 | `printReceipt` | ✔ | Intent `com.amwalpay.pos.ecr.PRINT` with a required image (width **384 px**, size **≤ 15 MB**). Returns `EcrPrintOutcome` (`status` + `message` separate). Not on Wi‑Fi / USB / Web Service |
 | `signOn` | ✘ | Deliberately excluded — a handover only to learn the next refusal |
 | `closeReceipt` | ✘ | Receipt already dismissed when the answer arrives |
@@ -195,20 +195,20 @@ implied:
 
 ## 5. Types, units and nullability across the channel
 
-| Concept | Dart | Channel | Kotlin | Swift |
-|---|---|---|---|---|
-| Amount out | `EcrAmount` | `String`, **major units**, nullable | `BigDecimal?` | `Decimal?` |
-| Amount back | `String` | `String`, **major units** | `String` | `String` |
-| Timeouts | `Duration` | `int` **milliseconds** | `kotlin.time.Duration` | `TimeInterval` (seconds) |
-| Port, digits | `int` | `int` | `Int` | `Int` |
-| Flags | `bool` | `bool` | `Boolean` | `Bool` |
-| Identifiers (`terminalId`) | `String` | `String` or `int` | `String` | `String` |
-| Absent text | `''` | `null` or `''` | `""` | `""` |
-| `originalTerminalId` | `''` | `''` — **never null** | `""` | `""` |
-| `merchantReference` | `String` | `String` — `''` means "generate one" | `String` | `String` |
-| `secureHashKey` | `String` | `String` — `''` means unsigned | `String` | `String` |
-| `nextStep` | `EcrNextStep` | `String`, the protocol's own name | `NextStep` | `EcrNextStep` |
-| `recovered` | `EcrInquiry?` | an inquiry map, **absent** when none | `EcrInquiry?` | `EcrInquiry?` |
+| Concept                    | Dart          | Channel                              | Kotlin                 | Swift                    |
+| -------------------------- | ------------- | ------------------------------------ | ---------------------- | ------------------------ |
+| Amount out                 | `EcrAmount`   | `String`, **major units**, nullable  | `BigDecimal?`          | `Decimal?`               |
+| Amount back                | `String`      | `String`, **major units**            | `String`               | `String`                 |
+| Timeouts                   | `Duration`    | `int` **milliseconds**               | `kotlin.time.Duration` | `TimeInterval` (seconds) |
+| Port, digits               | `int`         | `int`                                | `Int`                  | `Int`                    |
+| Flags                      | `bool`        | `bool`                               | `Boolean`              | `Bool`                   |
+| Identifiers (`terminalId`) | `String`      | `String` or `int`                    | `String`               | `String`                 |
+| Absent text                | `''`          | `null` or `''`                       | `""`                   | `""`                     |
+| `originalTerminalId`       | `''`          | `''` — **never null**                | `""`                   | `""`                     |
+| `merchantReference`        | `String`      | `String` — `''` means "generate one" | `String`               | `String`                 |
+| `secureHashKey`            | `String`      | `String` — `''` means unsigned       | `String`               | `String`                 |
+| `nextStep`                 | `EcrNextStep` | `String`, the protocol's own name    | `NextStep`             | `EcrNextStep`            |
+| `recovered`                | `EcrInquiry?` | an inquiry map, **absent** when none | `EcrInquiry?`          | `EcrInquiry?`            |
 
 On Windows there is no Kotlin/Swift channel hop: the Dart types are mapped
 straight into the wire protocol by `lib/src/dart_io/`. The same amount, timeout,
@@ -238,11 +238,11 @@ Diagnostics used to be a third mobile-only note; §6.3 covers all three hosts.
 
 ### 6.1 What a cancel does to the socket
 
-| | Android | iOS | Windows |
-|---|---|---|---|
-| Answers the caller | immediately, `EcrCancelled` | immediately, `EcrCancelled` | immediately, `EcrCancelled` |
-| The blocked read | keeps running until `responseTimeout`, then its answer is discarded | returns at once — the descriptor is `shutdown` | returns at once — the `Socket` / HTTP client is closed |
-| A thread is held | yes, until the read unwinds | no | no |
+|                    | Android                                                             | iOS                                            | Windows                                                |
+| ------------------ | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| Answers the caller | immediately, `EcrCancelled`                                         | immediately, `EcrCancelled`                    | immediately, `EcrCancelled`                            |
+| The blocked read   | keeps running until `responseTimeout`, then its answer is discarded | returns at once — the descriptor is `shutdown` | returns at once — the `Socket` / HTTP client is closed |
+| A thread is held   | yes, until the read unwinds                                         | no                                             | no                                                     |
 
 The Kotlin SDK does not expose its socket, so a cancelled coroutine cannot
 interrupt a blocking read; the wrapper answers the caller at once and lets the
@@ -255,10 +255,10 @@ retried.
 
 ### 6.2 Where a malformed secret is caught
 
-| | Android | iOS | Windows |
-|---|---|---|---|
-| Rejected by | `EcrConfig`'s constructor | `EcrMessage.build`, the last point before the key is used | Dart `EcrConfig` + Dart message build (same rules as mobile) |
-| Reported as | `IllegalArgumentException` → `ecr_invalid_argument` | `EcrInvalidArgument` → `ecr_invalid_argument` | `EcrArgumentError` / typed failure before send |
+|             | Android                                             | iOS                                                       | Windows                                                      |
+| ----------- | --------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
+| Rejected by | `EcrConfig`'s constructor                           | `EcrMessage.build`, the last point before the key is used | Dart `EcrConfig` + Dart message build (same rules as mobile) |
+| Reported as | `IllegalArgumentException` → `ecr_invalid_argument` | `EcrInvalidArgument` → `ecr_invalid_argument`             | `EcrArgumentError` / typed failure before send               |
 
 A Kotlin data class validates once at construction; a Swift struct stays
 assignable afterwards, so an initialiser check there would be an assurance rather
@@ -271,11 +271,11 @@ key that cannot be used means nothing is sent — never traffic sent unsigned.
 
 ### 6.3 Diagnostics
 
-| | Android | iOS | Windows |
-|---|---|---|---|
-| Log output | Logcat, tag `AmwalEcr` | Unified log, subsystem `com.amwalpay.ecr` | Flutter / Dart console (pure-Dart host) |
-| On by default | debug builds only | debug builds only | debug builds only |
-| Turned on afterwards | `adb shell setprop log.tag.AmwalEcr DEBUG` | Console.app, enabling the subsystem | run a debug build / attach the IDE debugger |
+|                      | Android                                    | iOS                                       | Windows                                     |
+| -------------------- | ------------------------------------------ | ----------------------------------------- | ------------------------------------------- |
+| Log output           | Logcat, tag `AmwalEcr`                     | Unified log, subsystem `com.amwalpay.ecr` | Flutter / Dart console (pure-Dart host)     |
+| On by default        | debug builds only                          | debug builds only                         | debug builds only                           |
+| Turned on afterwards | `adb shell setprop log.tag.AmwalEcr DEBUG` | Console.app, enabling the subsystem       | run a debug build / attach the IDE debugger |
 
 Mobile SDKs take an `EcrLogger` and neither has a logging dependency of its own;
 each host routes it to the platform's log. The Windows host logs from Dart.
@@ -291,7 +291,7 @@ Nothing in the API depends on any of them.
 
 Two answers look alike from the till's side and mean opposite things:
 
-- **Response code `17`** — the cardholder pressed Cancel *inside* the payment
+- **Response code `17`** — the cardholder pressed Cancel _inside_ the payment
   app. The answer arrived and is signed. The outcome is known: nothing was
   taken. This is an `EcrDeclined`.
 - **No answer at all** — the payment app was destroyed before it could answer
@@ -345,9 +345,9 @@ shapes as Android.
 Two failure kinds have no counterpart in the native SDKs. They are the
 wrapper's, and they are named as such in the contract:
 
-| | Why it exists |
-|---|---|
-| `EcrCancelled` | The native SDKs have no cancellation. This is the wrapper's, and it carries the same "outcome unknown" weight as a timeout. |
+|                  | Why it exists                                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EcrCancelled`   | The native SDKs have no cancellation. This is the wrapper's, and it carries the same "outcome unknown" weight as a timeout.                                                             |
 | `EcrUnsupported` | The answer to "what happens where the platforms differ": a transport with no listener, a host that is not registered. Raised before anything is sent, so `outcomeIsUnknown` is `false`. |
 
 `EcrUnauthenticated` is **not** in this list: it is the native SDKs' own
@@ -379,6 +379,6 @@ the pure-Dart host):
   that arrives late;
 - references, signing and the automatic follow-up behave the same;
 - both native SDKs sign a payload to the same bytes, against a frozen digest;
-- the bridge compiles against the *published* shape of the iOS SDK, so a type
+- the bridge compiles against the _published_ shape of the iOS SDK, so a type
   that is not exported publicly fails before it can reach an integrator;
 - and the whole path runs on a device against a real terminal.

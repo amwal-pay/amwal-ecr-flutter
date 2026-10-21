@@ -48,7 +48,7 @@
 #
 #   example-windows       an `example-windows-*` tag (or a push to
 #                         release/example) — builds the nested example for
-#                         Windows (LAN + Web Service) and zips the Release
+#                         Windows (Wi-Fi + Web Service) and zips the Release
 #                         folder. Uses instance_type windows_x2.
 #
 # The two example workflows never run on an ordinary push: every run of them
@@ -161,7 +161,7 @@ workflows:
         - push
         - pull_request
       branch_patterns:
-        - pattern: '*'
+        - pattern: "*"
           include: true
           source: true
       cancel_previous_builds: true
@@ -200,7 +200,7 @@ workflows:
         - push
         - pull_request
       branch_patterns:
-        - pattern: '*'
+        - pattern: "*"
           include: true
           source: true
       cancel_previous_builds: true
@@ -232,7 +232,7 @@ workflows:
         - push
         - pull_request
       branch_patterns:
-        - pattern: '*'
+        - pattern: "*"
           include: true
           source: true
       cancel_previous_builds: true
@@ -267,7 +267,7 @@ workflows:
       events:
         - tag
       tag_patterns:
-        - pattern: 'v*'
+        - pattern: "v*"
           include: true
     scripts:
       - *toolchain
@@ -390,10 +390,10 @@ workflows:
         - tag
         - push
       tag_patterns:
-        - pattern: 'example-ios-*'
+        - pattern: "example-ios-*"
           include: true
       branch_patterns:
-        - pattern: 'release/example'
+        - pattern: "release/example"
           include: true
           source: true
       cancel_previous_builds: true
@@ -461,10 +461,10 @@ workflows:
         - tag
         - push
       tag_patterns:
-        - pattern: 'example-android-*'
+        - pattern: "example-android-*"
           include: true
       branch_patterns:
-        - pattern: 'release/example'
+        - pattern: "release/example"
           include: true
           source: true
       cancel_previous_builds: true
@@ -536,10 +536,10 @@ workflows:
         - tag
         - push
       tag_patterns:
-        - pattern: 'example-windows-*'
+        - pattern: "example-windows-*"
           include: true
       branch_patterns:
-        - pattern: 'release/example'
+        - pattern: "release/example"
           include: true
           source: true
       cancel_previous_builds: true

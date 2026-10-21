@@ -16,7 +16,7 @@ import 'ecr_wire_readers.dart';
 import 'secure_hash.dart';
 import 'tcp_ecr_channel.dart';
 
-/// LAN / Wi‑Fi ECR client — one framed TCP exchange per call.
+/// Wi‑Fi ECR client — one framed TCP exchange per call.
 ///
 /// Mirrors Kotlin / Swift `EcrTerminal` behaviour for signing, verification,
 /// and auto-inquire-on-failure.
@@ -191,13 +191,13 @@ final class LanEcrClient {
     final _Answer answer = await _exchange(message);
     return switch (answer) {
       _Broken(:final EcrFailure failure) => EcrSignOnFailed(
-        merchantReference: message.merchantReference,
-        failure: failure,
-      ),
+          merchantReference: message.merchantReference,
+          failure: failure,
+        ),
       _Ok(:final Map<String, Object?> json) => EcrWireReaders.toSignOn(
-        json,
-        merchantReference: message.merchantReference,
-      ),
+          json,
+          merchantReference: message.merchantReference,
+        ),
     };
   }
 
@@ -216,13 +216,13 @@ final class LanEcrClient {
     final _Answer answer = await _exchange(message);
     return switch (answer) {
       _Broken(:final EcrFailure failure) => EcrReceiptClosedFailed(
-        merchantReference: message.merchantReference,
-        failure: failure,
-      ),
+          merchantReference: message.merchantReference,
+          failure: failure,
+        ),
       _Ok(:final Map<String, Object?> json) => EcrWireReaders.toReceiptClosed(
-        json,
-        merchantReference: message.merchantReference,
-      ),
+          json,
+          merchantReference: message.merchantReference,
+        ),
     };
   }
 

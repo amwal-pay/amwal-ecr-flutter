@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-/// Message authentication for the LAN / Wi‑Fi ECR link.
+/// Message authentication for the Wi‑Fi ECR link.
 ///
 /// Sorted `key=value&…` then HMAC-SHA256 under a hex-decoded key, as uppercase
 /// hex — mirrors Kotlin `SecureHash` and Swift `SecureHash`.
@@ -12,8 +12,8 @@ abstract final class SecureHash {
   /// Field carrying the signature. Never part of what is signed.
   static const String field = 'secureHash';
 
-  /// Log label for the Wi‑Fi/LAN signing key (distinct from Web Service).
-  static const String keyLabel = 'Wi-Fi/LAN secure hash key';
+  /// Log label for the Wi‑Fi signing key (distinct from Web Service).
+  static const String keyLabel = 'Wi-Fi/CABLE secure hash key';
 
   static const int _nonceBytes = 16;
 
@@ -26,8 +26,7 @@ abstract final class SecureHash {
   ///  4. Sort what remains by key.
   ///  5. Join as `key=value`, separated by `&`.
   static String compose(Map<String, Object?> json) {
-    final List<MapEntry<String, String>> scalars =
-        <MapEntry<String, String>>[];
+    final List<MapEntry<String, String>> scalars = <MapEntry<String, String>>[];
     for (final MapEntry<String, Object?> entry in json.entries) {
       if (entry.key == field) continue;
       final String? text = _scalar(entry.value);

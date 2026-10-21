@@ -6,7 +6,7 @@ import 'package:amwal_ecr/amwal_ecr.dart';
 /// commit real Amwal keys. Values are synthetic valid hex so [EcrConfig]
 /// accepts them; override in CI if needed.
 abstract final class EcrTestConfigs {
-  /// Wi‑Fi / LAN / USB cable signing placeholder (valid hex, not a real secret).
+  /// Wi‑Fi / USB cable signing placeholder (valid hex, not a real secret).
   static const String SECURE_HASH_KEY_ECR_WIFI =
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
