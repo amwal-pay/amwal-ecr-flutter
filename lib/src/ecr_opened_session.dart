@@ -6,7 +6,7 @@ import 'model/ecr_transport.dart';
 ///
 /// Mirrors native `EcrOpenedSession` / `EcrSessions.open`: apps open once and
 /// reuse the same client for sale, inquiry, and recovery so transport dispatch
-/// cannot diverge. On Flutter the method channel already unifies LAN / USB /
+/// cannot diverge. On Flutter the method channel already unifies Wi-Fi / USB /
 /// Web Service behind [EcrTerminal]; this type names that intent.
 final class EcrOpenedSession {
   EcrOpenedSession(this.terminal);

@@ -12,7 +12,7 @@ import com.amwalpay.ecr.EcrEnvironment
  */
 internal object EcrTestConfigs {
 
-    /** Wi‑Fi / LAN / USB cable signing placeholder (valid hex, not a real secret). */
+    /** Wi‑Fi / USB cable signing placeholder (valid hex, not a real secret). */
     const val SECURE_HASH_KEY_ECR_WIFI: String =
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 

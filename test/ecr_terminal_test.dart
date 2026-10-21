@@ -22,7 +22,7 @@ void main() {
   tearDown(() => host.dispose());
 
   group('construction', () {
-    test('a LAN terminal needs an address', () {
+    test('a Wi-Fi terminal needs an address', () {
       expect(() => EcrTerminal(host: ''), throwsA(isA<EcrArgumentError>()));
       expect(() => EcrTerminal(host: '   '), throwsA(isA<EcrArgumentError>()));
     });
@@ -41,7 +41,8 @@ void main() {
     test('the config is checked at construction, not at the first sale', () {
       expect(() => EcrConfig(port: 0), throwsA(isA<EcrArgumentError>()));
       expect(() => EcrConfig(port: 70000), throwsA(isA<EcrArgumentError>()));
-      expect(() => EcrConfig(minorUnitDigits: 5), throwsA(isA<EcrArgumentError>()));
+      expect(() => EcrConfig(minorUnitDigits: 5),
+          throwsA(isA<EcrArgumentError>()));
       expect(
         () => EcrConfig(responseTimeout: Duration.zero),
         throwsA(isA<EcrArgumentError>()),
@@ -172,7 +173,8 @@ void main() {
       expect(host.countOf(EcrMethods.receipt), 1);
     });
 
-    test('run() refuses the read-only types and points at the right method', () {
+    test('run() refuses the read-only types and points at the right method',
+        () {
       final EcrTerminal terminal = terminalOn(EcrTransport.wifi);
 
       expect(
@@ -200,8 +202,8 @@ void main() {
 
   group('a transport with no listener', () {
     test('turns every money-moving operation into a typed failure', () async {
-      final EcrResult result =
-          await terminalOn(EcrTransport.bluetooth).sale(EcrAmount.parse('1.234'));
+      final EcrResult result = await terminalOn(EcrTransport.bluetooth)
+          .sale(EcrAmount.parse('1.234'));
 
       expect(result, isA<EcrFailed>());
       expect((result as EcrFailed).failure, isA<EcrUnsupported>());
@@ -253,8 +255,8 @@ void main() {
       expect(inquiry, isA<EcrInquiryNotFound>());
       expect(host.methods, <String>['inquireByReference']);
       expect(
-        host.argumentsOf(EcrMethods.inquireByReference)[
-            EcrArgs.originalMerchantReference],
+        host.argumentsOf(
+            EcrMethods.inquireByReference)[EcrArgs.originalMerchantReference],
         'ORDER-4471',
       );
     });
@@ -281,7 +283,8 @@ void main() {
       expect((receipt as EcrReceiptFailed).failure, isA<EcrUnsupported>());
     });
 
-    test('isReachable answers false without spending the probe timeout', () async {
+    test('isReachable answers false without spending the probe timeout',
+        () async {
       expect(await terminalOn(EcrTransport.bluetooth).isReachable(), isFalse);
       expect(host.calls, isEmpty);
     });
@@ -296,8 +299,8 @@ void main() {
     });
 
     test('cancelling one is harmless and says nothing was running', () async {
-      final EcrOperation<EcrResult> sale =
-          terminalOn(EcrTransport.bluetooth).startSale(EcrAmount.parse('1.000'));
+      final EcrOperation<EcrResult> sale = terminalOn(EcrTransport.bluetooth)
+          .startSale(EcrAmount.parse('1.000'));
 
       expect(await sale.cancel(), isFalse);
       expect((await sale.result as EcrFailed).failure, isA<EcrUnsupported>());
@@ -331,7 +334,8 @@ void main() {
       );
     });
 
-    test('wifi is the default, being the one an operator can read off screen', () {
+    test('wifi is the default, being the one an operator can read off screen',
+        () {
       expect(EcrTerminal(host: '10.0.0.1').transport, EcrTransport.wifi);
     });
   });

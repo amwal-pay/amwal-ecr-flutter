@@ -30,7 +30,7 @@ class EcrSimulatorSettingsPanel extends StatelessWidget {
         _SettingsCard(
           title: 'Wi‑Fi / USB cable settings',
           subtitle:
-              'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR (LAN protocol). '
+              'Signing key for Wi‑Fi, USB cable, and Bluetooth ECR. '
               'USB cable is Android-only; on Windows use Wi‑Fi or Web Service.',
           child: _SecureHashKeyField(
             value: wifiSecureHashKey,
@@ -94,8 +94,8 @@ class _SettingsCard extends StatelessWidget {
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             child,
@@ -123,8 +123,9 @@ class _SecureHashKeyField extends StatefulWidget {
 
 class _SecureHashKeyFieldState extends State<_SecureHashKeyField> {
   bool _visible = false;
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.value);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
 
   @override
   void didUpdateWidget(covariant _SecureHashKeyField oldWidget) {
@@ -142,7 +143,8 @@ class _SecureHashKeyFieldState extends State<_SecureHashKeyField> {
 
   @override
   Widget build(BuildContext context) {
-    final bool invalid = widget.value.isNotEmpty &&
+    final bool invalid =
+        widget.value.isNotEmpty &&
         !EcrConfig.isValidSecureHashKey(widget.value);
 
     return TextField(

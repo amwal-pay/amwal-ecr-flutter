@@ -22,7 +22,7 @@ final class EcrConfig {
     this.terminalId = '',
     this.environment = EcrEnvironment.sit,
     this.autoInquireOnFailure = true,
-  }) {      
+  }) {
     if (minorUnitDigits < 0 || minorUnitDigits > 4) {
       throw EcrArgumentError(
         'minorUnitDigits must be between 0 and 4, got $minorUnitDigits',
@@ -54,15 +54,15 @@ final class EcrConfig {
   /// The port Amwal POS terminals listen on for ECR requests.
   static const int defaultPort = 9100;
 
-  /// Default LAN / USB read timeout.
+  /// Default Wi-Fi / USB read timeout.
   static const Duration defaultResponseTimeout = Duration(seconds: 120);
 
   /// HTTP read timeout for Web Service REST calls (`/Ecr/Sale`, void, refund,
-  /// inquiry). Longer than the LAN default: the Hub wait includes card present
+  /// inquiry). Longer than the Wi-Fi default: the Hub wait includes card present
   /// + PIN, and 120s was cutting sales off early.
   ///
   /// Applied by [EcrTerminal] / [EcrSessions.open] when [responseTimeout] is
-  /// still the LAN default; an explicit override is kept.
+  /// still the Wi-Fi default; an explicit override is kept.
   static const Duration webServiceResponseTimeout = Duration(seconds: 130);
 
   /// 64 bits is the shortest key worth calling a secret.
@@ -103,9 +103,9 @@ final class EcrConfig {
   /// The secret this till shares with the terminal, as hex.
   ///
   /// **The app owns persistence and chooses which secret to pass** for the
-  /// selected terminal mode (LAN vs Web Service use different secrets and
+  /// selected terminal mode (Wi-Fi vs Web Service use different secrets and
   /// signing formats, but both are supplied through this single field).
-  /// LAN ECR signs sorted `key=value` pairs; Web Service ECR signs the JSON
+  /// Wi-Fi ECR signs sorted `key=value` pairs; Web Service ECR signs the JSON
   /// request body with HMAC-SHA256 under the hex-decoded key.
   ///
   /// Set it and every request is signed and every response is checked. Required

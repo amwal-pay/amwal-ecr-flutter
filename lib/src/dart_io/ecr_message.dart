@@ -6,7 +6,7 @@ import '../model/ecr_errors.dart';
 import '../model/ecr_transaction_type.dart';
 import 'secure_hash.dart';
 
-/// A LAN ECR request as it goes on the wire.
+/// A Wi-Fi ECR request as it goes on the wifi.
 ///
 /// Mirrors Kotlin `EcrMessage`.
 final class EcrMessage {

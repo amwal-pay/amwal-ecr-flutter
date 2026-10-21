@@ -39,7 +39,7 @@ enum EcrSessionPorts {
             return .lan(host: host, port: config.port)
         }
         // USB cable is Android-only (AOA). Reach UnsupportedEcrTerminalPort
-        // with a typed failure rather than pretending it is LAN.
+        // with a typed failure rather than pretending it is Wi-Fi.
         if EcrTransports.isUsbCable(transport) {
             return nil
         }

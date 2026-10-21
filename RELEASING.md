@@ -300,7 +300,7 @@ integrators while remaining perfectly visible to the SDK's own tests.
 | ------- | ----------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0.4.0   | 0.4.0       | 1.0.8     | 0.3.0      | AmwalECR 0.3.0 pin; ecr-sdk 1.0.8; Web Service inquiry transport failure → `EcrInquiryFailed` App-to-app `printReceipt` (Android; 384 px / ≤15 MB) |
 | 0.3.2   | 0.3.2       | 1.0.6     | 0.2.3      | iOS `signOn` + `closeReceipt`                                                                                                                      |
-| 0.3.0   | 0.3.0       | 1.0.5     | 0.2.1      | Windows pure-Dart host (LAN + Web Service)                                                                                                         |
+| 0.3.0   | 0.3.0       | 1.0.5     | 0.2.1      | Windows pure-Dart host (Wi-Fi + Web Service)                                                                                                       |
 | 0.2.1   | 0.2.1       | 1.0.5     | 0.2.1      | ECR modes: USB Android, Web Service                                                                                                                |
 | 0.1.0   | 0.1.0       | 1.0.3     | 0.1.0      | first release                                                                                                                                      |
 

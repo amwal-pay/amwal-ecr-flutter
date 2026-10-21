@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!--
       The terminal is reached over the local network or a USB cable, so the host
-      app needs INTERNET (LAN) and optional USB host. Declared here so an
+      app needs INTERNET (Wi-Fi) and optional USB host. Declared here so an
       integrator cannot forget them and then debug a "terminal unreachable"
       that is really a missing permission or feature.
     -->

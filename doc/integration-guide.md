@@ -182,7 +182,7 @@ if (result.outcomeIsUnknown) {
 ```
 
 **Android only.** On iOS and on the web the operation is refused before
-anything is sent, as an `EcrUnsupported` failure whose outcome is *not*
+anything is sent, as an `EcrUnsupported` failure whose outcome is _not_
 unknown — nothing was attempted.
 
 **The merchant has to be signed in on the payment app.** If nobody is, the
@@ -205,12 +205,12 @@ no PRINT path: `EcrTerminal.printReceipt` returns a failed
 the button for those transports. On iOS and Windows, app to app itself is
 typed unsupported, so print is Android-only.
 
-| | |
-|---|---|
-| Action | `com.amwalpay.pos.ecr.PRINT` |
-| Request | `amwal.ecr.receiptImage` (`byte[]`, PNG or JPEG) — **required**; `amwal.ecr.merchantReference` (optional) |
-| Answer | `amwal.ecr.printStatus` (`SUCCESSFUL` \| `FAILED`), `amwal.ecr.printMessage` (separate), `amwal.ecr.printOk` (bool mirror) |
-| Image limits | width **384 px** (`EcrPrintOutcome.printerWidth`); encoded size **≤ 15 MB** (`EcrPrintOutcome.printerMaxBytes`) |
+|              |                                                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Action       | `com.amwalpay.pos.ecr.PRINT`                                                                                               |
+| Request      | `amwal.ecr.receiptImage` (`byte[]`, PNG or JPEG) — **required**; `amwal.ecr.merchantReference` (optional)                  |
+| Answer       | `amwal.ecr.printStatus` (`SUCCESSFUL` \| `FAILED`), `amwal.ecr.printMessage` (separate), `amwal.ecr.printOk` (bool mirror) |
+| Image limits | width **384 px** (`EcrPrintOutcome.printerWidth`); encoded size **≤ 15 MB** (`EcrPrintOutcome.printerMaxBytes`)            |
 
 ```dart
 final EcrPrintOutcome outcome = await terminal.printReceipt(
@@ -315,7 +315,7 @@ final EcrResult result = await terminal.sale(amount);
 
 The call takes as long as the cardholder takes: presenting a card, entering a
 PIN, the backend authorising. Ninety seconds is not unusual, and the default
-read timeout is 120 seconds on LAN (and **130 seconds** on Web Service) for that
+read timeout is 120 seconds on Wi-Fi (and **130 seconds** on Web Service) for that
 reason. Show a spinner, not a countdown.
 
 ### Void
@@ -514,7 +514,7 @@ final EcrResult result = await sale.result;
 
 **Say what it does.** "Cancel" reads as "the payment did not happen", and that
 is not what it means. It stops the till waiting; the terminal is not told and
-does not stop. The example app labels the button *Stop waiting* and says so
+does not stop. The example app labels the button _Stop waiting_ and says so
 underneath — copy that, or something like it.
 
 A cancelled money-moving request has an unknown outcome. Reconcile it exactly
@@ -562,7 +562,7 @@ never as an exception.
 - If the Flutter engine is detached while an operation is in flight, the
   operation is cancelled and its future never completes — there is nobody left
   to answer. The terminal may still finish what it was given, so a till that
-  can be killed mid-sale should record the receipt number *before* sending and
+  can be killed mid-sale should record the receipt number _before_ sending and
   reconcile on next launch.
 
 ---

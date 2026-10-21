@@ -13,7 +13,7 @@ abstract final class WebServiceSecureHash {
   /// Field added to signed Web Service request bodies.
   static const String field = 'secureHashValue';
 
-  /// Log label for the Web Service signing key (distinct from Wi‑Fi/LAN).
+  /// Log label for the Web Service signing key (distinct from Wi‑Fi).
   static const String keyLabel = 'Web Service secure hash key';
 
   /// HMAC-SHA256 of [message] under hex-decoded [secret], as uppercase hex.
@@ -61,8 +61,8 @@ abstract final class WebServiceSecureHash {
 
   /// Same compose rules as [SecureHash.compose], excluding [field].
   static String compose(Map<String, Object?> json) {
-    // Reuse LAN compose after temporarily renaming the WS field away from
-    // SecureHash.field — WS excludes secureHashValue, LAN excludes secureHash.
+    // Reuse Wi-Fi compose after temporarily renaming the WS field away from
+    // SecureHash.field — WS excludes secureHashValue, Wi-Fi excludes secureHash.
     final Map<String, Object?> forCompose = Map<String, Object?>.of(json)
       ..remove(field);
     // SecureHash.compose already drops SecureHash.field; nothing else to do.

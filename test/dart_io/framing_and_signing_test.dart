@@ -38,7 +38,7 @@ void main() {
     });
   });
 
-  group('SecureHash (LAN)', () {
+  group('SecureHash (Wi-Fi)', () {
     final String key = EcrTestConfigs.SECURE_HASH_KEY_ECR_WIFI;
     final String otherKey = EcrTestConfigs.SECURE_HASH_KEY_ECR_WIFI_OTHER;
 

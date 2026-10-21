@@ -73,7 +73,7 @@ final class EcrTerminal {
         _platform = platform ?? AmwalEcrPlatform.instance,
         _random = random ?? Random() {
     if (transport.isIpTransport && host.trim().isEmpty) {
-      throw const EcrArgumentError('A LAN terminal needs a host address');
+      throw const EcrArgumentError('A Wi-Fi terminal needs a host address');
     }
     if (transport.isAppToApp && host != EcrPaymentApp.packageName) {
       throw EcrArgumentError(
@@ -84,7 +84,7 @@ final class EcrTerminal {
   }
 
   /// Web Service uses a longer default read timeout (130s) unless the caller
-  /// already overrode the LAN default (120s). Mirrors native
+  /// already overrode the Wi-Fi default (120s). Mirrors native
   /// `EcrSessions.plan` / `EcrConfig.webServiceResponseTimeout`.
   static EcrConfig resolveConfigForTransport(
     EcrConfig config,
@@ -175,7 +175,8 @@ final class EcrTerminal {
         ),
       );
     }
-    return _platform.probeReachability(_request(operationId: _newOperationId()));
+    return _platform
+        .probeReachability(_request(operationId: _newOperationId()));
   }
 
   /// Takes a payment. The cardholder presents their card at the terminal.
@@ -376,7 +377,8 @@ final class EcrTerminal {
       id,
       switch (type) {
         EcrTransactionType.sale => _platform.sale(request),
-        EcrTransactionType.voidTransaction => _platform.voidTransaction(request),
+        EcrTransactionType.voidTransaction =>
+          _platform.voidTransaction(request),
         EcrTransactionType.refund => _platform.refund(request),
         // Unreachable: movesMoney was checked above. Kept so the switch is
         // exhaustive without a default that would hide a new type.
@@ -872,7 +874,8 @@ final class EcrTerminal {
   static const int _referenceMaxLength = 32;
 
   /// 0x21..0x7E is printable ASCII with the space left out, less `&` and `=`.
-  static final RegExp _printableAscii = RegExp(r'^[\x21-\x25\x27-\x3C\x3E-\x7E]+$');
+  static final RegExp _printableAscii =
+      RegExp(r'^[\x21-\x25\x27-\x3C\x3E-\x7E]+$');
 
   /// A handle for one call: time-ordered, so a log reads in the order things
   /// happened, plus randomness so two tills cannot collide.

@@ -31,10 +31,10 @@ class TerminalConfigCard extends StatelessWidget {
               value: config.usesWebService
                   ? 'Web Service'
                   : config.usesUsbCable
-                      ? 'USB cable'
-                      : config.usesLan
-                          ? 'Wi‑Fi / LAN'
-                          : config.mode.label,
+                  ? 'USB cable'
+                  : config.usesLan
+                  ? 'Wi‑Fi'
+                  : config.mode.label,
             ),
             _Line(label: 'Connection', value: config.connectionSummary),
             _Line(
@@ -48,9 +48,9 @@ class TerminalConfigCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   issue,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.error,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colors.error),
                 ),
               ),
           ],
@@ -73,8 +73,8 @@ class _Line extends StatelessWidget {
       child: Text(
         '$label: $value',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
