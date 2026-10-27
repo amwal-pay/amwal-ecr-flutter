@@ -1,6 +1,6 @@
 # Amwal ECR SDK for Flutter
 
-`amwal_ecr` drives an Amwal POS terminal from a Flutter till on Android, iOS and Windows, through one Dart API: sale, void, refund, inquiry, e-receipt, close receipt, manual settlement, and sign-on — and, app to app, printing a receipt image on the terminal's printer. Wi-Fi uses the terminal's ECR port. USB uses the cable. App to app hands the request to the payment app on the same device. Web Service uses HTTPS to the Amwal Hub. Card data stays on the terminal.
+`amwal_ecr` drives an Amwal POS terminal from a Flutter till on Android, iOS and Windows, through one Dart API: sale, void, refund, inquiry, e-receipt, close receipt, settlement, and sign-on — and, app to app, printing a receipt image on the terminal's printer. Wi-Fi uses the terminal's ECR port. USB uses the cable. App to app hands the request to the payment app on the same device. Web Service uses HTTPS to the Amwal Hub. Card data stays on the terminal.
 
 Package `amwal_ecr` **0.5.0**. Open one session, call the operation, then read the result. Same types, same units and the same outcomes on every host that supports the transport; the [compatibility matrix](doc/compatibility-matrix.md) lists the few places Android, iOS and Windows differ.
 
@@ -124,7 +124,9 @@ switch (outcome.status) {
 }
 ```
 
-The full rules are in [Print receipt (app to app)](#print-receipt-app-to-app).
+Wi-Fi, USB, and Web Service refuse it before anything is sent; iOS and Windows answer the same way. The width is `EcrPrintOutcome.printerWidth` and the size limit `EcrPrintOutcome.printerMaxBytes`: a wrong width or a bigger image never reaches the payment app. Build the image from the result of the operation you are printing — the example till does it in `example/lib/print/`. Do not rely on the payment app reprinting its last transaction.
+
+`status` and `message` are separate fields. Do not merge them into one string. A print does not touch the transaction: a failed print leaves the sale exactly as it was, and you can print again.
 
 ## Operations
 
@@ -320,9 +322,11 @@ switch (await terminal.closeReceipt()) {
 
 Over app to app and Web Service the call answers `EcrReceiptClosedFailed` with `EcrUnsupported`, without sending anything: app to app has already closed the receipt by the time a till has its answer, and over Web Service the terminal's screen is not the till's to tidy (`EcrTransport.supportsCloseReceipt`).
 
-### Manual settlement
+### Settlement
 
-Closes the terminal's current batch, the same Manual settlement as its merchant menu, and answers with the totals. Android over Wi-Fi, USB, and app to app; Windows over Wi-Fi; not iOS yet, not Web Service. Ask the cashier to confirm first: the terminal starts at once. Safe to repeat: a second settlement after a lost answer finds nothing to settle.
+<a id="settlement"></a>
+
+Closes the terminal's current batch, the same Manual settlement as its merchant menu, and answers with the totals. Android over Wi-Fi, USB, and app to app; Windows over Wi-Fi; not iOS yet. Ask the cashier to confirm first: the terminal starts at once. Safe to repeat: a second settlement after a lost answer finds nothing to settle.
 
 ```dart
 if (!await confirm('Settle the terminal now? It closes the current batch.')) return;
@@ -354,29 +358,14 @@ switch (await terminal.settlement()) {
 
 The terminal must be free: a transaction in progress answers `96`. It prints the settlement receipt when its profile prints, and puts the summary away 15 seconds later. Close receipt puts it away sooner.
 
-### Print receipt (app to app)
+| Result | Meaning |
+|---|---|
+| `EcrSettlementSettled` | The batch closed. `batchId`, `totalTransactions`, `netAmount`, and `totals` per type (`SALE`, `REFUND`, `VOID`, `PRE_AUTH`, `CAPTURE`), every type present. Amounts in major units. |
+| `EcrSettlementNothingToSettle` | The batch was empty. Not a failure. |
+| `EcrSettlementNotSettled` | The batch is still open. `status` is `MISMATCH` (see `uploadedTransactions`), `SESSION_EXPIRED`, `FAILED`, or empty for a refusal before it started. |
+| `EcrSettlementFailed` | The exchange failed. Repeat the call. |
 
-<a id="print-receipt-app-to-app"></a>
-
-Android app to app only. Asks the payment app to print a receipt image on the terminal's printer. Wi-Fi, USB, and Web Service refuse it before anything is sent; iOS and Windows answer the same way.
-
-The image is a PNG exactly **384 pixels wide** (`EcrPrintOutcome.printerWidth`), any height, at most **15 MB** (`EcrPrintOutcome.printerMaxBytes`). A wrong width or a bigger image never reaches the payment app. Build it from the result of the operation you are printing — the example till does it in `example/lib/print/`. Do not rely on the payment app reprinting its last transaction. Send one print at a time.
-
-```dart
-final EcrPrintOutcome outcome = await terminal.printReceipt(
-  imagePng: receiptPng,                        // 384 px wide, ≤ 15 MB
-  merchantReference: approved.merchantReference,
-);
-
-switch (outcome.status) {
-  case EcrPrintStatus.successful:
-    showToCashier('Printed');
-  case EcrPrintStatus.failed:
-    showToCashier(outcome.message);            // as the payment app sent it
-}
-```
-
-`status` and `message` are separate fields. Do not merge them into one string. A print does not touch the transaction: a failed print leaves the sale exactly as it was, and you can print again.
+The terminal also settles over Web Service: the Hub relays `/Ecr/settle` to it. This package does not send that request yet, so over Web Service the call answers `EcrSettlementFailed` with `EcrUnsupported` without sending anything (`EcrTransport.supportsSettlement`).
 
 ### Sign-on
 
@@ -462,15 +451,6 @@ Response codes worth knowing (`EcrResponseCode`), all readable off `EcrDeclined`
 
 On `EcrInquiryFound`, `transaction.stan` is the receipt number. `canVoid` and `canRefund` say whether the terminal would accept that operation now.
 
-### Settlement
-
-| Result | Meaning |
-|---|---|
-| `EcrSettlementSettled` | The batch closed. `batchId`, `totalTransactions`, `netAmount`, and `totals` per type (`SALE`, `REFUND`, `VOID`, `PRE_AUTH`, `CAPTURE`), every type present. Amounts in major units. |
-| `EcrSettlementNothingToSettle` | The batch was empty. Not a failure. |
-| `EcrSettlementNotSettled` | The batch is still open. `status` is `MISMATCH` (see `uploadedTransactions`), `SESSION_EXPIRED`, `FAILED`, or empty for a refusal before it started. |
-| `EcrSettlementFailed` | The exchange failed. Repeat the call. |
-
 ## Important notes
 
 ### Resolve an unknown outcome
@@ -542,135 +522,8 @@ AmwalEcr: <- approved code=00
 
 No `->` line: the call never left Dart. `->` but no `Sending`: refused before the socket, and the `<-` line says why. `Sending` and no `<-` for two minutes: the terminal is waiting for the cardholder. Release builds stay quiet; `adb shell setprop log.tag.AmwalEcr DEBUG` makes one talk for a session. On Windows the pure-Dart host prints comparable lines to the debug console.
 
-### What each link can do
-
-| | Wi-Fi | USB cable | App to app | Web Service |
-|---|---|---|---|---|
-| Sale, void, refund | Yes | Android | Android | Yes |
-| Inquiry by receipt or reference | Yes | Android | Android | Yes |
-| E-receipt | Yes | Android | Android | No |
-| Close receipt | Yes | Android | No | No |
-| Manual settlement | Android, Windows | Android | Android | No |
-| Sign-on | Yes | Android | No | No |
-| Print receipt image | No | No | Android | No |
-| Auto-inquire after a lost answer | Yes | Android | Android | No |
-
-Exact native versions and every per-host difference are in the [compatibility matrix](doc/compatibility-matrix.md).
-
 ## When you build the message yourself
 
 `EcrTransactionType` is `sale`, `voidTransaction`, `refund`, `inquiry`, `receipt`, `signOn`, `closeReceipt`, `settlement`. `EcrTransactionType.menuOptions` is the operator menu: sale, void, refund, inquiry. `requiresAmount`, `requiresOriginalStan`, `requiresOriginalDate`, and `movesMoney` say which fields that operation needs. `EcrTerminal.run` accepts only the three that move money.
 
-The wire format is in [the protocol](https://github.com/amwal-pay/ECR-simulator/blob/main/ecr-sdk/docs/protocol.md). The [integration guide](doc/integration-guide.md) has the patterns a till needs end to end, and the [release policy](RELEASING.md) covers versioning and rolling back.
-
----
-
-## The example app
-
-`example/` is a direct port of the Android sample till: the same two screens, the same settings, the same order of checks, the same dialogs. Where the two differ, the Android one is right and this is a bug.
-
-- **Terminals** — register terminals by ECR mode (Wi-Fi, USB cable on Android, Web Service, app to app on Android), with separate Wi-Fi and Web Service signing keys and environment. On Windows the same UI runs over the pure-Dart host.
-- **Transaction** — type, amount, receipt number, the original's date, and which terminal. It signs on before a money-moving request over Wi-Fi and USB. Close receipt is a button on the result. Manual settlement is a button under Start transaction: it asks you to confirm, then shows the batch totals. An approved app-to-app result offers Print receipt.
-
-```bash
-cd example
-flutter run                 # default device
-flutter run -d windows      # desktop till (Wi-Fi / Web Service)
-```
-
-Windows builds must run on a Windows host and need Visual Studio's **C++ ATL** for `flutter_secure_storage`; see [`example/README.md`](example/README.md). An Android build that fails with `25.0.2` is Flutter using JDK 25: point it at JDK 17 with `flutter config --jdk-dir=<JDK 17>`.
-
-### Local native SDKs (this monorepo)
-
-The example always loads the local plugin (`amwal_ecr: path: ../`). Properties files choose how the plugin resolves the native SDKs:
-
-| Platform | Plugin config | Example override |
-|---|---|---|
-| Android | `android/gradle.properties` | `example/android/gradle.properties` |
-| iOS | `ios/ecr_sdk.properties` | `example/ios/ecr_sdk.properties` |
-
-| `ecrSdkDependency` | Android | iOS |
-|---|---|---|
-| `project` | The sibling `ecr_sdk` Gradle module | Sibling `AmwalECR-iOS-CocoaPods` / `AmwalECR-iOS-SPM` |
-| `jar` | A built JAR: `./gradlew :ecr-sdk:jar` in the SDK checkout | — |
-| `maven` / `cocoapods` / `spm` | Maven Central | CocoaPods trunk or GitHub tags |
-
-On iOS, `./tool/prepare_ios_example.sh` syncs the podspec and `Package.swift`, runs `flutter pub get` and `pod install`. Run it after changing the mode, or after adding or removing files in the CocoaPods checkout.
-
-## Testing without a terminal
-
-The reference repository ships a stand-in terminal:
-
-```bash
-curl -O https://raw.githubusercontent.com/amwal-pay/ECR-simulator/main/tools/fake_pos_server.py
-
-python3 fake_pos_server.py --port 9100
-python3 fake_pos_server.py --port 9100 --decline 51
-python3 fake_pos_server.py --port 9100 --delay 130   # a timeout
-```
-
-Point the example at the machine running it.
-
-## Building and testing
-
-```bash
-flutter test                    # the Dart API and the channel contract
-cd example && flutter test      # the example app
-./tool/run_swift_tests.sh       # the iOS bridge, no simulator needed
-cd example/android && ./gradlew :amwal_ecr:testDebugUnitTest   # the Android host
-```
-
-Signing placeholders for tests come from `EcrTestConfigs`. Never commit real Amwal keys. The wire protocol is tested in the native SDKs — [AmwalECR-iOS-SPM](https://github.com/amwal-pay/AmwalECR-iOS-SPM) and `ecr-sdk` in the [reference repository](https://github.com/amwal-pay/ECR-simulator).
-
-End to end, on a device, against a real terminal:
-
-```bash
-cd example
-flutter test integration_test/app_test.dart \
-  --dart-define=ECR_HOST=192.168.1.50 \
-  --dart-define=ECR_SERIAL=P653200085189
-```
-
-Money-moving cases are skipped unless `--dart-define=ECR_ALLOW_FINANCIAL=true`, so a stray CI run cannot charge anybody.
-
-### Continuous integration and distribution
-
-[`codemagic.yaml`](codemagic.yaml) runs the four suites on every push and pull request, builds the example APK, and builds the example for iOS with both CocoaPods and Swift Package Manager. A `vX.Y.Z` tag publishes to pub.dev after checking that the tag, `pubspec.yaml`, and `CHANGELOG.md` agree; see [the release policy](RELEASING.md#first-time-setup).
-
-The example reaches testers from a tag:
-
-```bash
-git tag example-ios-1     && git push origin example-ios-1      # → TestFlight, group "Testers"
-git tag example-android-1 && git push origin example-android-1  # → Firebase App Distribution, group "tester"
-git tag example-windows-1 && git push origin example-windows-1  # → Windows Release zip artifact
-```
-
-Firebase workflows read the Codemagic environment group `A`: `FIREBASE_SERVICE_ACCOUNT` and `FIREBASE_ANDROID_APP_ID`.
-
-## Troubleshooting
-
-### A sale comes back `96`
-
-> Declined — A transaction is already in progress on this terminal
-
-The terminal's state, not a wrapper error. Nothing was attempted, so nothing has to be reconciled. Either the terminal is already serving another ECR request, or its own transaction screen is open — a card being read, a status screen up — and the POS app refuses every money-moving request until it closes. A receipt still on screen no longer causes it: the terminal puts the receipt away after 15 seconds, and a new sale sent while it is up starts after a 3-second notice. A terminal that still answers `96` there runs an older POS app.
-
-An **inquiry still works** while the terminal is busy: one that succeeds while a sale is refused proves the network, the plugin and the protocol are fine. To clear it, get the terminal back to its idle payment screen; if it looks idle and still refuses, restart the POS app. To avoid it, send one request at a time and keep the buttons disabled until it answers.
-
-### Nothing answers at all
-
-`isReachable()` returns `false`, or a sale fails with `EcrUnreachable`:
-
-- the terminal's TMS profile must be ECR mode on the link you are using;
-- the terminal must be on its idle screen;
-- the till and the terminal must route to each other: no client isolation, and an Android emulator cannot reach a device on your Wi-Fi without port forwarding — use a real phone;
-- on iOS, the local network permission may have been refused;
-- on Windows, check the firewall, keep the project on local NTFS (plugin symlinks), and do not target USB cable.
-
-### Windows example fails to build (`flutter_secure_storage_windows_plugin.vcxproj`)
-
-**C++ ATL is missing** from Visual Studio (`atlstr.h` / `atls.lib`). Install **Desktop development with C++** plus **C++ ATL for latest v143 build tools**, then `flutter clean` and rebuild. Full steps: [`example/README.md`](example/README.md#windows-visual-studio-required).
-
-## Licence
-
-Apache 2.0. See [LICENSE](LICENSE).
+The wire format is in [the protocol](https://github.com/amwal-pay/ECR-simulator/blob/main/ecr-sdk/docs/protocol.md). The [integration guide](doc/integration-guide.md) has the patterns a till needs end to end, and the [release policy](RELEASING.md) covers versioning and rolling back. The example app, testing without a terminal, building, and troubleshooting are in [Development](doc/development.md).
