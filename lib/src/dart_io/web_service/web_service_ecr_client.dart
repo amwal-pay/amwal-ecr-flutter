@@ -2,7 +2,9 @@ import '../../model/ecr_amount.dart';
 import '../../model/ecr_config.dart';
 import '../../model/ecr_failure.dart';
 import '../../model/ecr_inquiry.dart';
+import '../../model/ecr_receipt_closed.dart';
 import '../../model/ecr_result.dart';
+import '../../model/ecr_settlement.dart';
 import '../../model/ecr_transaction_type.dart';
 import '../ecr_wire_readers.dart';
 import 'ecr_web_service_http.dart';
@@ -207,6 +209,92 @@ final class WebServiceEcrClient {
       body,
     );
     return _readInquiry(response, reference);
+  }
+
+  /// Posts `/Ecr/closeReceipt` for the sale, void, or refund named by
+  /// [originalMerchantReference]. Call when the cashier taps Close receipt.
+  Future<EcrReceiptClosed> closeReceipt({
+    required String originalMerchantReference,
+    String merchantReference = '',
+  }) async {
+    if (originalMerchantReference.trim().isEmpty) {
+      return EcrReceiptClosedFailed(
+        merchantReference: merchantReference,
+        failure: const EcrMalformed(
+          'Close receipt needs the original merchant reference',
+        ),
+      );
+    }
+    final (int, int)? ids = _backendIds();
+    if (ids == null) {
+      return EcrReceiptClosedFailed(
+        merchantReference: merchantReference,
+        failure: const EcrMalformed(
+          'merchantId and terminalId are required for Web Service ECR',
+        ),
+      );
+    }
+
+    final (String reference, Map<String, Object?> body) =
+        EcrWebServiceMessage.buildCloseReceipt(
+      merchantId: ids.$1,
+      terminalId: ids.$2,
+      terminalSerial: terminalSerial,
+      secureHashKey: config.secureHashKey,
+      ecrId: config.ecrId,
+      merchantReference: merchantReference,
+      originalMerchantReference: originalMerchantReference,
+    );
+
+    final Map<String, Object?> response =
+        await _api.postJson(EcrWebServiceOperation.closeReceipt, body);
+    return EcrWireReaders.toReceiptClosed(
+      response,
+      merchantReference: reference,
+    );
+  }
+
+  /// Posts `/Ecr/settle`. Confirm with the cashier before calling: the Hub
+  /// starts the close as soon as the request arrives.
+  Future<EcrSettlement> settlement({String merchantReference = ''}) async {
+    final (int, int)? ids = _backendIds();
+    if (ids == null) {
+      return EcrSettlementFailed(
+        merchantReference: merchantReference,
+        failure: const EcrMalformed(
+          'merchantId and terminalId are required for Web Service ECR',
+        ),
+      );
+    }
+
+    final (String reference, Map<String, Object?> body) =
+        EcrWebServiceMessage.buildPlain(
+      merchantId: ids.$1,
+      terminalId: ids.$2,
+      terminalSerial: terminalSerial,
+      secureHashKey: config.secureHashKey,
+      currencyCode: config.currencyCode,
+      ecrId: config.ecrId,
+      merchantReference: merchantReference,
+    );
+
+    final Map<String, Object?> response =
+        await _api.postJson(EcrWebServiceOperation.settle, body);
+    if (response['nextStep'] == unknownOutcomeStep &&
+        response['data'] is! Map) {
+      final String message = response['message']?.toString() ?? '';
+      return EcrSettlementFailed(
+        merchantReference: reference,
+        failure: EcrConnectionLost(
+          message.isEmpty ? 'The Web Service did not answer' : message,
+        ),
+      );
+    }
+    return EcrWireReaders.toSettlement(
+      response,
+      merchantReference: reference,
+      minorUnitDigits: config.minorUnitDigits,
+    );
   }
 
   /// Reads an inquiry answer; a synthesized unknown-outcome body (no `data`

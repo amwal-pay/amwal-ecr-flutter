@@ -186,8 +186,13 @@ internal class SdkOpenedSessionPort(
     override suspend fun signOn(merchantReference: String): EcrSignOn =
         session.signOn(merchantReference = merchantReference)
 
-    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
-        session.closeReceipt(merchantReference = merchantReference)
+    override suspend fun closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String,
+    ): EcrReceiptClosed = session.closeReceipt(
+        merchantReference = merchantReference,
+        originalMerchantReference = originalMerchantReference,
+    )
 
     override suspend fun settlement(merchantReference: String): EcrSettlement =
         session.settlement(merchantReference = merchantReference)
@@ -275,8 +280,10 @@ internal class PaymentAppTerminalPort(
     override suspend fun signOn(merchantReference: String): EcrSignOn =
         terminal.signOn(merchantReference = merchantReference)
 
-    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
-        terminal.closeReceipt(merchantReference = merchantReference)
+    override suspend fun closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String,
+    ): EcrReceiptClosed = terminal.closeReceipt(merchantReference = merchantReference)
 
     override suspend fun settlement(merchantReference: String): EcrSettlement =
         terminal.settlement(merchantReference = merchantReference)
@@ -341,8 +348,10 @@ internal class UnsupportedEcrTerminalPort(
     override suspend fun signOn(merchantReference: String): EcrSignOn =
         throw UnsupportedOperationException(message)
 
-    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
-        throw UnsupportedOperationException(message)
+    override suspend fun closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String,
+    ): EcrReceiptClosed = throw UnsupportedOperationException(message)
 
     override suspend fun settlement(merchantReference: String): EcrSettlement =
         throw UnsupportedOperationException(message)
@@ -420,7 +429,10 @@ internal class InvalidPlanTerminalPort(
     override suspend fun signOn(merchantReference: String): EcrSignOn =
         EcrSignOn.Failed(merchantReference, Failure.Malformed(message))
 
-    override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed =
+    override suspend fun closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String,
+    ): EcrReceiptClosed =
         EcrReceiptClosed.Failed(merchantReference, Failure.Malformed(message))
 
     override suspend fun settlement(merchantReference: String): EcrSettlement =

@@ -159,13 +159,20 @@ final class EcrChannelContractTests: XCTestCase {
     func testCloseReceiptAndSignOnMatchAndroidTransportGates() {
         XCTAssertTrue(EcrTransports.supportsCloseReceipt("wifi"))
         XCTAssertTrue(EcrTransports.supportsCloseReceipt("usb_cable"))
-        XCTAssertFalse(EcrTransports.supportsCloseReceipt("webService"))
+        XCTAssertTrue(EcrTransports.supportsCloseReceipt("webService"))
+        XCTAssertTrue(EcrTransports.supportsCloseReceipt("web_service"))
         XCTAssertFalse(EcrTransports.supportsCloseReceipt("app_to_app"))
 
         XCTAssertTrue(EcrTransports.supportsSignOn("wifi"))
         XCTAssertTrue(EcrTransports.supportsSignOn("usb_cable"))
         XCTAssertFalse(EcrTransports.supportsSignOn("webService"))
         XCTAssertFalse(EcrTransports.supportsSignOn("app_to_app"))
+
+        XCTAssertTrue(EcrTransports.supportsSettlement("wifi"))
+        XCTAssertTrue(EcrTransports.supportsSettlement("webService"))
+        XCTAssertTrue(EcrTransports.supportsSettlement("web_service"))
+        XCTAssertFalse(EcrTransports.supportsSettlement("usb_cable"))
+        XCTAssertFalse(EcrTransports.supportsSettlement("app_to_app"))
     }
 
     func testIdleOutcomeIsSpelledExactlyThisWay() {

@@ -662,16 +662,21 @@ final class EcrTerminal {
   /// A terminal too old to know the request answers [EcrReceiptClosedRefused].
   /// Treat that as "cannot be asked" and carry on; the receipt stays up and
   /// somebody presses back, as it did before this existed.
+  ///
+  /// Wi‑Fi, USB cable, and Web Service. Web Service posts `/Ecr/closeReceipt`
+  /// and needs [originalMerchantReference], the sale, void, or refund. If only
+  /// [merchantReference] is passed on Web Service, that string is the original
+  /// and this close request gets a new id. App to app is excluded: the receipt
+  /// is already closed when the answer comes back.
   Future<EcrReceiptClosed> closeReceipt({
     String merchantReference = '',
+    String originalMerchantReference = '',
     String? operationId,
   }) {
     _checkReference(merchantReference);
+    _checkReference(originalMerchantReference);
 
     final String id = operationId ?? _newOperationId();
-    // Narrower than fetching a receipt: app to app is excluded because there
-    // the receipt is already closed by the time an answer comes back. See
-    // [EcrTransport.supportsCloseReceipt].
     if (!transport.supportsCloseReceipt) {
       return _refusedWith<EcrReceiptClosed>(
         id,
@@ -684,7 +689,11 @@ final class EcrTerminal {
     return _operation<EcrReceiptClosed>(
       id,
       _platform.closeReceipt(
-        _request(operationId: id, merchantReference: merchantReference),
+        _request(
+          operationId: id,
+          merchantReference: merchantReference,
+          originalMerchantReference: originalMerchantReference,
+        ),
       ),
     ).result;
   }
@@ -702,10 +711,9 @@ final class EcrTerminal {
   /// prints the settlement receipt when it prints at all, and puts the summary
   /// away 15 seconds later; [closeReceipt] puts it away sooner.
   ///
-  /// Wi‑Fi, USB cable and app to app. On Web Service this answers
-  /// [EcrSettlementFailed] without sending anything, until Amwal's relay can
-  /// carry it. A terminal too old to know the request answers
-  /// [EcrSettlementNotSettled] with `12`.
+  /// Wi‑Fi, USB cable, app to app, and Web Service. Web Service posts
+  /// `/Ecr/settle` (identity only — no amount). A terminal too old to know
+  /// the request answers [EcrSettlementNotSettled] with `12`.
   Future<EcrSettlement> settlement({
     String merchantReference = '',
     String? operationId,

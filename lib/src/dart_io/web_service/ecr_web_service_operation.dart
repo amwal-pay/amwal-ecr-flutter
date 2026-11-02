@@ -11,6 +11,12 @@ abstract final class EcrWebServiceEndpoints {
 
   /// Transaction status / inquiry path.
   static const String transactionStatus = '/Ecr/Inquiry';
+
+  /// Settlement path. Identity body only — no `messageType`, no amount.
+  static const String settle = '/Ecr/settle';
+
+  /// Close-receipt path. No `messageType` and no `currencyCode`.
+  static const String closeReceipt = '/Ecr/closeReceipt';
 }
 
 /// Web Service ECR operations exposed as REST endpoints.
@@ -28,7 +34,13 @@ enum EcrWebServiceOperation {
   transactionStatus(
     EcrWebServiceEndpoints.transactionStatus,
     'Transaction status',
-  );
+  ),
+
+  /// Closes the current batch. Posts `/Ecr/settle`.
+  settle(EcrWebServiceEndpoints.settle, 'Settlement'),
+
+  /// Puts the terminal's receipt away. Posts `/Ecr/closeReceipt`.
+  closeReceipt(EcrWebServiceEndpoints.closeReceipt, 'Close receipt');
 
   const EcrWebServiceOperation(this.path, this.label);
 

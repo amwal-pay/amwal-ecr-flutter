@@ -159,7 +159,10 @@ class EcrCallHandlerTest {
             return EcrSignOn.Available(merchantReference, EcrTerminalCapabilities(available = true), "{}")
         }
 
-        override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed {
+        override suspend fun closeReceipt(
+            merchantReference: String,
+            originalMerchantReference: String,
+        ): EcrReceiptClosed {
             calls += "closeReceipt"
             lastmerchantReference = merchantReference
             waitIfHeld()

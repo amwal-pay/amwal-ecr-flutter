@@ -24,8 +24,9 @@ Launcher / home-screen name: **ECR Flutter** (Android `android:label`, iOS
 Published pub.dev `0.3.1` still stubs iOS `signOn`. Keep `amwal_ecr: path: ../`
 (or the sibling path in `AmwalECR-flutter-example`) for `0.3.2+` hosts
 (`signOn` + `closeReceipt`), `0.3.3` app-to-app `printReceipt`, and `0.5.0`
-**Manual settlement** (a button under Start transaction over Wi‑Fi, USB cable
-and app to app; it asks the cashier to confirm, then shows the batch totals).
+**Manual settlement** (a button under Start transaction over Wi‑Fi, USB cable,
+app to app, and Web Service; it asks the cashier to confirm, then shows the
+batch totals). Web Service posts `/Ecr/settle`.
 
 ## Run
 

@@ -147,8 +147,8 @@ checkable claim rather than an assurance.
 | `inquireByReference` | ✔ | ✔ | ✔ | The lookup after an answer goes missing |
 | `receipt` | ✔ | ✔ | ✔ | Not over Web Service (`supportsReceipt`) |
 | `signOn` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app |
-| `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsCloseReceipt`); not Web Service or app to app |
-| `settlement` | ✔ | ✘ | ✔ | Wi‑Fi / USB cable / app to app (`supportsSettlement`); not Web Service. Windows over Wi‑Fi only. iOS answers `EcrUnsupported` |
+| `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi, USB cable, and Web Service (`/Ecr/closeReceipt`, needs the sale / void / refund reference). Not app to app. iOS: Wi‑Fi and Web Service. Windows: Wi‑Fi and Web Service |
+| `settlement` | ✔ | ✔ | ✔ | Wi‑Fi, USB cable, app to app, and Web Service (`/Ecr/settle`). Windows: Wi‑Fi and Web Service. iOS: Wi‑Fi and Web Service |
 | `printReceipt` | ✔ | ✘ | ✘ | **App to app only** (Android). Image width **384 px**, size **≤ 15 MB**. Wi‑Fi / USB / Web Service refuse before the host; iOS / Windows answer the same way |
 | `cancel` | ✔ | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
 
@@ -330,13 +330,12 @@ down here rather than left in a comment.
 
 ### 6.6 `closeReceipt` on iOS
 
-Android, iOS, and the Windows Dart host close an on-screen receipt over Wi‑Fi /
-USB cable (`EcrTerminal.closeReceipt`). The iOS bridge calls native AmwalECR
-and maps `idle` / declined / failed the same way Android does. Web Service and
-app to app still answer typed unsupported before anything is sent
-(`EcrTransport.supportsCloseReceipt`). Sign-on is wired the same way on iOS for
-Wi‑Fi / USB cable — the same `EcrSignOnAvailable` / `Unavailable` / `Failed`
-shapes as Android.
+Android, iOS, and the Windows Dart host close an on-screen receipt over Wi‑Fi.
+Android also does USB cable. Web Service posts `/Ecr/closeReceipt` and needs
+the sale, void, or refund reference. The iOS bridge calls native AmwalECR and
+maps `idle` / declined / failed the same way Android does. App to app answers
+typed unsupported before anything is sent (`EcrTransport.supportsCloseReceipt`).
+Sign-on stays Wi‑Fi / USB cable.
 
 ---
 

@@ -18,11 +18,11 @@ Needs Android `ecr-sdk` **1.0.11** (the plugin's default `ecrSdkVersion`).
   `EcrSettlementNotSettled` with the terminal's `status` (`MISMATCH`,
   `SESSION_EXPIRED`, `FAILED`, or empty for a refusal before it started), or
   `EcrSettlementFailed`. Ask the cashier to confirm first: the terminal starts
-  at once. Wi‑Fi, USB cable and app to app (`EcrTransport.supportsSettlement`);
-  Web Service is refused before anything is sent until the relay has a
-  settlement endpoint. Android and Windows (Wi‑Fi); iOS answers
-  `EcrUnsupported`.
+  at once. Wi‑Fi, USB cable, app to app, and Web Service
+  (`EcrTransport.supportsSettlement`). Web Service posts `/Ecr/settle`.
+  iOS drives Wi‑Fi and Web Service; Windows drives Wi‑Fi and Web Service.
 - `EcrTransactionType.settlement`. Not in `menuOptions`.
+- **Web Service close receipt — `/Ecr/closeReceipt`.** `closeReceipt(originalMerchantReference:)` posts the sale, void, or refund reference. Wi‑Fi and USB still send `CLOSE_RECEIPT`. App to app stays excluded.
 
 ### Changed (breaking)
 

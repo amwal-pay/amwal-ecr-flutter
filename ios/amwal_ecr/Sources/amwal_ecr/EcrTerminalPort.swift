@@ -52,7 +52,12 @@ protocol EcrTerminalPort: AnyObject {
 
     func signOn(merchantReference: String) throws -> EcrSignOn
 
-    func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed
+    func closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String
+    ) throws -> EcrReceiptClosed
+
+    func settlement(merchantReference: String) throws -> EcrSettlement
 
     func cancel()
 }

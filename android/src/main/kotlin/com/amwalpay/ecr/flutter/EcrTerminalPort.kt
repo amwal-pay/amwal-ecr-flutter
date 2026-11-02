@@ -62,7 +62,10 @@ internal interface EcrTerminalPort {
     suspend fun signOn(merchantReference: String): EcrSignOn
 
     /** Asks the terminal to put its receipt away and go back to idle. */
-    suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed
+    suspend fun closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String = "",
+    ): EcrReceiptClosed
 
     /** Asks the terminal to settle its current batch. */
     suspend fun settlement(merchantReference: String): EcrSettlement

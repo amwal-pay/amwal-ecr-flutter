@@ -223,7 +223,10 @@ internal class EcrCallHandler(
             return
         }
         call.run(reply, EcrMapping::receiptClosed) {
-            it.closeReceipt(call.merchantReference)
+            it.closeReceipt(
+                merchantReference = call.merchantReference,
+                originalMerchantReference = call.originalMerchantReference,
+            )
         }
     }
 
@@ -427,6 +430,8 @@ internal class EcrCallHandler(
         val transactionDate: String = map[EcrArgs.TRANSACTION_DATE] as? String ?: ""
         val originalTerminalId: String = map[EcrArgs.ORIGINAL_TERMINAL_ID] as? String ?: ""
         val merchantReference: String = map[EcrArgs.MERCHANT_REFERENCE] as? String ?: ""
+        val originalMerchantReference: String =
+            (map[EcrArgs.ORIGINAL_MERCHANT_REFERENCE] as? String)?.trim().orEmpty()
 
         val isIpTransport: Boolean get() = EcrTransports.isIpTransport(transport)
 

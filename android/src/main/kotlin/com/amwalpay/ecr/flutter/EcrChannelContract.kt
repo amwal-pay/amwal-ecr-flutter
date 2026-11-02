@@ -218,18 +218,18 @@ internal object EcrTransports {
      * already happened. An app-to-app answer is held until the operator closes
      * the receipt, so by the time the till has a result the terminal is idle
      * again. Sending it anyway brings the payment app forward for a moment and
-     * sends it away again, for nothing.
+     * sends it away again, for nothing. Web Service posts `/Ecr/closeReceipt`.
      */
     fun supportsCloseReceipt(name: String?): Boolean =
-        isIpTransport(name) || isUsbCable(name)
+        isIpTransport(name) || isUsbCable(name) || isWebService(name)
 
     /**
-     * Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable
-     * and app to app. Not Web Service yet — Amwal's relay has no settlement
-     * endpoint.
+     * Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable,
+     * app to app, and Web Service (`/Ecr/settle`).
      */
     fun supportsSettlement(name: String?): Boolean =
-        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name)
+        isIpTransport(name) || isUsbCable(name) || isPaymentApp(name) ||
+            isWebService(name)
 
     /**
      * Whether the terminal can be asked if it is there without sending a

@@ -442,16 +442,18 @@ switch (await terminal.closeReceipt()) {
 }
 ```
 
-**Android and Windows** support this over Wi‑Fi / USB cable. **iOS** still
-returns a typed unsupported failure until the bridge wires the native call.
-App to app and Web Service never need it (see
+Wi‑Fi, USB cable, and Web Service. Web Service posts `/Ecr/closeReceipt` and
+needs the sale, void, or refund reference as `originalMerchantReference`. iOS
+drives Wi‑Fi and Web Service. App to app is excluded: the receipt is already
+closed when the answer comes back (see
 [compatibility matrix §6.6](compatibility-matrix.md#66-closereceipt-on-ios)).
 
 ### Manual settlement
 
 `settlement()` runs the terminal's **Manual settlement** — the one its merchant
 menu offers — and answers with the totals the batch closed with. Wi-Fi, the
-cable and app to app; not Web Service yet, and not on iOS yet.
+cable, app to app, and Web Service (`/Ecr/settle`). iOS drives Wi-Fi and
+Web Service.
 
 ```dart
 // The terminal starts as soon as it is asked and does not ask again, so

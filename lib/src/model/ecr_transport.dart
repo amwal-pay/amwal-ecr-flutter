@@ -88,14 +88,15 @@ enum EcrTransport {
   /// its idle screen. Sending it anyway brings the payment app to the front for
   /// a moment and sends it away again, for nothing.
   ///
-  /// Web Service is excluded for the reason it always is: there the terminal is
-  /// not on the till's counter, so its screen is not the till's to tidy.
-  bool get supportsCloseReceipt => isIpTransport || isUsbCable;
+  /// Web Service posts `/Ecr/closeReceipt` and needs the sale, void, or refund
+  /// reference.
+  bool get supportsCloseReceipt =>
+      isIpTransport || isUsbCable || this == EcrTransport.webService;
 
-  /// Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable
-  /// and app to app. Not Web Service yet — Amwal's relay has no settlement
-  /// endpoint to carry it.
-  bool get supportsSettlement => isIpTransport || isUsbCable || isAppToApp;
+  /// Whether the terminal can be asked to settle its batch: Wi‑Fi, USB cable,
+  /// app to app, and Web Service (`/Ecr/settle`).
+  bool get supportsSettlement =>
+      isIpTransport || isUsbCable || isAppToApp || this == EcrTransport.webService;
 
   /// Whether this Flutter plugin can drive transactions over this transport.
   ///

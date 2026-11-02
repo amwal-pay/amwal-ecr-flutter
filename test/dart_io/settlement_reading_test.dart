@@ -172,7 +172,7 @@ void main() {
   });
 
   test('a Web Service terminal cannot be asked to settle', () {
-    expect(EcrTransport.webService.supportsSettlement, isFalse);
+    expect(EcrTransport.webService.supportsSettlement, isTrue);
     expect(EcrTransport.wifi.supportsSettlement, isTrue);
     expect(EcrTransport.usbCable.supportsSettlement, isTrue);
     expect(EcrTransport.appToApp.supportsSettlement, isTrue);

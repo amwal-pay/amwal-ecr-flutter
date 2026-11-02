@@ -211,7 +211,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     await showPrintOutcomeDialog(context, outcome);
   }
 
-  /// Wi-Fi and USB cable only. Other transports keep the button hidden.
+  /// Wi‑Fi, USB cable, and Web Service. App to app keeps the button hidden.
   VoidCallback? _closeReceiptCallback() =>
       _controller.canCloseTerminalReceipt ? _closeTerminalReceipt : null;
 
