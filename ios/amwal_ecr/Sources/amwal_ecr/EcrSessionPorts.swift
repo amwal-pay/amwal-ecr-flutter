@@ -141,8 +141,18 @@ final class SdkOpenedSessionPort: EcrTerminalPort {
         try session.signOn(merchantReference: merchantReference)
     }
 
-    func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
-        try session.closeReceipt(merchantReference: merchantReference)
+    func closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String
+    ) throws -> EcrReceiptClosed {
+        try session.closeReceipt(
+            merchantReference: merchantReference,
+            originalMerchantReference: originalMerchantReference
+        )
+    }
+
+    func settlement(merchantReference: String) throws -> EcrSettlement {
+        try session.settlement(merchantReference: merchantReference)
     }
 
     func cancel() { session.cancel() }
@@ -206,7 +216,14 @@ final class UnsupportedEcrTerminalPort: EcrTerminalPort {
         throw EcrInvalidArgument(message)
     }
 
-    func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
+    func closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String
+    ) throws -> EcrReceiptClosed {
+        throw EcrInvalidArgument(message)
+    }
+
+    func settlement(merchantReference: String) throws -> EcrSettlement {
         throw EcrInvalidArgument(message)
     }
 
@@ -289,7 +306,14 @@ final class InvalidPlanTerminalPort: EcrTerminalPort {
         .failed(merchantReference: merchantReference, failure: .malformed(message))
     }
 
-    func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
+    func closeReceipt(
+        merchantReference: String,
+        originalMerchantReference: String
+    ) throws -> EcrReceiptClosed {
+        .failed(merchantReference: merchantReference, failure: .malformed(message))
+    }
+
+    func settlement(merchantReference: String) throws -> EcrSettlement {
         .failed(merchantReference: merchantReference, failure: .malformed(message))
     }
 

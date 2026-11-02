@@ -60,6 +60,7 @@ internal class EcrCallHandler(
                 EcrMethods.RECEIPT -> receipt(Call(arguments), once)
                 EcrMethods.SIGN_ON -> signOn(Call(arguments), once)
                 EcrMethods.CLOSE_RECEIPT -> closeReceipt(Call(arguments), once)
+                EcrMethods.SETTLEMENT -> settlement(Call(arguments), once)
                 EcrMethods.PRINT_RECEIPT -> printReceipt(Call(arguments), once)
                 else -> once.notImplemented()
             }
@@ -222,7 +223,26 @@ internal class EcrCallHandler(
             return
         }
         call.run(reply, EcrMapping::receiptClosed) {
-            it.closeReceipt(call.merchantReference)
+            it.closeReceipt(
+                merchantReference = call.merchantReference,
+                originalMerchantReference = call.originalMerchantReference,
+            )
+        }
+    }
+
+    /** Settles the terminal's batch. Wi‑Fi, USB cable and app to app. */
+    private fun settlement(call: Call, reply: EcrReply) {
+        if (!call.supportsSettlement) {
+            reply.success(
+                EcrMapping.failedResult(
+                    EcrFailureKinds.UNSUPPORTED,
+                    "Settlement is not supported over this transport",
+                ),
+            )
+            return
+        }
+        call.run(reply, EcrMapping::settlement) {
+            it.settlement(call.merchantReference)
         }
     }
 
@@ -410,6 +430,8 @@ internal class EcrCallHandler(
         val transactionDate: String = map[EcrArgs.TRANSACTION_DATE] as? String ?: ""
         val originalTerminalId: String = map[EcrArgs.ORIGINAL_TERMINAL_ID] as? String ?: ""
         val merchantReference: String = map[EcrArgs.MERCHANT_REFERENCE] as? String ?: ""
+        val originalMerchantReference: String =
+            (map[EcrArgs.ORIGINAL_MERCHANT_REFERENCE] as? String)?.trim().orEmpty()
 
         val isIpTransport: Boolean get() = EcrTransports.isIpTransport(transport)
 
@@ -420,6 +442,7 @@ internal class EcrCallHandler(
         val supportsReceipt: Boolean get() = EcrTransports.supportsReceipt(transport)
         val supportsSignOn: Boolean get() = EcrTransports.supportsSignOn(transport)
         val supportsCloseReceipt: Boolean get() = EcrTransports.supportsCloseReceipt(transport)
+        val supportsSettlement: Boolean get() = EcrTransports.supportsSettlement(transport)
 
         val hasReachabilityProbe: Boolean
             get() = EcrTransports.hasReachabilityProbe(transport)

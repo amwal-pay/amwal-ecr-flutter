@@ -31,6 +31,32 @@ abstract final class EcrWebServiceMessage {
     if (type == EcrTransactionType.receipt) {
       throw const EcrArgumentError('Receipt is not a Web Service operation');
     }
+    if (type == EcrTransactionType.closeReceipt) {
+      return buildCloseReceipt(
+        merchantId: merchantId,
+        terminalId: terminalId,
+        terminalSerial: terminalSerial,
+        secureHashKey: secureHashKey,
+        ecrId: ecrId,
+        merchantReference: merchantReference,
+        originalMerchantReference: originalMerchantReference,
+        transactionDateTime: transactionDateTime,
+        now: now,
+      );
+    }
+    if (type == EcrTransactionType.settlement) {
+      return buildPlain(
+        merchantId: merchantId,
+        terminalId: terminalId,
+        terminalSerial: terminalSerial,
+        secureHashKey: secureHashKey,
+        currencyCode: currencyCode,
+        ecrId: ecrId,
+        merchantReference: merchantReference,
+        transactionDateTime: transactionDateTime,
+        now: now,
+      );
+    }
 
     final String reference =
         EcrMessage.resolveMerchantReference(merchantReference);
@@ -82,22 +108,96 @@ abstract final class EcrWebServiceMessage {
         body['originalTerminalId'] = terminalId;
       case EcrTransactionType.receipt:
         break;
-      // The Hub has no route for it and wants none: over Web Service the
-      // terminal is not on the till's counter, so its screen is not the
-      // till's to tidy. Refused before reaching here, in the platform.
       case EcrTransactionType.closeReceipt:
-        break;
+        throw StateError('unreachable');
       // Nor a sign-on route. A Web Service terminal is reached through Amwal
       // rather than addressed directly, so a till configured for it already
       // knows what a sign-on would tell it about the link.
       case EcrTransactionType.signOn:
         break;
+      case EcrTransactionType.settlement:
+        throw StateError('unreachable');
     }
 
     final Map<String, Object?> json = secureHashKey.isEmpty
         ? body
         : WebServiceSecureHash.withHash(body, secureHashKey);
 
+    return (reference, json);
+  }
+
+  /// Hub `/Ecr/closeReceipt` body. No `messageType` and no `currencyCode`.
+  static (String, Map<String, Object?>) buildCloseReceipt({
+    required int merchantId,
+    required int terminalId,
+    required String terminalSerial,
+    required String secureHashKey,
+    String ecrId = 'ECR01',
+    String merchantReference = '',
+    required String originalMerchantReference,
+    String transactionDateTime = '',
+    DateTime? now,
+  }) {
+    if (originalMerchantReference.trim().isEmpty) {
+      throw const EcrArgumentError(
+        'Close receipt needs the original merchant reference',
+      );
+    }
+    final String reference =
+        EcrMessage.resolveMerchantReference(merchantReference);
+    final String original =
+        EcrMessage.resolveMerchantReference(originalMerchantReference);
+    final String wireDateTime = transactionDateTime.isEmpty
+        ? _timestamp(now ?? DateTime.now())
+        : transactionDateTime;
+    final Map<String, Object?> body = <String, Object?>{
+      'version': EcrMessage.protocolVersion,
+      'merchantId': merchantId,
+      'terminalId': terminalId,
+      'terminalSerial': terminalSerial,
+      'ecrId': ecrId,
+      'merchantReference': reference,
+      'transactionDateTime': wireDateTime,
+      'requestDateTime': wireDateTime,
+      'originalMerchantReference': original,
+    };
+    final Map<String, Object?> json = secureHashKey.isEmpty
+        ? body
+        : WebServiceSecureHash.withHash(body, secureHashKey);
+    return (reference, json);
+  }
+
+  /// Hub `/Ecr/settle` body: identity, currency, both timestamps. No `messageType`.
+  static (String, Map<String, Object?>) buildPlain({
+    required int merchantId,
+    required int terminalId,
+    required String terminalSerial,
+    required String secureHashKey,
+    String currencyCode = '512',
+    String ecrId = 'ECR01',
+    String merchantReference = '',
+    String transactionDateTime = '',
+    DateTime? now,
+  }) {
+    final String reference =
+        EcrMessage.resolveMerchantReference(merchantReference);
+    final String wireDateTime = transactionDateTime.isEmpty
+        ? _timestamp(now ?? DateTime.now())
+        : transactionDateTime;
+    final Map<String, Object?> body = <String, Object?>{
+      'version': EcrMessage.protocolVersion,
+      'merchantId': merchantId,
+      'terminalId': terminalId,
+      'terminalSerial': terminalSerial,
+      'ecrId': ecrId,
+      'merchantReference': reference,
+      'currencyCode': currencyCode,
+      'transactionDateTime': wireDateTime,
+      'requestDateTime': wireDateTime,
+    };
+    final Map<String, Object?> json = secureHashKey.isEmpty
+        ? body
+        : WebServiceSecureHash.withHash(body, secureHashKey);
     return (reference, json);
   }
 

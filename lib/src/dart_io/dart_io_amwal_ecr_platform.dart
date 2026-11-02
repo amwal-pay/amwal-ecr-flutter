@@ -7,6 +7,7 @@ import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_settlement.dart';
 import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction_type.dart';
@@ -228,10 +229,9 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
 
   @override
   Future<EcrReceiptClosed> closeReceipt(EcrRequest request) {
-    // Wi-Fi only, as everything here is: this host speaks TCP. The Hub has no
-    // route for it either — over Web Service the terminal is not on the till's
-    // counter, and what is on its screen is not the till's to tidy.
-    if (request.transport != EcrTransport.wifi) {
+    // This host speaks TCP and HTTPS. USB cable and app to app are Android.
+    if (request.transport != EcrTransport.wifi &&
+        request.transport != EcrTransport.webService) {
       return Future<EcrReceiptClosed>.value(
         EcrReceiptClosedFailed(
           merchantReference: '',
@@ -244,10 +244,51 @@ base class DartIoAmwalEcrPlatform extends AmwalEcrPlatform {
     }
     return _invoke<EcrReceiptClosed>(
       request: request,
-      run: (LanEcrClient lan, WebServiceEcrClient? web) =>
-          lan.closeReceipt(merchantReference: request.merchantReference),
+      run: (LanEcrClient lan, WebServiceEcrClient? web) {
+        if (web != null) {
+          final String passedOriginal =
+              request.originalMerchantReference.trim();
+          final String original = passedOriginal.isEmpty
+              ? request.merchantReference
+              : passedOriginal;
+          final String own =
+              passedOriginal.isEmpty ? '' : request.merchantReference;
+          return web.closeReceipt(
+            originalMerchantReference: original,
+            merchantReference: own,
+          );
+        }
+        return lan.closeReceipt(merchantReference: request.merchantReference);
+      },
       onFailure: (EcrFailure failure) =>
           EcrReceiptClosedFailed(merchantReference: '', failure: failure),
+    );
+  }
+
+  @override
+  Future<EcrSettlement> settlement(EcrRequest request) {
+    // This host speaks TCP and HTTPS. USB cable and app to app are Android.
+    if (request.transport != EcrTransport.wifi &&
+        request.transport != EcrTransport.webService) {
+      return Future<EcrSettlement>.value(
+        EcrSettlementFailed(
+          merchantReference: '',
+          failure: EcrUnsupported(
+            'Settlement is not available over ${request.transport.name}',
+          ),
+        ),
+      );
+    }
+    return _invoke<EcrSettlement>(
+      request: request,
+      run: (LanEcrClient lan, WebServiceEcrClient? web) {
+        if (web != null) {
+          return web.settlement(merchantReference: request.merchantReference);
+        }
+        return lan.settlement(merchantReference: request.merchantReference);
+      },
+      onFailure: (EcrFailure failure) =>
+          EcrSettlementFailed(merchantReference: '', failure: failure),
     );
   }
 

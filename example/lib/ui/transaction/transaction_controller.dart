@@ -251,13 +251,12 @@ class TransactionController extends ChangeNotifier {
 
   /// Whether the selected terminal can be asked to put its receipt away.
   ///
-  /// Wi-Fi and USB cable only. Never for the payment app on this device, and
-  /// not because it would fail — because it has already happened: an
-  /// app-to-app answer is held until the operator closes the receipt. Never
-  /// over Web Service either, where the terminal is not on the till's counter.
+  /// Wi‑Fi, USB cable, and Web Service. Never for the payment app on this
+  /// device: an app-to-app answer is held until the operator closes the receipt.
   bool get canCloseTerminalReceipt {
     final SelectedTerminalConfig? config = _selectedConfig;
-    return config != null && (config.usesLan || config.usesUsbCable);
+    return config != null &&
+        (config.usesLan || config.usesUsbCable || config.usesWebService);
   }
 
   /// Tells the terminal the cashier has finished, so it can put its receipt
@@ -277,7 +276,53 @@ class TransactionController extends ChangeNotifier {
     if (registered == null) return null;
 
     final SelectedTerminalConfig active = await _resolveConfig(registered);
-    return _terminalFor(registered, active).closeReceipt();
+    String original = '';
+    if (active.usesWebService) {
+      final TransactionState current = _state;
+      if (current is TransactionCompleted &&
+          (current.type == EcrTransactionType.sale ||
+              current.type == EcrTransactionType.voidTransaction ||
+              current.type == EcrTransactionType.refund)) {
+        original = current.result.merchantReference;
+      }
+      if (original.trim().isEmpty) {
+        return const EcrReceiptClosedFailed(
+          merchantReference: '',
+          failure: EcrMalformed(
+            'Close receipt needs the sale / void / refund reference',
+          ),
+        );
+      }
+    }
+    return _terminalFor(registered, active).closeReceipt(
+      originalMerchantReference: original,
+    );
+  }
+
+  /// Whether the selected terminal can be asked to settle from here: Wi‑Fi,
+  /// USB cable, the payment app on this device, and Web Service.
+  bool get canSettle {
+    final SelectedTerminalConfig? config = _selectedConfig;
+    return config != null &&
+        (config.usesLan ||
+            config.usesUsbCable ||
+            config.usesPaymentApp ||
+            config.usesWebService);
+  }
+
+  /// Settles the selected terminal's batch — its merchant menu's Manual
+  /// settlement. The terminal does not ask for confirmation, so the screen
+  /// asks the cashier before calling this.
+  Future<void> startSettlement() async {
+    final String? serial = _selectedSerial;
+    if (serial == null || !canSettle) return;
+    await startTransaction(
+      TransactionRequest(
+        type: EcrTransactionType.settlement,
+        terminalSerial: serial,
+        amount: null,
+      ),
+    );
   }
 
   Future<void> startTransaction(TransactionRequest request) async {
@@ -367,6 +412,17 @@ class TransactionController extends ChangeNotifier {
 
       _emit(const TransactionInProgress());
 
+      if (request.type == EcrTransactionType.settlement) {
+        final EcrSettlement settlement = await terminal.settlement();
+        if (!_stillCurrent(epoch)) return;
+        _emit(switch (settlement) {
+          EcrSettlementFailed(:final EcrFailure failure) =>
+            TransactionFailed(failure.message),
+          _ => TransactionSettled(settlement),
+        });
+        return;
+      }
+
       if (request.type == EcrTransactionType.inquiry) {
         final EcrInquiry inquiry = request.looksUpByReference
             ? await terminal.inquireByReference(
@@ -409,7 +465,8 @@ class TransactionController extends ChangeNotifier {
         EcrTransactionType.inquiry ||
         EcrTransactionType.receipt ||
         EcrTransactionType.signOn ||
-        EcrTransactionType.closeReceipt =>
+        EcrTransactionType.closeReceipt ||
+        EcrTransactionType.settlement =>
           throw StateError('${request.type.displayName} is not run from here'),
       };
 

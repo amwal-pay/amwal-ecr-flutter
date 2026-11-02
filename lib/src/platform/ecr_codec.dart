@@ -5,6 +5,7 @@ import '../model/ecr_print_outcome.dart';
 import '../model/ecr_reachability.dart';
 import '../model/ecr_receipt.dart';
 import '../model/ecr_receipt_closed.dart';
+import '../model/ecr_settlement.dart';
 import '../model/ecr_sign_on.dart';
 import '../model/ecr_result.dart';
 import '../model/ecr_transaction.dart';
@@ -345,6 +346,78 @@ abstract final class EcrCodec {
         );
     }
   }
+
+  /// Reads a settlement answer.
+  static EcrSettlement settlement(
+    Object? payload, {
+    required String operationId,
+  }) {
+    final Map<Object?, Object?>? map = _asMap(payload);
+    if (map == null) {
+      return EcrSettlementFailed(
+        merchantReference: '',
+        failure: EcrMalformed(_notAMap(payload, 'a settlement')),
+      );
+    }
+
+    final String reference = _string(map, EcrResultKeys.merchantReference);
+
+    switch (_string(map, EcrResultKeys.outcome)) {
+      case EcrOutcomes.settled:
+        final Map<Object?, Object?> totals =
+            _asMap(map[EcrSettlementKeys.totals]) ?? const <Object?, Object?>{};
+        return EcrSettlementSettled(
+          merchantReference: reference,
+          batchId: _string(map, EcrSettlementKeys.batchId),
+          currency: _string(map, EcrSettlementKeys.currency),
+          startTime: _string(map, EcrSettlementKeys.startTime),
+          endTime: _string(map, EcrSettlementKeys.endTime),
+          totalTransactions: _int(map, EcrSettlementKeys.totalTransactions),
+          netAmount: _string(map, EcrSettlementKeys.netAmount),
+          totals: <String, EcrSettlementTotal>{
+            for (final String type in EcrSettlementSettled.totalTypes)
+              type: _settlementTotal(_asMap(totals[type])),
+          },
+          raw: _string(map, EcrResultKeys.raw),
+        );
+      case EcrOutcomes.nothingToSettle:
+        return EcrSettlementNothingToSettle(
+          merchantReference: reference,
+          message: _string(map, EcrSettlementKeys.message),
+          raw: _string(map, EcrResultKeys.raw),
+        );
+      case EcrOutcomes.declined:
+        return EcrSettlementNotSettled(
+          merchantReference: reference,
+          responseCode: _string(map, EcrResultKeys.responseCode),
+          status: _string(map, EcrSettlementKeys.status),
+          reason: _string(map, EcrResultKeys.responseMessage),
+          uploadedTransactions: map[EcrSettlementKeys.uploadedTransactions] ==
+                  null
+              ? null
+              : _int(map, EcrSettlementKeys.uploadedTransactions),
+          raw: _string(map, EcrResultKeys.raw),
+        );
+      case EcrOutcomes.failed:
+        return EcrSettlementFailed(
+          merchantReference: reference,
+          failure: failure(map[EcrResultKeys.failure]),
+        );
+      case final String unknown:
+        return EcrSettlementFailed(
+          merchantReference: reference,
+          failure: EcrMalformed(_unknownOutcome(unknown, 'a settlement')),
+        );
+    }
+  }
+
+  static EcrSettlementTotal _settlementTotal(Map<Object?, Object?>? row) =>
+      row == null
+          ? const EcrSettlementTotal(count: 0, amount: '0')
+          : EcrSettlementTotal(
+              count: _int(row, EcrSettlementKeys.count),
+              amount: _string(row, EcrSettlementKeys.amount),
+            );
 
   /// Reads the answer to [EcrMethods.printReceipt].
   ///

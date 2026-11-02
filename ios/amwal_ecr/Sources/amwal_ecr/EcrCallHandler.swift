@@ -76,6 +76,8 @@ final class EcrCallHandler {
                 try signOn(Call(arguments), once)
             case EcrMethods.closeReceipt:
                 try closeReceipt(Call(arguments), once)
+            case EcrMethods.settlement:
+                try settlement(Call(arguments), once)
             case EcrMethods.printReceipt:
                 printReceipt(once)
             default:
@@ -232,8 +234,8 @@ final class EcrCallHandler {
     }
 
     private func closeReceipt(_ call: Call, _ reply: OneShotReply) throws {
-        // Match Android: Wi‑Fi / USB cable only. App to app already closed the
-        // receipt when the answer arrived; Web Service has no counter screen.
+        // Wi‑Fi and USB send CLOSE_RECEIPT. Web Service posts /Ecr/closeReceipt.
+        // App to app already closed the receipt when the answer arrived.
         guard call.supportsCloseReceipt else {
             reply.success(
                 EcrMapping.failedResult(
@@ -244,7 +246,27 @@ final class EcrCallHandler {
             return
         }
         try run(call, reply, EcrMapping.receiptClosed) {
-            try $0.closeReceipt(merchantReference: call.merchantReference)
+            try $0.closeReceipt(
+                merchantReference: call.merchantReference,
+                originalMerchantReference: call.originalMerchantReference
+            )
+        }
+    }
+
+    private func settlement(_ call: Call, _ reply: OneShotReply) throws {
+        // Wi‑Fi sends SETTLEMENT. Web Service posts /Ecr/settle. USB cable and
+        // app to app are not driven on iOS.
+        guard call.supportsSettlement else {
+            reply.success(
+                EcrMapping.failedResult(
+                    kind: EcrFailureKinds.unsupported,
+                    message: "Settlement is not supported over this transport"
+                )
+            )
+            return
+        }
+        try run(call, reply, EcrMapping.settlement) {
+            try $0.settlement(merchantReference: call.merchantReference)
         }
     }
 
@@ -310,6 +332,7 @@ final class EcrCallHandler {
         let transactionDate: String
         let originalTerminalId: String
         let merchantReference: String
+        let originalMerchantReference: String
 
         private let raw: [String: Any]
         private let config: EcrConfig
@@ -328,6 +351,8 @@ final class EcrCallHandler {
             transactionDate = arguments[EcrArgs.transactionDate] as? String ?? ""
             originalTerminalId = arguments[EcrArgs.originalTerminalId] as? String ?? ""
             merchantReference = arguments[EcrArgs.merchantReference] as? String ?? ""
+            originalMerchantReference =
+                (arguments[EcrArgs.originalMerchantReference] as? String)?.trimmed ?? ""
             config = EcrMapping.config(arguments[EcrArgs.config] as? [String: Any])
         }
 
@@ -338,6 +363,8 @@ final class EcrCallHandler {
         var supportsSignOn: Bool { EcrTransports.supportsSignOn(transport) }
 
         var supportsCloseReceipt: Bool { EcrTransports.supportsCloseReceipt(transport) }
+
+        var supportsSettlement: Bool { EcrTransports.supportsSettlement(transport) }
 
         func terminal(_ factory: EcrTerminalFactory) -> EcrTerminalPort {
             factory(host, serialNumber, transport, config)

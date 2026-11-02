@@ -4,6 +4,7 @@ import com.amwalpay.ecr.EcrConfig
 import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrReceiptClosed
+import com.amwalpay.ecr.EcrSettlement
 import com.amwalpay.ecr.EcrSignOn
 import com.amwalpay.ecr.EcrTerminalCapabilities
 import com.amwalpay.ecr.EcrResult
@@ -129,10 +130,19 @@ class EcrReferenceAndSigningTest {
             return EcrSignOn.Available(merchantReference, EcrTerminalCapabilities(available = true), "{}")
         }
 
-        override suspend fun closeReceipt(merchantReference: String): EcrReceiptClosed {
+        override suspend fun closeReceipt(
+            merchantReference: String,
+            originalMerchantReference: String,
+        ): EcrReceiptClosed {
             calls += "closeReceipt"
             lastmerchantReference = merchantReference
             return EcrReceiptClosed.Idle("REQ", "{}")
+        }
+
+        override suspend fun settlement(merchantReference: String): EcrSettlement {
+            calls += "settlement"
+            lastmerchantReference = merchantReference
+            return EcrSettlement.NothingToSettle("REQ", "", "{}")
         }
     }
 

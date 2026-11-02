@@ -28,6 +28,7 @@ class EcrChannelContractTest {
         assertEquals("inquire", EcrMethods.INQUIRE)
         assertEquals("inquireByReference", EcrMethods.INQUIRE_BY_REFERENCE)
         assertEquals("receipt", EcrMethods.RECEIPT)
+        assertEquals("settlement", EcrMethods.SETTLEMENT)
         assertEquals("printReceipt", EcrMethods.PRINT_RECEIPT)
         assertEquals("cancel", EcrMethods.CANCEL)
     }
@@ -99,6 +100,8 @@ class EcrChannelContractTest {
         assertEquals("notFound", EcrOutcomes.NOT_FOUND)
         assertEquals("ready", EcrOutcomes.READY)
         assertEquals("unavailable", EcrOutcomes.UNAVAILABLE)
+        assertEquals("settled", EcrOutcomes.SETTLED)
+        assertEquals("nothingToSettle", EcrOutcomes.NOTHING_TO_SETTLE)
     }
 
     @Test
@@ -219,5 +222,21 @@ class EcrChannelContractTest {
         assertEquals("port", EcrReachabilityKeys.PORT)
         assertEquals("error", EcrReachabilityKeys.ERROR)
         assertEquals("endpoint", EcrReachabilityKeys.ENDPOINT)
+    }
+
+    @Test
+    fun `settlement keys are spelled exactly this way`() {
+        assertEquals("batchId", EcrSettlementKeys.BATCH_ID)
+        assertEquals("currency", EcrSettlementKeys.CURRENCY)
+        assertEquals("startTime", EcrSettlementKeys.START_TIME)
+        assertEquals("endTime", EcrSettlementKeys.END_TIME)
+        assertEquals("totalTransactions", EcrSettlementKeys.TOTAL_TRANSACTIONS)
+        assertEquals("netAmount", EcrSettlementKeys.NET_AMOUNT)
+        assertEquals("totals", EcrSettlementKeys.TOTALS)
+        assertEquals("count", EcrSettlementKeys.COUNT)
+        assertEquals("amount", EcrSettlementKeys.AMOUNT)
+        assertEquals("status", EcrSettlementKeys.STATUS)
+        assertEquals("uploadedTransactions", EcrSettlementKeys.UPLOADED_TRANSACTIONS)
+        assertEquals("message", EcrSettlementKeys.MESSAGE)
     }
 }

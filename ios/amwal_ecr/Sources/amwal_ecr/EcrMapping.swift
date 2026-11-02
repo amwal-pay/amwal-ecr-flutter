@@ -241,6 +241,58 @@ enum EcrMapping {
         }
     }
 
+    /// Mirrors Android `EcrMapping.settlement`.
+    static func settlement(_ settlement: EcrSettlement) -> [String: Any] {
+        switch settlement {
+        case let .settled(
+            reference, batchId, currency, startTime, endTime,
+            totalTransactions, netAmount, totals, raw
+        ):
+            var rows: [String: [String: Any]] = [:]
+            for (type, total) in totals {
+                rows[type] = [
+                    EcrSettlementKeys.count: total.count,
+                    EcrSettlementKeys.amount: total.amount,
+                ]
+            }
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.settled,
+                EcrResultKeys.merchantReference: reference,
+                EcrSettlementKeys.batchId: batchId,
+                EcrSettlementKeys.currency: currency,
+                EcrSettlementKeys.startTime: startTime,
+                EcrSettlementKeys.endTime: endTime,
+                EcrSettlementKeys.totalTransactions: totalTransactions,
+                EcrSettlementKeys.netAmount: netAmount,
+                EcrSettlementKeys.totals: rows,
+                EcrResultKeys.raw: raw,
+            ]
+        case let .nothingToSettle(reference, message, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.nothingToSettle,
+                EcrResultKeys.merchantReference: reference,
+                EcrSettlementKeys.message: message,
+                EcrResultKeys.raw: raw,
+            ]
+        case let .notSettled(reference, responseCode, status, reason, uploaded, raw):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.declined,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.responseCode: responseCode,
+                EcrResultKeys.reason: reason,
+                EcrSettlementKeys.status: status,
+                EcrSettlementKeys.uploadedTransactions: uploaded as Any? ?? NSNull(),
+                EcrResultKeys.raw: raw,
+            ]
+        case let .failed(reference, failure):
+            return [
+                EcrResultKeys.outcome: EcrOutcomes.failed,
+                EcrResultKeys.merchantReference: reference,
+                EcrResultKeys.failure: self.failure(failure),
+            ]
+        }
+    }
+
     static func capabilities(_ what: EcrTerminalCapabilities) -> [String: Any] {
         [
             "available": what.available,

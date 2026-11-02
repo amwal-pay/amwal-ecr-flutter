@@ -6,6 +6,7 @@ import com.amwalpay.ecr.EcrInquiry
 import com.amwalpay.ecr.EcrReachability
 import com.amwalpay.ecr.EcrReceipt
 import com.amwalpay.ecr.EcrReceiptClosed
+import com.amwalpay.ecr.EcrSettlement
 import com.amwalpay.ecr.EcrResult
 import com.amwalpay.ecr.EcrSignOn
 import com.amwalpay.ecr.EcrTerminalCapabilities
@@ -230,6 +231,49 @@ internal object EcrMapping {
             EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
             EcrResultKeys.MERCHANT_REFERENCE to closed.merchantReference,
             EcrResultKeys.FAILURE to failure(closed.failure),
+        )
+    }
+
+    fun settlement(settlement: EcrSettlement): Map<String, Any?> = when (settlement) {
+        is EcrSettlement.Settled -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.SETTLED,
+            EcrResultKeys.MERCHANT_REFERENCE to settlement.merchantReference,
+            EcrSettlementKeys.BATCH_ID to settlement.batchId,
+            EcrSettlementKeys.CURRENCY to settlement.currency,
+            EcrSettlementKeys.START_TIME to settlement.startTime,
+            EcrSettlementKeys.END_TIME to settlement.endTime,
+            EcrSettlementKeys.TOTAL_TRANSACTIONS to settlement.totalTransactions,
+            EcrSettlementKeys.NET_AMOUNT to settlement.netAmount,
+            EcrSettlementKeys.TOTALS to settlement.totals.mapValues { (_, total) ->
+                mapOf(
+                    EcrSettlementKeys.COUNT to total.count,
+                    EcrSettlementKeys.AMOUNT to total.amount,
+                )
+            },
+            EcrResultKeys.RAW to settlement.raw,
+        )
+
+        is EcrSettlement.NothingToSettle -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.NOTHING_TO_SETTLE,
+            EcrResultKeys.MERCHANT_REFERENCE to settlement.merchantReference,
+            EcrSettlementKeys.MESSAGE to settlement.message,
+            EcrResultKeys.RAW to settlement.raw,
+        )
+
+        is EcrSettlement.NotSettled -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.DECLINED,
+            EcrResultKeys.MERCHANT_REFERENCE to settlement.merchantReference,
+            EcrResultKeys.RESPONSE_CODE to settlement.responseCode,
+            EcrResultKeys.REASON to settlement.reason,
+            EcrSettlementKeys.STATUS to settlement.status,
+            EcrSettlementKeys.UPLOADED_TRANSACTIONS to settlement.uploadedTransactions,
+            EcrResultKeys.RAW to settlement.raw,
+        )
+
+        is EcrSettlement.Failed -> mapOf(
+            EcrResultKeys.OUTCOME to EcrOutcomes.FAILED,
+            EcrResultKeys.MERCHANT_REFERENCE to settlement.merchantReference,
+            EcrResultKeys.FAILURE to failure(settlement.failure),
         )
     }
 

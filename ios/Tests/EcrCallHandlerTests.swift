@@ -149,10 +149,23 @@ final class EcrCallHandlerTests: XCTestCase {
             return .failed(merchantReference: merchantReference, failure: .malformed("unset"))
         }
 
-        func closeReceipt(merchantReference: String) throws -> EcrReceiptClosed {
+        func closeReceipt(
+            merchantReference: String,
+            originalMerchantReference: String
+        ) throws -> EcrReceiptClosed {
             lastMerchantReference = merchantReference
             record("closeReceipt")
             return .idle(merchantReference: merchantReference, raw: "{}")
+        }
+
+        func settlement(merchantReference: String) throws -> EcrSettlement {
+            lastMerchantReference = merchantReference
+            record("settlement")
+            return .nothingToSettle(
+                merchantReference: merchantReference,
+                message: "There are no transactions to settle",
+                raw: "{}"
+            )
         }
 
         func cancel() {

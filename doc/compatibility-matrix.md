@@ -137,56 +137,59 @@ Every operation behaves identically on Android, iOS, and Windows for the
 transports each host supports. This table exists so that "identically" is a
 checkable claim rather than an assurance.
 
-| Operation                           | Android | iOS | Windows | Notes                                                                                                                                                        |
-| ----------------------------------- | ------- | --- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `isReachable` / `probeReachability` | ✔       | ✔   | ✔       | Bounded by `probeTimeout`; app-to-app probes install/willingness                                                                                             |
-| `sale`                              | ✔       | ✔   | ✔       |                                                                                                                                                              |
-| `voidTransaction`                   | ✔       | ✔   | ✔       |                                                                                                                                                              |
-| `refund`                            | ✔       | ✔   | ✔       |                                                                                                                                                              |
-| `inquire`                           | ✔       | ✔   | ✔       | Answered while the terminal is busy                                                                                                                          |
-| `inquireByReference`                | ✔       | ✔   | ✔       | The lookup after an answer goes missing                                                                                                                      |
-| `receipt`                           | ✔       | ✔   | ✔       | Not over Web Service (`supportsReceipt`)                                                                                                                     |
-| `signOn`                            | ✔       | ✔   | ✔       | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app                                                                                     |
-| `closeReceipt`                      | ✔       | ✔   | ✔       | Wi‑Fi / USB cable only (`supportsCloseReceipt`); not Web Service or app to app                                                                               |
-| `printReceipt`                      | ✔       | ✘   | ✘       | **App to app only** (Android). Image width **384 px**, size **≤ 15 MB**. Wi‑Fi / USB / Web Service refuse before the host; iOS / Windows answer the same way |
-| `cancel`                            | ✔       | ✔   | ✔       | Same observable behaviour; different mechanism — see §6                                                                                                      |
+| Operation | Android | iOS | Windows | Notes |
+|---|---|---|---|---|
+| `isReachable` / `probeReachability` | ✔ | ✔ | ✔ | Bounded by `probeTimeout`; app-to-app probes install/willingness |
+| `sale` | ✔ | ✔ | ✔ | |
+| `voidTransaction` | ✔ | ✔ | ✔ | |
+| `refund` | ✔ | ✔ | ✔ | |
+| `inquire` | ✔ | ✔ | ✔ | Answered while the terminal is busy |
+| `inquireByReference` | ✔ | ✔ | ✔ | The lookup after an answer goes missing |
+| `receipt` | ✔ | ✔ | ✔ | Not over Web Service (`supportsReceipt`) |
+| `signOn` | ✔ | ✔ | ✔ | Wi‑Fi / USB cable only (`supportsSignOn`); not Web Service or app to app |
+| `closeReceipt` | ✔ | ✔ | ✔ | Wi‑Fi, USB cable, and Web Service (`/Ecr/closeReceipt`, needs the sale / void / refund reference). Not app to app. iOS: Wi‑Fi and Web Service. Windows: Wi‑Fi and Web Service |
+| `settlement` | ✔ | ✔ | ✔ | Wi‑Fi, USB cable, app to app, and Web Service (`/Ecr/settle`). Windows: Wi‑Fi and Web Service. iOS: Wi‑Fi and Web Service |
+| `printReceipt` | ✔ | ✘ | ✘ | **App to app only** (Android). Image width **384 px**, size **≤ 15 MB**. Wi‑Fi / USB / Web Service refuse before the host; iOS / Windows answer the same way |
+| `cancel` | ✔ | ✔ | ✔ | Same observable behaviour; different mechanism — see §6 |
 
-| Outcome                                           | Android | iOS | Windows |
-| ------------------------------------------------- | ------- | --- | ------- | ------------------------------------------------- |
-| Approved                                          | ✔       | ✔   | ✔       |
-| Partial approval                                  | ✔       | ✔   | ✔       |
-| Declined                                          | ✔       | ✔   | ✔       |
-| Busy (`96`)                                       | ✔       | ✔   | ✔       |
-| Cancelled at the terminal (`17`)                  | ✔       | ✔   | ✔       |
-| Original not found (`25`)                         | ✔       | ✔   | ✔       |
-| Indeterminate (`91`) → `outcomeIsUnknown`         | ✔       | ✔   | ✔       |
-| Timeout                                           | ✔       | ✔   | ✔       |
-| Connection lost                                   | ✔       | ✔   | ✔       |
-| Malformed answer                                  | ✔       | ✔   | ✔       |
-| Unreachable                                       | ✔       | ✔   | ✔       |
-| Cancelled by the caller                           | ✔       | ✔   | ✔       |
-| Unauthenticated answer                            | ✔       | ✔   | ✔       |
-| A lost answer followed up (`EcrFailed.recovered`) | ✔       | ✔   | ✔       |
-| `nextStep` on a decline                           | ✔       | ✔   | ✔       |
-| Sign-on available / unavailable                   | ✔       | ✔   | ✔       |
-| Close-receipt closed / idle / refused             | ✔       | ✔   | ✔       |
-| Print `SUCCESSFUL` / `FAILED` (`EcrPrintOutcome`) | ✔       | ✘   | ✘       | App to app only; status and message stay separate |
+| Outcome | Android | iOS | Windows |
+|---|---|---|---|
+| Approved | ✔ | ✔ | ✔ |
+| Partial approval | ✔ | ✔ | ✔ |
+| Declined | ✔ | ✔ | ✔ |
+| Busy (`96`) | ✔ | ✔ | ✔ |
+| Cancelled at the terminal (`17`) | ✔ | ✔ | ✔ |
+| Original not found (`25`) | ✔ | ✔ | ✔ |
+| Indeterminate (`91`) → `outcomeIsUnknown` | ✔ | ✔ | ✔ |
+| Timeout | ✔ | ✔ | ✔ |
+| Connection lost | ✔ | ✔ | ✔ |
+| Malformed answer | ✔ | ✔ | ✔ |
+| Unreachable | ✔ | ✔ | ✔ |
+| Cancelled by the caller | ✔ | ✔ | ✔ |
+| Unauthenticated answer | ✔ | ✔ | ✔ |
+| A lost answer followed up (`EcrFailed.recovered`) | ✔ | ✔ | ✔ |
+| `nextStep` on a decline | ✔ | ✔ | ✔ |
+| Sign-on available / unavailable | ✔ | ✔ | ✔ |
+| Close-receipt closed / idle / refused | ✔ | ✔ | ✔ |
+| Settlement settled / nothing to settle / not settled | ✔ | ✘ | ✔ |
+| Print `SUCCESSFUL` / `FAILED` (`EcrPrintOutcome`) | ✔ | ✘ | ✘ | App to app only; status and message stay separate |
 
 USB cable operations apply on Android only; on iOS / Windows they fail as
 `EcrUnsupported` before anything is sent.
 Over `appToApp` (Android only), with the differences spelled out rather than
 implied:
 
-| Operation                             | `appToApp` | Notes                                                                                                                                                                                       |
-| ------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `isReachable` / `probeReachability`   | ✔          | Resolves the payment app. Launches nothing                                                                                                                                                  |
-| `sale` / `voidTransaction` / `refund` | ✔          | The payment app comes to the front and answers                                                                                                                                              |
-| `inquire` / `inquireByReference`      | ✔          | Never refused locally: the only way out of an unknown outcome                                                                                                                               |
-| `receipt`                             | ✔          | Same record as Wi-Fi; costs another handover the operator watches                                                                                                                           |
-| `printReceipt`                        | ✔          | Intent `com.amwalpay.pos.ecr.PRINT` with a required image (width **384 px**, size **≤ 15 MB**). Returns `EcrPrintOutcome` (`status` + `message` separate). Not on Wi‑Fi / USB / Web Service |
-| `signOn`                              | ✘          | Deliberately excluded — a handover only to learn the next refusal                                                                                                                           |
-| `closeReceipt`                        | ✘          | Receipt already dismissed when the answer arrives                                                                                                                                           |
-| `cancel`                              | ✔          | Stops waiting. It cannot dismiss the payment app's screen — see §6.4                                                                                                                        |
+| Operation | `appToApp` | Notes |
+|---|---|---|
+| `isReachable` / `probeReachability` | ✔ | Resolves the payment app. Launches nothing |
+| `sale` / `voidTransaction` / `refund` | ✔ | The payment app comes to the front and answers |
+| `inquire` / `inquireByReference` | ✔ | Never refused locally: the only way out of an unknown outcome |
+| `receipt` | ✔ | Same record as Wi‑Fi; costs another handover the operator watches |
+| `printReceipt` | ✔ | Intent `com.amwalpay.pos.ecr.PRINT` with a required image (width **384 px**, size **≤ 15 MB**). Returns `EcrPrintOutcome` (`status` + `message` separate). Not on Wi‑Fi / USB / Web Service |
+| `signOn` | ✘ | Deliberately excluded — a handover only to learn the next refusal |
+| `closeReceipt` | ✘ | Receipt already dismissed when the answer arrives |
+| `settlement` | ✔ | The payment app settles and shows the summary; the answer comes back when it closes (≤ 15 s) |
+| `cancel` | ✔ | Stops waiting. It cannot dismiss the payment app's screen — see §6.4 |
 
 ---
 
@@ -327,13 +330,12 @@ down here rather than left in a comment.
 
 ### 6.6 `closeReceipt` on iOS
 
-Android, iOS, and the Windows Dart host close an on-screen receipt over Wi‑Fi /
-USB cable (`EcrTerminal.closeReceipt`). The iOS bridge calls native AmwalECR
-and maps `idle` / declined / failed the same way Android does. Web Service and
-app to app still answer typed unsupported before anything is sent
-(`EcrTransport.supportsCloseReceipt`). Sign-on is wired the same way on iOS for
-Wi‑Fi / USB cable — the same `EcrSignOnAvailable` / `Unavailable` / `Failed`
-shapes as Android.
+Android, iOS, and the Windows Dart host close an on-screen receipt over Wi‑Fi.
+Android also does USB cable. Web Service posts `/Ecr/closeReceipt` and needs
+the sale, void, or refund reference. The iOS bridge calls native AmwalECR and
+maps `idle` / declined / failed the same way Android does. App to app answers
+typed unsupported before anything is sent (`EcrTransport.supportsCloseReceipt`).
+Sign-on stays Wi‑Fi / USB cable.
 
 ---
 

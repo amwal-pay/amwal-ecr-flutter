@@ -442,10 +442,45 @@ switch (await terminal.closeReceipt()) {
 }
 ```
 
-**Android and Windows** support this over Wi‑Fi / USB cable. **iOS** still
-returns a typed unsupported failure until the bridge wires the native call.
-App to app and Web Service never need it (see
+Wi‑Fi, USB cable, and Web Service. Web Service posts `/Ecr/closeReceipt` and
+needs the sale, void, or refund reference as `originalMerchantReference`. iOS
+drives Wi‑Fi and Web Service. App to app is excluded: the receipt is already
+closed when the answer comes back (see
 [compatibility matrix §6.6](compatibility-matrix.md#66-closereceipt-on-ios)).
+
+### Manual settlement
+
+`settlement()` runs the terminal's **Manual settlement** — the one its merchant
+menu offers — and answers with the totals the batch closed with. Wi-Fi, the
+cable, app to app, and Web Service (`/Ecr/settle`). iOS drives Wi-Fi and
+Web Service.
+
+```dart
+// The terminal starts as soon as it is asked and does not ask again, so
+// confirm with the cashier first.
+final EcrSettlement settlement = await terminal.settlement();
+switch (settlement) {
+  case EcrSettlementSettled(:final batchId, :final netAmount, :final totals):
+    show('Batch $batchId closed: $netAmount');
+    for (final MapEntry(:key, :value) in totals.entries) {
+      show('$key × ${value.count}: ${value.amount}');
+    }
+  case EcrSettlementNothingToSettle(:final message):
+    show(message);
+  case EcrSettlementNotSettled(:final status, :final reason):
+    show('Not settled ($status): $reason');
+  case EcrSettlementFailed(:final failure):
+    show('Could not reach the terminal: ${failure.message}');
+}
+```
+
+The terminal must be free — a transaction in progress answers `96` — and a
+receipt still on screen is replaced as it is for a new sale. It prints the
+settlement receipt itself when its profile prints, and puts the summary away
+after 15 seconds; `closeReceipt()` puts it away sooner. `status` on
+`EcrSettlementNotSettled` is `MISMATCH`, `SESSION_EXPIRED` or `FAILED`, or empty
+for a refusal before it started. Safe to repeat: a second settlement after a
+lost answer finds `EcrSettlementNothingToSettle`.
 
 ---
 
@@ -631,6 +666,10 @@ keys out of the repository entirely.
       call `closeReceipt()` from it — not from dismissing the dialog (Wi‑Fi /
       USB cable; refused before sending over Web Service and app to app). The
       terminal also clears its receipt by itself after 15 seconds.
+- [ ] If the till offers **Manual settlement**, confirm with the cashier before
+      calling `settlement()` — the terminal starts at once — and handle all four
+      `EcrSettlement` outcomes (Wi‑Fi / USB cable / app to app; refused before
+      sending over Web Service; unsupported on iOS).
 - [ ] If you use PRINT (app to app): the receipt image is **384 px** wide and
       **≤ 15 MB**; you send an image built from the operation result; you read
       `EcrPrintOutcome.status` and `message` as separate fields.

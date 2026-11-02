@@ -89,6 +89,21 @@ enum EcrTransactionType {
     requiresAmount: false,
     requiresOriginalStan: false,
     requiresOriginalDate: false,
+  ),
+
+  /// Asks the terminal to settle its current batch — the merchant menu's
+  /// Manual settlement, started from the till.
+  ///
+  /// Carries no amount and moves no money of its own: it closes the batch the
+  /// sales, voids and refunds already went into, and answers with its totals.
+  /// Absent from [menuOptions]: run it with `EcrTerminal.settlement`, after
+  /// asking the cashier to confirm, because the terminal starts straight away.
+  settlement(
+    messageType: 'SETTLEMENT',
+    displayName: 'Settlement',
+    requiresAmount: false,
+    requiresOriginalStan: false,
+    requiresOriginalDate: false,
   );
 
   const EcrTransactionType({

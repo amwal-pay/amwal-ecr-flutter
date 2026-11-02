@@ -67,6 +67,64 @@ void main() {
       expect(built.$2['requestDateTime'], '20260826120107');
     });
 
+    test('close receipt names the sale and omits messageType and currency', () {
+      final (String, Map<String, Object?>) built = EcrWebServiceMessage.build(
+        type: EcrTransactionType.closeReceipt,
+        merchantId: 13593,
+        terminalId: 126706,
+        terminalSerial: 'P653200101973',
+        secureHashKey: '',
+        ecrId: 'ECR01',
+        merchantReference: 'AC4C243243C6A7C5',
+        originalMerchantReference: 'BB13726B7E261874',
+        transactionDateTime: '20261014113326',
+      );
+
+      expect(built.$1, 'AC4C243243C6A7C5');
+      expect(built.$2.containsKey('messageType'), isFalse);
+      expect(built.$2.containsKey('currencyCode'), isFalse);
+      expect(built.$2, <String, Object?>{
+        'version': 1,
+        'merchantId': 13593,
+        'terminalId': 126706,
+        'terminalSerial': 'P653200101973',
+        'ecrId': 'ECR01',
+        'merchantReference': 'AC4C243243C6A7C5',
+        'transactionDateTime': '20261014113326',
+        'requestDateTime': '20261014113326',
+        'originalMerchantReference': 'BB13726B7E261874',
+      });
+    });
+
+    test('settle is identity only, with no messageType and no amount', () {
+      final (String, Map<String, Object?>) built = EcrWebServiceMessage.build(
+        type: EcrTransactionType.settlement,
+        merchantId: 13593,
+        terminalId: 126706,
+        terminalSerial: 'P653200101973',
+        secureHashKey: '',
+        currencyCode: '512',
+        ecrId: 'ECR01',
+        merchantReference: 'SET01',
+        transactionDateTime: '20261026120000',
+      );
+
+      expect(built.$1, 'SET01');
+      expect(built.$2.containsKey('messageType'), isFalse);
+      expect(built.$2.containsKey('amount'), isFalse);
+      expect(built.$2, <String, Object?>{
+        'version': 1,
+        'merchantId': 13593,
+        'terminalId': 126706,
+        'terminalSerial': 'P653200101973',
+        'ecrId': 'ECR01',
+        'merchantReference': 'SET01',
+        'currencyCode': '512',
+        'transactionDateTime': '20261026120000',
+        'requestDateTime': '20261026120000',
+      });
+    });
+
     test('requestDateTime always equals transactionDateTime', () {
       final (String, Map<String, Object?>) built = EcrWebServiceMessage.build(
         type: EcrTransactionType.sale,

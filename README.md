@@ -7,7 +7,7 @@ Package `amwal_ecr` **0.5.0**. Open one session, call the operation, then read t
 ## Install
 
 - Flutter, Dart 3. Android, iOS 17 or later, Windows.
-- Android uses `com.amwal-pay:ecr-sdk` **1.0.11** from Maven Central. iOS uses `AmwalECR` **0.3.0** from CocoaPods trunk, or Swift Package Manager with `flutter config --enable-swift-package-manager`. Windows has no native binary: a pure-Dart host speaks Wi-Fi TCP and Web Service HTTPS over `dart:io`.
+- Android uses `com.amwal-pay:ecr-sdk` **1.0.11** from Maven Central. iOS uses `AmwalECR` **0.3.1** from CocoaPods trunk, or Swift Package Manager with `flutter config --enable-swift-package-manager`. Windows has no native binary: a pure-Dart host speaks Wi-Fi TCP and Web Service HTTPS over `dart:io`.
 
 ```yaml
 dependencies:
@@ -306,7 +306,7 @@ On Web Service the same call answers `EcrReceiptUnavailable`. `EcrTransport.supp
 
 <a id="close-receipt"></a>
 
-Wi-Fi and USB. Asks the terminal to leave the receipt screen and return to idle. Call it from the till's Close receipt action when the cashier is finished. Sale, void, refund, and dismissing a dialog do not send it. Safe to repeat: `EcrReceiptClosedIdle` means the terminal is idle, whether a receipt was up or not. The terminal also puts its receipt away by itself 15 seconds after it appears; this clears it sooner.
+Wi-Fi and USB send `CLOSE_RECEIPT`. Web Service posts `/Ecr/closeReceipt` and needs the sale, void, or refund reference (`originalMerchantReference`). Call it from the till's Close receipt action when the cashier is finished. Sale, void, refund, and dismissing a dialog do not send it. Safe to repeat: `EcrReceiptClosedIdle` means the terminal is idle, whether a receipt was up or not. The terminal also puts its receipt away by itself 15 seconds after it appears; this clears it sooner.
 
 ```dart
 // From the cashier's Close receipt button, once they are finished with the sale.
@@ -320,7 +320,7 @@ switch (await terminal.closeReceipt()) {
 }
 ```
 
-Over app to app and Web Service the call answers `EcrReceiptClosedFailed` with `EcrUnsupported`, without sending anything: app to app has already closed the receipt by the time a till has its answer, and over Web Service the terminal's screen is not the till's to tidy (`EcrTransport.supportsCloseReceipt`).
+App to app answers `EcrReceiptClosedFailed` with `EcrUnsupported` and sends nothing: the receipt is already closed by the time a till has its answer (`EcrTransport.supportsCloseReceipt`). Web Service is included. A close with no sale, void, or refund reference answers `EcrReceiptClosedFailed` and sends nothing.
 
 ### Settlement
 
@@ -365,7 +365,7 @@ The terminal must be free: a transaction in progress answers `96`. It prints the
 | `EcrSettlementNotSettled` | The batch is still open. `status` is `MISMATCH` (see `uploadedTransactions`), `SESSION_EXPIRED`, `FAILED`, or empty for a refusal before it started. |
 | `EcrSettlementFailed` | The exchange failed. Repeat the call. |
 
-The terminal also settles over Web Service: the Hub relays `/Ecr/settle` to it. This package does not send that request yet, so over Web Service the call answers `EcrSettlementFailed` with `EcrUnsupported` without sending anything (`EcrTransport.supportsSettlement`).
+Web Service posts `/Ecr/settle` (identity, currency, and both timestamps — no `messageType` and no amount). Wi‑Fi, USB cable, and app to app send `SETTLEMENT`. `EcrTransport.supportsSettlement` is true for all four.
 
 ### Sign-on
 

@@ -17,6 +17,7 @@ enum EcrMethods {
     static let receipt = "receipt"
     static let signOn = "signOn"
     static let closeReceipt = "closeReceipt"
+    static let settlement = "settlement"
     static let printReceipt = "printReceipt"
     static let cancel = "cancel"
 }
@@ -99,6 +100,24 @@ enum EcrOutcomes {
     static let available = "available"
     /// Close-receipt: the terminal was already idle / put the receipt away.
     static let idle = "idle"
+    /// Settlement. A batch left open reuses [declined].
+    static let settled = "settled"
+    static let nothingToSettle = "nothingToSettle"
+}
+
+enum EcrSettlementKeys {
+    static let batchId = "batchId"
+    static let currency = "currency"
+    static let startTime = "startTime"
+    static let endTime = "endTime"
+    static let totalTransactions = "totalTransactions"
+    static let netAmount = "netAmount"
+    static let totals = "totals"
+    static let count = "count"
+    static let amount = "amount"
+    static let status = "status"
+    static let uploadedTransactions = "uploadedTransactions"
+    static let message = "message"
 }
 
 enum EcrFailureKeys {
@@ -206,9 +225,17 @@ enum EcrTransports {
         isIpTransport(name) || isUsbCable(name)
     }
 
-    /// Whether asking the terminal to dismiss its receipt is useful.
+    /// Wi‑Fi and USB send `CLOSE_RECEIPT`. Web Service posts `/Ecr/closeReceipt`.
+    /// App to app is excluded: the receipt is already closed when the answer
+    /// comes back. USB cable is not driven on iOS.
     static func supportsCloseReceipt(_ name: String?) -> Bool {
-        isIpTransport(name) || isUsbCable(name)
+        isIpTransport(name) || isUsbCable(name) || isWebService(name)
+    }
+
+    /// Wi‑Fi sends `SETTLEMENT`. Web Service posts `/Ecr/settle`. USB cable
+    /// and app to app are not driven on iOS.
+    static func supportsSettlement(_ name: String?) -> Bool {
+        isIpTransport(name) || isWebService(name)
     }
 
     /// Whether a reachability probe exists without sending a transaction.
