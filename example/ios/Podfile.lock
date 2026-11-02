@@ -1,8 +1,8 @@
 PODS:
-  - amwal_ecr (0.3.0):
-    - AmwalECR (~> 0.3.0)
+  - amwal_ecr (0.3.1):
+    - AmwalECR (~> 0.3.1)
     - Flutter
-  - AmwalECR (0.3.0)
+  - AmwalECR (0.3.1)
   - Flutter (1.0.0)
   - flutter_secure_storage (6.0.0):
     - Flutter
@@ -35,8 +35,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
 
 SPEC CHECKSUMS:
-  amwal_ecr: bfd3e4b01419bace742db81f6deaa18aa04ea274
-  AmwalECR: fd1848aefb9fef654540698d6539e91631bb581a
+  amwal_ecr: 11577222739442c94dc9b0e8415b1c980a40c5f2
+  AmwalECR: 39d74f9d311ca64420ecc9c6ddbc7f4e41a9bb0e
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e

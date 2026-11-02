@@ -7,7 +7,7 @@ Package `amwal_ecr` **0.5.0**. Open one session, call the operation, then read t
 ## Install
 
 - Flutter, Dart 3. Android, iOS 17 or later, Windows.
-- Android uses `com.amwal-pay:ecr-sdk` **1.0.11** from Maven Central. iOS uses `AmwalECR` **0.3.0** from CocoaPods trunk, or Swift Package Manager with `flutter config --enable-swift-package-manager`. Windows has no native binary: a pure-Dart host speaks Wi-Fi TCP and Web Service HTTPS over `dart:io`.
+- Android uses `com.amwal-pay:ecr-sdk` **1.0.11** from Maven Central. iOS uses `AmwalECR` **0.3.1** from CocoaPods trunk, or Swift Package Manager with `flutter config --enable-swift-package-manager`. Windows has no native binary: a pure-Dart host speaks Wi-Fi TCP and Web Service HTTPS over `dart:io`.
 
 ```yaml
 dependencies:
