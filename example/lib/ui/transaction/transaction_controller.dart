@@ -60,6 +60,10 @@ class TransactionController extends ChangeNotifier {
   /// The serial of the terminal selected in the dropdown, if any.
   String? _selectedSerial;
 
+  /// The terminal behind [_selectedSerial], so the menu can tell Wi-Fi apart
+  /// from a cable terminal that signed on with the same profile shape.
+  Terminal? _selected;
+
   /// What the selected terminal last said it would accept, or null when it has
   /// not been asked yet or could not answer.
   ///
@@ -80,13 +84,28 @@ class TransactionController extends ChangeNotifier {
   /// Falls back to the whole menu until a sign-on has answered: a terminal that
   /// cannot be reached is not a terminal that permits nothing, and greying out
   /// every button would read as a broken till rather than an unanswered one.
+  ///
+  /// Wi-Fi supports void. A sign-on that leaves void out of its permitted list
+  /// still keeps Void on the menu, in the same place as the full menu.
   List<EcrTransactionType> get availableTypes {
     final EcrTerminalCapabilities? known = _signOn.terminalCapabilities;
     if (known == null) return EcrTransactionType.menuOptions;
     final List<EcrTransactionType> permitted = EcrTransactionType.menuOptions
         .where(known.permits)
         .toList(growable: false);
-    return permitted.isEmpty ? EcrTransactionType.menuOptions : permitted;
+    final List<EcrTransactionType> narrowed =
+        permitted.isEmpty ? EcrTransactionType.menuOptions : permitted;
+    if (_selected?.mode != EcrMode.wifi ||
+        narrowed.contains(EcrTransactionType.voidTransaction)) {
+      return narrowed;
+    }
+    return EcrTransactionType.menuOptions
+        .where(
+          (EcrTransactionType type) =>
+              narrowed.contains(type) ||
+              type == EcrTransactionType.voidTransaction,
+        )
+        .toList(growable: false);
   }
 
   bool _disposed = false;
@@ -164,6 +183,7 @@ class TransactionController extends ChangeNotifier {
   Future<void> updateSelectedTerminal(Terminal? terminal) async {
     if (terminal == null) {
       _selectedSerial = null;
+      _selected = null;
       _selectedConfig = null;
       _signOn = null;
       notifyListeners();
@@ -172,6 +192,7 @@ class TransactionController extends ChangeNotifier {
 
     final bool changed = _selectedSerial != terminal.serialNumber;
     _selectedSerial = terminal.serialNumber;
+    _selected = terminal;
     _selectedConfig = await _resolveConfig(terminal);
 
     // Not for the payment app on this device. Over a socket a sign-on is

@@ -601,7 +601,8 @@ void main() {
       await _openTypeMenu(tester);
       await tester.pumpAndSettle();
 
-      expect(find.text('Void'), findsNothing);
+      // Wi-Fi supports void, so Void stays even when sign-on left it out.
+      expect(find.text('Void'), findsWidgets);
       expect(find.text('Refund'), findsNothing);
       expect(find.text('Inquiry'), findsWidgets);
     });
