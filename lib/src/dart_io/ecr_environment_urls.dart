@@ -7,7 +7,7 @@ import '../model/ecr_environment.dart';
 abstract final class EcrEnvironmentUrls {
   static const String _sitHost = 'https://test.amwalpg.com:25452';
   static const String _uatHost = 'https://test.amwalpg.com:25453';
-  static const String _prodHost = 'https://pos.amwalpg.com';
+  static const String _prodHost = 'https://ecrgateway.amwalpg.com';
 
   /// Hub origin for [environment], without a trailing slash.
   static String hubSocketUrl(EcrEnvironment environment) {

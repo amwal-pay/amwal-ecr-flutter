@@ -5,6 +5,21 @@ with the addition described in [the release policy](RELEASING.md): any
 change to the platform-channel contract is breaking, and any change to what an
 outcome _means_ is breaking, however small the diff.
 
+## 0.5.1
+
+Web Service production Hub. No API changes.
+
+### Changed
+
+- Web Service: `EcrEnvironment.prod` on the Windows host now resolves to the
+  current production Hub. SIT and UAT are unchanged, and the request paths are
+  unchanged. Affected: a firewall or allowlist that still permits the previous
+  production host. Action: allow the current production host.
+- Android pin is `ecr-sdk` **1.0.12** (the plugin's default `ecrSdkVersion` and
+  the Gradle fallback).
+- iOS pin is `AmwalECR` **0.3.2** (`ios/ecr_sdk.properties`; podspec
+  `~> 0.3.2`).
+
 ## 0.5.0
 
 Needs Android `ecr-sdk` **1.0.11** (the plugin's default `ecrSdkVersion`).

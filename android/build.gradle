@@ -25,7 +25,7 @@ def ecrSdkValue = { String key, String fallback ->
 }
 
 def ecrSdkDependency = ecrSdkValue("ecrSdkDependency", "maven")
-def ecrSdkVersion = ecrSdkValue("ecrSdkVersion", "1.0.11")
+def ecrSdkVersion = ecrSdkValue("ecrSdkVersion", "1.0.12")
 def ecrSdkJarPath = ecrSdkValue(
         "ecrSdkJarPath",
         "../../ECR-simulator/ecr-sdk/build/libs/ecr-sdk-${ecrSdkVersion}.jar")
